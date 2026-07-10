@@ -1,0 +1,12 @@
+{
+  "name": "dagangos-portal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

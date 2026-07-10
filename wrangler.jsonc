@@ -1,0 +1,14 @@
+{
+  "name": "dagangos-portal",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-27",
+  "vars": {
+    "BACKEND_ORIGIN": "dapuros.vercel.app",
+    "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app"
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}
