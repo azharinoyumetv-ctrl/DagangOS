@@ -1,5 +1,6 @@
 function injectLegalName(body) {
-  const needle = '<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 DagangOS Digital Indonesia</div>';
+  const legal = 'DagangOS Digital Indonesia';
+  const needle = `<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 ${legal}. Platform SaaS Terpadu Indonesia.</div>`;
   if (body.includes('</footer>')) {
     return body.replace('</footer>', needle + '</footer>');
   }

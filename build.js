@@ -84,4 +84,18 @@ if (existsSync(PUBLIC_PORTAL)) {
   cpSync(PUBLIC_PORTAL, `${OUT}/index.html`);
 }
 
+// Inject legal business name into all HTML outputs for Meta verification
+const legal = 'DagangOS Digital Indonesia';
+const LEGAL_INJECT = `<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 ${legal}. Platform SaaS Terpadu Indonesia.</div>`;
+for (const file of [resolve(`${OUT}/index.html`), resolve(`${OUT}/geraina/index.html`), resolve(`${OUT}/dapuros/index.html`)]) {
+  if (existsSync(file)) {
+    let html = readFileSync(file, 'utf8');
+    if (html.includes('</footer>')) {
+      html = html.replace('</footer>', LEGAL_INJECT + '</footer>');
+      writeFileSync(file, html);
+      console.log(`Injected legal name into ${file}`);
+    }
+  }
+}
+
 console.log('=== BUILD COMPLETE === Output in ./dist');
