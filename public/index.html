@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DagangOS — Semua Sistem Operasional Bisnis Anda. Satu Platform.</title>
   <meta name="description" content="Platform SaaS terpadu untuk UMKM Indonesia. Pilih modul OS yang dibangun khusus per industri — F&B, retail, laundry, salon, dan lainnya. Satu akun, satu langganan." />
+  <meta name="theme-color" content="#0B2266" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -392,8 +398,4 @@
         if(c){ c.innerHTML=`<span class="hidden sm:flex text-xs font-semibold px-3 py-1.5 rounded-lg items-center gap-1.5" style="background:var(--tint);color:var(--brand2)" data-testid="logged-in-user-badge"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--brand)"></span> ${u.email||''}</span><button onclick="handleLogout()" class="px-3.5 py-2 rounded-lg font-semibold text-sm hover:bg-[var(--bg2)]" style="color:var(--body)" data-testid="nav-logout-btn">Keluar</button>`; }
         document.querySelectorAll('a').forEach(el=>{ const h=el.getAttribute('href'); if(h==='/dapuros'||h==='/dapuros/login') el.href='/dapuros/app/dashboard'; if(h==='/geraina'||h==='/geraina/login') el.href='/geraina/app/dashboard'; });
       } else if(c){ c.innerHTML=`<button onclick="openSsoModal()" class="hidden sm:inline-flex px-4 py-2 rounded-xl font-semibold text-sm hover:bg-[var(--bg2)]" style="color:var(--ink)" data-testid="nav-login-btn">Masuk</button><a href="/dapuros" class="press hidden sm:inline-flex px-4 py-2 rounded-xl text-white font-semibold text-sm hover:opacity-90" style="background:var(--brand)">Coba Gratis</a>`; } }
-    function handleLogout(){ ['dagangos_token','geraina_token','dagangos_user','geraina_user','geraina_selected_role'].forEach(k=>localStorage.removeItem(k)); updateHeaderAuthUI(); location.reload(); }
-    addEventListener('DOMContentLoaded', ()=>{ updateHeaderAuthUI(); const p=location.pathname; if(p.includes('login')||p.includes('signin')||p.includes('auth')){ const t=localStorage.getItem('dagangos_token')||localStorage.getItem('geraina_token'); if(!t) openSsoModal(); } });
-  </script>
-</body>
-</html>
+    function handleLogout(){ ['dagangos_token','geraina_token','dagangos_user','geraina_user','geraina_selected_role'].forEach(k=>loca

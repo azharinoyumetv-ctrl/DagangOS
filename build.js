@@ -3,7 +3,7 @@ import { resolve } from 'path';
 
 const GERAINA = existsSync('gerainaos/frontend') ? resolve('gerainaos/frontend') : resolve('gerainaos');
 const DAPUROS = existsSync('dapuros/frontend') ? resolve('dapuros/frontend') : resolve('dapuros');
-const PUBLIC_PORTAL = resolve('public/index.html');
+const PUBLIC_DIR = resolve('public');
 const OUT = resolve('dist');
 
 console.log('=== BUILD DIAGNOSTICS ===');
@@ -79,9 +79,9 @@ if (existsSync(dapurosBuildDir)) {
   process.exit(1);
 }
 
-if (existsSync(PUBLIC_PORTAL)) {
-  console.log('Copying DagangOS portal index.html...');
-  cpSync(PUBLIC_PORTAL, `${OUT}/index.html`);
+if (existsSync(PUBLIC_DIR)) {
+  console.log('Copying DagangOS portal public/ (index.html + shared favicon/manifest icons)...');
+  cpSync(PUBLIC_DIR, OUT, { recursive: true });
 }
 
 console.log('=== BUILD COMPLETE === Output in ./dist');
