@@ -85,17 +85,23 @@ export default {
       const isStaticAsset = /\.(js|css|png|jpg|jpeg|gif|ico|svg|json|woff|woff2|ttf|eot|map|webp|avif|txt|xml|webmanifest)$/i.test(pathname);
 
       if (isStaticAsset) {
-        // Let Cloudflare serve static assets directly
+        // Let Cloudflare serve static assets directly.
+        // IMPORTANT: Response.ok is only true for 2xx. Browsers revalidate cached
+        // hashed bundles (main.js/main.css) with conditional GETs (If-None-Match),
+        // and env.ASSETS.fetch correctly answers those with a real 304. Treating
+        // "not ok" as "not found" turned every 304 into a hard 404 for the app's
+        // own JS/CSS bundle -- the page would then render completely blank
+        // (nothing to mount the SPA with) despite the file genuinely existing.
         try {
           const res = await env.ASSETS.fetch(request);
-          if (res.ok) return res;
+          if (res.ok || res.status === 304) return res;
         } catch (e) {}
         // Asset not found, try prefixed paths
         if (pathname.startsWith('/static/')) {
           for (const prefix of ['/dapuros', '/geraina']) {
             try {
               const res = await env.ASSETS.fetch(new Request(new URL(prefix + pathname, request.url).toString(), request));
-              if (res.ok) return res;
+              if (res.ok || res.status === 304) return res;
             } catch (e) {}
           }
         }
