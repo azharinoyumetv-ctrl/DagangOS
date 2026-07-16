@@ -102,3 +102,63 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  e2e-geraina:
+    needs: deploy
+    runs-on: ubuntu-latest
+    # Non-blocking: this runs AFTER deploy already succeeded, against the live site.
+    # A failure here should be visible (Actions tab, badge) but must not roll back or
+    # block anything -- there's no rollback wired up, and Cloudflare deploy is already done.
+    continue-on-error: true
+    steps:
+      - name: Checkout GerainaOS (for the test specs)
+        uses: actions/checkout@v4
+        with:
+          repository: azharinoyumetv-ctrl/GerainaOS
+          path: gerainaos
+          ref: main
+          token: ${{ secrets.REPO_READ_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Playwright + browser
+        working-directory: gerainaos/frontend
+        run: |
+          npm install --no-save @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Wait for deploy to actually be live
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://dagangos.com/geraina/register || echo "000")
+            if [ "$code" = "200" ]; then echo "site is up ($code)"; break; fi
+            echo "waiting for site... ($code)"; sleep 5
+          done
+
+      - name: Warm up the Vercel backend
+        # Every route in these specs re-validates the session via GET /auth/me before
+        # rendering (see RoleGuard.jsx's auth-loading gate), and the first hit after a
+        # period of inactivity eats a serverless cold start. Hitting the API a few times
+        # first moves that cold-start cost here instead of into the test's own timeout.
+        run: |
+          for i in 1 2 3; do
+            curl -s -o /dev/null -w "warm-up %{http_code} (%{time_total}s)\n" https://dagangos.com/api/pricing/tiers || true
+            sleep 2
+          done
+
+      - name: Run Geraina e2e suite against production
+        working-directory: gerainaos/frontend
+        run: npx playwright test
+        env:
+          PLAYWRIGHT_TEST_BASE_URL: https://dagangos.com
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: gerainaos/frontend/playwright-report/
+          retention-days: 14
