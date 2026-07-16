@@ -1,11 +1,13 @@
 function injectLegalName(body) {
-  const needle = '<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 DagangOS Digital Indonesia</div>';
-  if (body.includes('</footer>')) {
-    return body.replace('</footer>', needle + '</footer>');
+  const legal = 'DagangOS Digital Indonesia';
+  const replacement = `<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 ${legal}. Platform SaaS Terpadu Indonesia.</div>`;
+  const oldPattern = /<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 DagangOS\. Platform SaaS Terpadu Indonesia\.<\/div>/;
+  if (oldPattern.test(body)) {
+    return body.replace(oldPattern, replacement).replace('</footer>', replacement + '</footer>').replace('</body>', replacement + '</body>');
   }
-  if (body.includes('</body>')) {
-    return body.replace('</body>', needle + '</body>');
-  }
+  if (body.includes(replacement)) return body;
+  if (body.includes('</footer>')) return body.replace('</footer>', replacement + '</footer>');
+  if (body.includes('</body>')) return body.replace('</body>', replacement + '</body>');
   return body;
 }
 
