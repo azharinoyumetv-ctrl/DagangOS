@@ -408,18 +408,42 @@
       <span class="text-[9px] px-1.5 py-0.5 rounded-full ${m.s==='live'?'':'opacity-70'}" style="background:${m.s==='live'?'var(--tint)':'#f0f1ed'};color:${m.s==='live'?'var(--brand2)':'var(--muted)'}">${m.s==='live'?'Live':'Soon'}</span>
     </div>`).join('');
 
-    /* module grid + filter */
+    /* module grid + filter -- live modules get a bold full-bleed brand-color feature
+       card (large ghost-icon watermark, glass CTA pill); soon modules get a compact,
+       visually secondary row so they don't compete for attention with real products */
+    function featureCard(m){
+      return `<a href="${m.href}"${m.external?' target="_blank" rel="noopener"':''} class="lift spot-btn group relative flex flex-col justify-between rounded-2xl p-6 overflow-hidden" style="background:linear-gradient(155deg, var(${m.c}), color-mix(in srgb, var(${m.c}) 74%, black)); min-height:230px">
+        <div class="absolute -right-8 -bottom-10 w-44 h-44 opacity-[.14] group-hover:opacity-[.22] transition-opacity pointer-events-none" style="filter:brightness(0) invert(1)"><img src="${m.img}" class="w-full h-full object-contain" alt="" /></div>
+        <div class="relative flex items-center justify-between">
+          <div class="w-11 h-11 rounded-xl bg-white flex items-center justify-center p-2 shadow-sm"><img src="${m.img}" width="28" height="28" alt="" style="object-fit:contain" /></div>
+          <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full text-white" style="background:rgba(255,255,255,.18)">● Live</span>
+        </div>
+        <div class="relative mt-8">
+          <p class="text-[11px] font-bold uppercase tracking-widest mb-1" style="color:rgba(255,255,255,.65)">${m.cat}</p>
+          <h3 class="dp text-xl font-extrabold text-white">${m.n}</h3>
+          <p class="text-sm mt-2 leading-relaxed" style="color:rgba(255,255,255,.8)">${m.d}</p>
+          <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-bold px-3.5 py-2 rounded-lg transition-colors" style="background:rgba(255,255,255,.16);color:#fff">${m.external?'Kunjungi':'Buka modul'} →</span>
+        </div>
+      </a>`;
+    }
+    function soonCard(m){
+      return `<div class="rounded-2xl border p-5 flex items-center gap-4" style="border-color:var(--line);background:#fbfbf9">
+        ${tileIcon(m,40)}
+        <div class="flex-1 min-w-0">
+          <h3 class="dp text-sm font-bold">${m.n}</h3>
+          <p class="text-xs mt-0.5" style="color:var(--muted)">${m.cat}</p>
+        </div>
+        <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0" style="background:#f0f1ed;color:var(--muted)">Segera</span>
+      </div>`;
+    }
     function renderModules(f='all'){
       const g=document.getElementById('moduleGrid');
-      g.innerHTML=MODULES.filter(m=>f==='all'||m.s===f).map(m=>`
-        <div class="lift rounded-2xl border p-6 bg-white flex flex-col" style="border-color:var(--line)">
-          <div class="flex items-center justify-between mb-4">${tileIcon(m,48)}
-            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full" style="background:${m.s==='live'?'var(--tint)':'#f0f1ed'};color:${m.s==='live'?'var(--brand2)':'var(--muted)'}">${m.s==='live'?'● Live':'Segera hadir'}</span></div>
-          <h3 class="dp text-lg font-bold">${m.n}</h3>
-          <p class="text-xs font-medium mt-0.5 uppercase tracking-wide" style="color:var(--muted)">${m.cat}</p>
-          <p class="text-sm mt-3 leading-relaxed flex-1" style="color:var(--body)">${m.d}</p>
-          ${m.s==='live'?`<a href="${m.href}"${m.external?' target="_blank" rel="noopener"':''} class="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold" style="color:var(${m.c})">${m.external?'Kunjungi':'Buka modul'} →</a>`:`<span class="mt-5 text-sm font-semibold" style="color:var(--muted)">Daftar tunggu →</span>`}
-        </div>`).join('');
+      const live=MODULES.filter(m=>m.s==='live'&&(f==='all'||f==='live'));
+      const soon=MODULES.filter(m=>m.s==='soon'&&(f==='all'||f==='soon'));
+      let html='';
+      if(live.length) html+=`<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">${live.map(featureCard).join('')}</div>`;
+      if(soon.length) html+=`<div class="${live.length?'mt-10':''}">${live.length?`<p class="text-xs font-bold uppercase tracking-widest mb-4" style="color:var(--muted)">Segera hadir</p>`:''}<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">${soon.map(soonCard).join('')}</div></div>`;
+      g.innerHTML=html;
     }
     renderModules();
     document.querySelectorAll('.fbtn').forEach(b=>b.onclick=()=>{
