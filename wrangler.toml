@@ -10,3 +10,4 @@ GERAINA_BACKEND_ORIGIN = "geraina-os.vercel.app"
 directory = "./dist"
 binding = "ASSETS"
 run_worker_first = true
+html_handling = "none"

@@ -115,6 +115,7 @@ export default {
         const assetResponse = await env.ASSETS.fetch(new Request(spaUrl.toString(), {
           method: 'GET',
           headers: request.headers,
+          redirect: 'manual',
         }));
         // CRITICAL: Return the HTML content with 200 status, NOT a redirect
         // This ensures the browser URL stays at /dapuros/app/pos (not /dapuros/)
@@ -149,6 +150,7 @@ export default {
         const assetResponse = await env.ASSETS.fetch(new Request(spaUrl.toString(), {
           method: 'GET',
           headers: request.headers,
+          redirect: 'manual',
         }));
         if (assetResponse.status >= 300 && assetResponse.status < 400) {
           const body = await assetResponse.text();
@@ -178,6 +180,7 @@ export default {
       const portalResponse = await env.ASSETS.fetch(new Request(portalUrl.toString(), {
         method: 'GET',
         headers: request.headers,
+        redirect: 'manual',
       }));
       const portalHeaders = new Headers(portalResponse.headers);
       portalHeaders.set('Content-Type', 'text/html; charset=utf-8');
