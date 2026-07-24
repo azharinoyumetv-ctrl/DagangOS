@@ -1,0 +1,133 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryTextColor': '#1a1a1a', 'primaryBorderColor': '#888888', 'lineColor': '#888888', 'fontSize': '14px'}}}%%
+flowchart TD
+
+subgraph AUTH["Authentication and Session"]
+    A1(["User opens app"]) --> A2{"Has account?"}
+    A2 -->|No| A3["User submits registration form"]
+    A3 --> A4["System creates account and store"]
+    A4 --> A5["User lands on Dashboard"]
+    A2 -->|Yes| A6["User submits login form"]
+    A6 --> A7["System validates credentials, issues JWT"]
+    A7 --> A8{"Multiple stores?"}
+    A8 -->|Yes| A9["User selects active store"]
+    A9 --> A5
+    A8 -->|No| A5
+end
+
+subgraph POS["POS and Order Processing"]
+    P1(["User opens POS"]) --> P2["System loads product catalog"]
+    P2 --> P3["User adds items to cart"]
+    P3 --> P4{"Payment method"}
+    P4 -->|Cash| P5["User enters cash received"]
+    P5 --> P6["System calculates change"]
+    P6 --> P10["Order marked PAID"]
+    P4 -->|QRIS| P7["System requests Xendit QR code"]
+    P7 --> P7b["Customer scans and pays"]
+    P7b --> P10
+    P4 -->|E-Wallet| P8["System requests Xendit e-wallet charge"]
+    P8 --> P8b["Customer completes on channel app"]
+    P8b --> P10
+    P4 -->|EDC card| P9["User charges via EDC terminal"]
+    P9 --> P10
+    P10 --> P11["System deducts stock"]
+    P11 --> P12["System sends WhatsApp receipt, if configured"]
+    P12 --> P13["User prints receipt"]
+end
+
+subgraph INV["Inventory Reporting"]
+    I1(["User opens Products"]) --> I2["System loads stock overview"]
+    I2 --> I3["User filters by category"]
+    I3 --> I4["System populates dropdown from live product categories"]
+    I2 --> I5["User opens stock valuation report"]
+    I5 --> I6["System computes stock value"]
+end
+
+subgraph PUR["Purchasing, Suppliers, Receiving, and Supplier Invoices"]
+    U1(["User adds supplier"]) --> U2["System saves supplier record"]
+    U2 --> U3["User creates purchase order"]
+    U3 --> U4["User adds line items"]
+    U4 --> U5["System saves PO"]
+    U5 --> U6["User receives goods"]
+    U6 --> U7["System updates stock, marks PO received"]
+    U7 --> U8["User records supplier invoice"]
+    U8 --> U9["User pays invoice"]
+    U9 --> U10["System updates payable status"]
+end
+
+subgraph STAFF["Staff, Attendance, and Roles"]
+    S1(["User adds staff member"]) --> S2["User assigns role and PIN"]
+    S2 --> S3["Staff clocks in via PIN"]
+    S3 --> S4["System records attendance"]
+    S4 --> S5["Staff clocks out via PIN"]
+    S5 --> S6["User views attendance report"]
+end
+
+subgraph CUST["Customers, Loyalty, and Debt"]
+    C1(["User adds customer"]) --> C2["User configures loyalty point rules"]
+    C2 --> C3["System saves loyalty rules"]
+    C1 --> C4["User records receivable"]
+    C4 --> C5["User settles payment, partial or full"]
+    C5 --> C6["System updates receivable status via PUT"]
+    C1 --> C7["User records payable"]
+    C7 --> C8["User settles payable payment"]
+    C8 --> C9["System updates payable status via PUT"]
+end
+
+subgraph REP["Reports and Finance"]
+    R1(["User opens Reports"]) --> R2["System computes P&L from real orders"]
+    R1 --> R3["User adds expense entry"]
+    R3 --> R4["System recomputes cashflow"]
+    R1 --> R5["User views product sales report"]
+    R5 --> R6["System aggregates from paid orders"]
+end
+
+subgraph SET["Settings and Integrations"]
+    G1(["User opens Integrasi"]) --> G2["User configures WhatsApp, Meta Cloud API"]
+    G2 --> G3["User sends test message"]
+    G1 --> G4["User configures Xendit keys"]
+    G4 --> G5["QRIS and E-Wallet enabled"]
+    G1 --> G6["User configures EDC bank provider"]
+    G6 --> G7["Card payment enabled"]
+    G1 --> G8["User configures printer, ESC/POS network"]
+    G8 --> G9["User tests print"]
+end
+
+subgraph WH["Webhook Processing (system-triggered)"]
+    W1(["Xendit sends payment webhook"]) --> W2{"Callback token valid?"}
+    W2 -->|Yes| W3["System updates order payment_status"]
+    W2 -->|No| W4["Request rejected, 401"]
+    W5(["Meta sends WhatsApp inbound webhook"]) --> W6{"HMAC signature valid for tenant?"}
+    W6 -->|Yes| W7["System stores inbound message"]
+    W6 -->|No| W8["Payload discarded, still returns 200"]
+end
+
+A5 -.-> P1
+A5 -.-> I1
+A5 -.-> U1
+A5 -.-> S1
+A5 -.-> C1
+A5 -.-> R1
+A5 -.-> G1
+P7 -.-> W1
+P8 -.-> W1
+G2 -.-> W5
+
+classDef auth fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;
+classDef pos fill:#dcfce7,stroke:#16a34a,color:#14532d;
+classDef inv fill:#fef9c3,stroke:#ca8a04,color:#713f12;
+classDef pur fill:#fae8ff,stroke:#a21caf,color:#581c87;
+classDef staff fill:#ffe4e6,stroke:#e11d48,color:#881337;
+classDef cust fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+classDef rep fill:#e0e7ff,stroke:#4f46e5,color:#312e81;
+classDef set fill:#f1f5f9,stroke:#475569,color:#1e293b;
+classDef wh fill:#fce7f3,stroke:#db2777,color:#831843;
+
+class A1,A2,A3,A4,A5,A6,A7,A8,A9 auth;
+class P1,P2,P3,P4,P5,P6,P7,P7b,P8,P8b,P9,P10,P11,P12,P13 pos;
+class I1,I2,I3,I4,I5,I6 inv;
+class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10 pur;
+class S1,S2,S3,S4,S5,S6 staff;
+class C1,C2,C3,C4,C5,C6,C7,C8,C9 cust;
+class R1,R2,R3,R4,R5,R6 rep;
+class G1,G2,G3,G4,G5,G6,G7,G8,G9 set;
+class W1,W2,W3,W4,W5,W6,W7,W8 wh;
