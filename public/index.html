@@ -58,7 +58,7 @@
        button) on pointermove; the radial-gradient overlay follows the cursor. */
     .spot-btn{ position:relative; overflow:hidden; isolation:isolate; }
     .spot-btn::after{ content:""; position:absolute; inset:0; opacity:0; transition:opacity .3s;
-      background:radial-gradient(120px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.35), transparent 70%); }
+      background:radial-gradient(120px circle at var(--mx,50%) var(--my,50%), var(--spot-color, rgba(255,255,255,.35)), transparent 70%); }
     .spot-btn:hover::after{ opacity:1; }
     /* Module-card icon micro-animation on card hover (card itself already lifts via .lift) */
     .lift .tile-icon-wrap{ transition:transform .35s cubic-bezier(.34,1.56,.64,1); }
@@ -420,18 +420,23 @@
     /* module grid + filter -- live modules get a bold full-bleed brand-color feature
        card (large ghost-icon watermark, glass CTA pill); soon modules get a compact,
        visually secondary row so they don't compete for attention with real products */
+    // Unified white card field for every live module -- the brand color is only ever an
+    // accent (top bar / icon tint / CTA), never the card's dominant background. Three
+    // full-saturation, different-hued cards side by side used to visually fight each
+    // other; this keeps per-product identity legible without the clash.
     function featureCard(m){
-      return `<a href="${m.href}"${m.external?' target="_blank" rel="noopener"':''} class="spot-btn tilt-card group relative flex flex-col justify-between rounded-2xl p-6 overflow-hidden" style="background:linear-gradient(155deg, var(${m.c}), color-mix(in srgb, var(${m.c}) 74%, black)); min-height:230px">
-        <div class="absolute -right-8 -bottom-10 w-44 h-44 opacity-[.14] group-hover:opacity-[.22] transition-opacity pointer-events-none" style="filter:brightness(0) invert(1)"><img src="${m.img}" class="w-full h-full object-contain" alt="" /></div>
+      return `<a href="${m.href}"${m.external?' target="_blank" rel="noopener"':''} class="spot-btn tilt-card group relative flex flex-col justify-between rounded-2xl p-6 overflow-hidden bg-white border transition-shadow duration-300 hover:shadow-lg" style="border-color:var(--line); --spot-color:color-mix(in srgb, var(${m.c}) 16%, transparent); box-shadow:0 1px 2px rgba(15,38,34,.05); min-height:230px">
+        <div class="absolute top-0 left-0 right-0 h-[3px] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300" style="background:var(${m.c})"></div>
+        <div class="absolute -right-6 -bottom-8 w-36 h-36 opacity-[.05] group-hover:opacity-[.09] transition-opacity pointer-events-none"><img src="${m.img}" class="w-full h-full object-contain" alt="" /></div>
         <div class="relative flex items-center justify-between">
-          <div class="w-11 h-11 rounded-xl bg-white flex items-center justify-center p-2 shadow-sm"><img src="${m.img}" width="28" height="28" alt="" style="object-fit:contain" /></div>
-          <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full text-white" style="background:rgba(255,255,255,.18)">● Live</span>
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center p-2" style="background:color-mix(in srgb, var(${m.c}) 12%, white)"><img src="${m.img}" width="26" height="26" alt="" style="object-fit:contain" /></div>
+          <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full" style="background:color-mix(in srgb, var(${m.c}) 10%, white);color:var(${m.c})">● Live</span>
         </div>
         <div class="relative mt-8">
-          <p class="text-[11px] font-bold uppercase tracking-widest mb-1" style="color:rgba(255,255,255,.65)">${m.cat}</p>
-          <h3 class="dp text-xl font-extrabold text-white">${m.n}</h3>
-          <p class="text-sm mt-2 leading-relaxed" style="color:rgba(255,255,255,.8)">${m.d}</p>
-          <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-bold px-3.5 py-2 rounded-lg transition-colors" style="background:rgba(255,255,255,.16);color:#fff">${m.external?'Kunjungi':'Buka modul'} →</span>
+          <p class="text-[11px] font-bold uppercase tracking-widest mb-1" style="color:var(${m.c})">${m.cat}</p>
+          <h3 class="dp text-xl font-extrabold" style="color:var(--ink)">${m.n}</h3>
+          <p class="text-sm mt-2 leading-relaxed" style="color:var(--body)">${m.d}</p>
+          <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-bold" style="color:var(${m.c})">${m.external?'Kunjungi':'Buka modul'} <span class="inline-block transition-transform group-hover:translate-x-1">→</span></span>
         </div>
       </a>`;
     }
