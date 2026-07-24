@@ -19,7 +19,7 @@
     :root{
       --ink:#14231b; --body:#44534a; --muted:#7a877e; --line:#e8ebe4; --bg:#ffffff; --bg2:#f6f8f4;
       --brand:#12855a; --brand2:#0d6e49; --tint:#e6f4ec;
-      --c-dapur:#e8630a; --c-geraina:#12855a; --c-laundry:#2563eb; --c-salon:#db2777; --c-auto:#5b53e0; --c-tani:#65a30d;
+      --c-dapur:#e8630a; --c-geraina:#12855a; --c-web:#0284c7; --c-laundry:#2563eb; --c-salon:#db2777; --c-auto:#ea580c; --c-tani:#65a30d;
     }
     *{ -webkit-font-smoothing:antialiased; }
     body{ font-family:'Inter',sans-serif; background:var(--bg); color:var(--body); }
@@ -69,7 +69,7 @@
     <div class="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center gap-6">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm dp font-bold" style="background:var(--brand)">D</div>
+          <img src="/assets/brand/dagangos-icon.png" alt="" width="32" height="32" class="w-8 h-8" />
           <span class="dp font-bold text-lg">DagangOS</span>
         </div>
         <nav class="hidden lg:flex items-center gap-7 text-sm font-medium" style="color:var(--body)">
@@ -83,7 +83,7 @@
       <div class="flex items-center gap-2">
         <div id="navAuthContainer" class="flex items-center gap-2">
           <button onclick="openSsoModal()" class="hidden sm:inline-flex px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:bg-[var(--bg2)]" style="color:var(--ink)" data-testid="nav-login-btn">Masuk</button>
-          <a href="/dapuros" class="press hidden sm:inline-flex px-4 py-2 rounded-xl text-white font-semibold text-sm transition-all hover:opacity-90" style="background:var(--brand)">Coba Gratis</a>
+          <a href="#modul" class="press hidden sm:inline-flex px-4 py-2 rounded-xl text-white font-semibold text-sm transition-all hover:opacity-90" style="background:var(--brand)">Coba Gratis</a>
         </div>
         <button onclick="toggleMenu()" class="lg:hidden p-2 -mr-1" style="color:var(--ink)" aria-label="Menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       </div>
@@ -97,7 +97,7 @@
         <a href="#kenapa" onclick="toggleMenu()" class="py-2.5 px-2 rounded-lg hover:bg-[var(--bg2)]" style="color:var(--ink)">Kenapa Kami</a>
         <div class="flex gap-2 pt-3">
           <button onclick="toggleMenu();openSsoModal()" class="flex-1 py-2.5 rounded-xl border font-semibold" style="border-color:var(--line);color:var(--ink)">Masuk</button>
-          <a href="/dapuros" class="flex-1 text-center py-2.5 rounded-xl text-white font-semibold" style="background:var(--brand)">Coba Gratis</a>
+          <a href="#modul" onclick="toggleMenu()" class="flex-1 text-center py-2.5 rounded-xl text-white font-semibold" style="background:var(--brand)">Coba Gratis</a>
         </div>
       </div>
     </div>
@@ -286,7 +286,7 @@
   <footer class="border-t" style="border-color:var(--line); background:var(--bg2)">
     <div class="max-w-7xl mx-auto px-5 sm:px-8 py-14 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-8">
       <div class="col-span-2 lg:col-span-2">
-        <div class="flex items-center gap-2.5 mb-4"><div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm dp font-bold" style="background:var(--brand)">D</div><span class="dp font-bold text-lg">DagangOS</span></div>
+        <div class="flex items-center gap-2.5 mb-4"><img src="/assets/brand/dagangos-icon.png" alt="" width="32" height="32" class="w-8 h-8" /><span class="dp font-bold text-lg">DagangOS</span></div>
         <p class="text-sm max-w-xs" style="color:var(--muted)">Ekosistem software operasional untuk UMKM Indonesia. Satu platform, satu untuk tiap industri.</p>
       </div>
       <div><p class="dp font-bold text-sm mb-3">Modul</p><ul class="space-y-2 text-sm" style="color:var(--muted)"><li><a href="/dapuros" class="hover:text-[var(--ink)]">DapurOS</a></li><li><a href="/geraina" class="hover:text-[var(--ink)]">Geraina POS</a></li><li><a href="#modul" class="hover:text-[var(--ink)]">LaundryOS</a></li><li><a href="#modul" class="hover:text-[var(--ink)]">Salon OS</a></li></ul></div>
@@ -301,7 +301,7 @@
   <dialog id="ssoModal" aria-labelledby="ssoModalTitle">
     <div class="bg-white w-full max-w-sm p-7 sm:p-8 rounded-2xl relative shadow-xl border" style="border-color:var(--line)">
       <button onclick="closeSsoModal()" class="absolute top-4 right-4" style="color:var(--muted)" aria-label="Tutup"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
-      <div class="mb-6"><h3 id="ssoModalTitle" class="dp text-xl font-bold">Masuk ke DagangOS</h3><p class="text-sm mt-1" style="color:var(--muted)">Satu akun untuk seluruh modul usaha Anda.</p></div>
+      <div class="mb-6"><img src="/assets/brand/dagangos-icon.png" alt="" width="36" height="36" class="w-9 h-9 mb-3" /><h3 id="ssoModalTitle" class="dp text-xl font-bold">Masuk ke DagangOS</h3><p class="text-sm mt-1" style="color:var(--muted)">Satu akun untuk seluruh modul usaha Anda.</p></div>
       <form id="ssoLoginForm" onsubmit="handleSsoSubmit(event)" class="space-y-4" data-testid="login-form">
         <div><label for="ssoEmail" class="block text-sm font-semibold mb-1.5" style="color:var(--ink)" data-testid="login-email-label">Alamat email</label><input type="email" id="ssoEmail" name="email" autocomplete="email" required data-testid="login-email-input" class="w-full bg-white border rounded-xl px-4 py-2.5 text-sm focus:outline-none" style="border-color:var(--line);color:var(--ink)" placeholder="nama@toko.com" onfocus="this.style.borderColor='var(--brand)';this.style.boxShadow='0 0 0 3px var(--tint)'" onblur="this.style.borderColor='var(--line)';this.style.boxShadow='none'" /></div>
         <div><label for="ssoPassword" class="block text-sm font-semibold mb-1.5" style="color:var(--ink)" data-testid="login-password-label">Kata sandi</label><input type="password" id="ssoPassword" name="password" autocomplete="current-password" required data-testid="login-password-input" class="w-full bg-white border rounded-xl px-4 py-2.5 text-sm focus:outline-none" style="border-color:var(--line);color:var(--ink)" placeholder="••••••••" onfocus="this.style.borderColor='var(--brand)';this.style.boxShadow='0 0 0 3px var(--tint)'" onblur="this.style.borderColor='var(--line)';this.style.boxShadow='none'" /></div>
@@ -323,18 +323,28 @@
       tani:'<path d="M11 20A7 7 0 014 13V8h5a7 7 0 017 7v5zM4 8c0-2 1-4 4-4M12 15c2-3 5-4 8-4"/>',
     };
     const MODULES=[
-      {n:'DapurOS', cat:'F&B & Restoran', d:'KDS real-time, denah meja, resep BOM, split-bill.', c:'--c-dapur', s:'live', href:'/dapuros', ic:'dapur'},
-      {n:'Geraina POS', cat:'Retail & Toko', d:'Kasir cepat, stok grosir, struk thermal, invoice.', c:'--c-geraina', s:'live', href:'/geraina', ic:'geraina'},
-      {n:'LaundryOS', cat:'Laundry & Dry Clean', d:'Timbangan kiloan, antrean, WhatsApp notifier.', c:'--c-laundry', s:'soon', href:'#', ic:'laundry'},
-      {n:'Salon & Barbershop OS', cat:'Kecantikan', d:'Booking kalender, komisi kapster, paket treatment.', c:'--c-salon', s:'soon', href:'#', ic:'salon'},
-      {n:'AutoCare OS', cat:'Otomotif', d:'Bengkel & cuci mobil, work order, stok sparepart.', c:'--c-auto', s:'soon', href:'#', ic:'auto'},
+      {n:'DapurOS', cat:'F&B & Restoran', d:'KDS real-time, denah meja, resep BOM, split-bill.', c:'--c-dapur', s:'live', href:'/dapuros', ic:'dapur', img:'/assets/brand/dapuros-icon.png'},
+      {n:'Geraina POS', cat:'Retail & Toko', d:'Kasir cepat, stok grosir, struk thermal, invoice.', c:'--c-geraina', s:'live', href:'/geraina', ic:'geraina', img:'/assets/brand/geraina-icon.png'},
+      {n:'DagangOS Web', cat:'Website & Layanan', d:'Landing page, company profile, e-commerce, aplikasi web custom.', c:'--c-web', s:'live', href:'https://store.dagangos.com', ic:'web', img:'/assets/brand/dagangosweb-icon.png', external:true},
+      {n:'LaundryOS', cat:'Laundry & Dry Clean', d:'Timbangan kiloan, antrean, WhatsApp notifier.', c:'--c-laundry', s:'soon', href:'#', ic:'laundry', img:'/assets/brand/laundryos-icon.png'},
+      {n:'Salon & Barbershop OS', cat:'Kecantikan', d:'Booking kalender, komisi kapster, paket treatment.', c:'--c-salon', s:'soon', href:'#', ic:'salon', img:'/assets/brand/salonos-icon.png'},
+      {n:'AutoCare OS', cat:'Otomotif', d:'Bengkel & cuci mobil, work order, stok sparepart.', c:'--c-auto', s:'soon', href:'#', ic:'auto', img:'/assets/brand/autocareos-icon.png'},
       {n:'TaniOS', cat:'Agri & Grosir', d:'Hasil tani, timbang, distribusi, harga pasar.', c:'--c-tani', s:'soon', href:'#', ic:'tani'},
     ];
-    function tileIcon(m,size){ return `<div class="rounded-xl flex items-center justify-center" style="width:${size}px;height:${size}px;background:color-mix(in srgb, var(${m.c}) 12%, white)"><svg width="${size*.5}" height="${size*.5}" viewBox="0 0 24 24" fill="none" stroke="var(${m.c})" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[m.ic]}</svg></div>`; }
+    function tileIcon(m,size){
+      if(m.img){
+        const r=Math.round(size*.22);
+        return `<div class="flex items-center justify-center" style="width:${size}px;height:${size}px;border-radius:${r}px;background:linear-gradient(155deg,#fff,color-mix(in srgb, var(${m.c}) 7%, white));box-shadow:0 1px 3px rgba(20,35,27,.08), inset 0 0 0 1px color-mix(in srgb, var(${m.c}) 16%, white)"><img src="${m.img}" width="${Math.round(size*.74)}" height="${Math.round(size*.74)}" alt="" style="object-fit:contain" /></div>`;
+      }
+      return `<div class="rounded-xl flex items-center justify-center" style="width:${size}px;height:${size}px;background:color-mix(in srgb, var(${m.c}) 12%, white)"><svg width="${size*.5}" height="${size*.5}" viewBox="0 0 24 24" fill="none" stroke="var(${m.c})" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[m.ic]}</svg></div>`;
+    }
 
-    /* hero mini grid */
+    /* hero mini grid -- flagship vertical-OS products only; DagangOS Web is a different
+       category (web service, not an industry-vertical app) so it lives in the full
+       module directory below, not this app-icon-style preview */
     const hg=document.getElementById('heroGrid');
-    hg.innerHTML=MODULES.map((m,i)=>`<div class="tile pop rounded-xl border p-3 flex flex-col items-center gap-2 text-center cursor-default" style="border-color:var(--line); animation-delay:${.5+i*.08}s">
+    const HERO_MODULES=MODULES.filter(m=>m.ic!=='web');
+    hg.innerHTML=HERO_MODULES.map((m,i)=>`<div class="tile pop rounded-xl border p-3 flex flex-col items-center gap-2 text-center cursor-default" style="border-color:var(--line); animation-delay:${.5+i*.08}s">
       ${tileIcon(m,40)}<span class="text-[11px] font-semibold leading-tight" style="color:var(--ink)">${m.n.split(' ')[0]}</span>
       <span class="text-[9px] px-1.5 py-0.5 rounded-full ${m.s==='live'?'':'opacity-70'}" style="background:${m.s==='live'?'var(--tint)':'#f0f1ed'};color:${m.s==='live'?'var(--brand2)':'var(--muted)'}">${m.s==='live'?'Live':'Soon'}</span>
     </div>`).join('');
@@ -349,7 +359,7 @@
           <h3 class="dp text-lg font-bold">${m.n}</h3>
           <p class="text-xs font-medium mt-0.5 uppercase tracking-wide" style="color:var(--muted)">${m.cat}</p>
           <p class="text-sm mt-3 leading-relaxed flex-1" style="color:var(--body)">${m.d}</p>
-          ${m.s==='live'?`<a href="${m.href}" class="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold" style="color:var(${m.c})">Buka modul →</a>`:`<span class="mt-5 text-sm font-semibold" style="color:var(--muted)">Daftar tunggu →</span>`}
+          ${m.s==='live'?`<a href="${m.href}"${m.external?' target="_blank" rel="noopener"':''} class="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold" style="color:var(${m.c})">${m.external?'Kunjungi':'Buka modul'} →</a>`:`<span class="mt-5 text-sm font-semibold" style="color:var(--muted)">Daftar tunggu →</span>`}
         </div>`).join('');
     }
     renderModules();
@@ -417,7 +427,7 @@
       if(token&&userStr){ let u={}; try{u=JSON.parse(userStr);}catch(e){}
         if(c){ c.innerHTML=`<span class="hidden sm:flex text-xs font-semibold px-3 py-1.5 rounded-lg items-center gap-1.5" style="background:var(--tint);color:var(--brand2)" data-testid="logged-in-user-badge"><span class="w-1.5 h-1.5 rounded-full" style="background:var(--brand)"></span> ${u.email||''}</span><button onclick="handleLogout()" class="px-3.5 py-2 rounded-lg font-semibold text-sm hover:bg-[var(--bg2)]" style="color:var(--body)" data-testid="nav-logout-btn">Keluar</button>`; }
         document.querySelectorAll('a').forEach(el=>{ const h=el.getAttribute('href'); if(h==='/dapuros'||h==='/dapuros/login') el.href='/dapuros/app/dashboard'; if(h==='/geraina'||h==='/geraina/login') el.href='/geraina/app/dashboard'; });
-      } else if(c){ c.innerHTML=`<button onclick="openSsoModal()" class="hidden sm:inline-flex px-4 py-2 rounded-xl font-semibold text-sm hover:bg-[var(--bg2)]" style="color:var(--ink)" data-testid="nav-login-btn">Masuk</button><a href="/dapuros" class="press hidden sm:inline-flex px-4 py-2 rounded-xl text-white font-semibold text-sm hover:opacity-90" style="background:var(--brand)">Coba Gratis</a>`; } }
+      } else if(c){ c.innerHTML=`<button onclick="openSsoModal()" class="hidden sm:inline-flex px-4 py-2 rounded-xl font-semibold text-sm hover:bg-[var(--bg2)]" style="color:var(--ink)" data-testid="nav-login-btn">Masuk</button><a href="#modul" class="press hidden sm:inline-flex px-4 py-2 rounded-xl text-white font-semibold text-sm hover:opacity-90" style="background:var(--brand)">Coba Gratis</a>`; } }
     function handleLogout(){ ['dagangos_token','geraina_token','dagangos_user','geraina_user','geraina_selected_role'].forEach(k=>localStorage.removeItem(k)); updateHeaderAuthUI(); location.reload(); }
     addEventListener('DOMContentLoaded', ()=>{ updateHeaderAuthUI(); const p=location.pathname; if(p.includes('login')||p.includes('signin')||p.includes('auth')){ const t=localStorage.getItem('dagangos_token')||localStorage.getItem('geraina_token'); if(!t) openSsoModal(); } });
   </script>
