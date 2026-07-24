@@ -1,6 +1,13 @@
 import { cpSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 
+// NOTE: deploy.yml only triggers on a push to THIS (portal) repo. When it
+// runs, it checks out GerainaOS and DapurOS fresh from their main branch at
+// that exact moment. Always push GerainaOS -> DapurOS -> portal, in that
+// order, and make sure the first two pushes have fully landed before
+// pushing this repo -- otherwise the deploy will build from their
+// second-to-last commit instead of their latest one.
+
 const GERAINA = existsSync('gerainaos/frontend') ? resolve('gerainaos/frontend') : resolve('gerainaos');
 const DAPUROS = existsSync('dapuros/frontend') ? resolve('dapuros/frontend') : resolve('dapuros');
 const PUBLIC_DIR = resolve('public');
