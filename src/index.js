@@ -12,6 +12,18 @@ function injectLegalName(body) {
   return body;
 }
 
+function injectPublicSupport(body) {
+  if (!body || body.includes('/support-chat.js')) return body;
+  const headAssets = '<link rel="stylesheet" href="/support-chat.css?v=20260727">';
+  const bodyAssets = '<script src="/support-chat.js?v=20260727" defer></script>';
+  const withHead = body.includes('</head>')
+    ? body.replace('</head>', `${headAssets}</head>`)
+    : body;
+  return withHead.includes('</body>')
+    ? withHead.replace('</body>', `${bodyAssets}</body>`)
+    : `${withHead}${bodyAssets}`;
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -34,6 +46,46 @@ export default {
             'Vary': 'Origin',
           },
         });
+      }
+
+      // Proxy the existing policy-scoped Hermes relay. Its private URL and key
+      // remain server-side; product pages only call this same-origin endpoint.
+      if (pathname === '/api/support-chat') {
+        if (request.method !== 'POST') {
+          return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+            status: 405,
+            headers: { 'Content-Type': 'application/json', 'Allow': 'POST' },
+          });
+        }
+
+        const supportUrl = new URL('https://store.dagangos.com/api/support-chat');
+        const supportHeaders = new Headers(request.headers);
+        supportHeaders.set('Host', supportUrl.hostname);
+        supportHeaders.set('X-DagangOS-Surface', 'product-sites');
+
+        try {
+          const supportResponse = await fetch(supportUrl.toString(), {
+            method: 'POST',
+            headers: supportHeaders,
+            body: request.body,
+            redirect: 'manual',
+          });
+          const responseHeaders = new Headers(supportResponse.headers);
+          responseHeaders.set('Content-Type', 'application/json; charset=utf-8');
+          responseHeaders.set('Cache-Control', 'no-store');
+          return new Response(supportResponse.body, {
+            status: supportResponse.status,
+            statusText: supportResponse.statusText,
+            headers: responseHeaders,
+          });
+        } catch (err) {
+          return new Response(JSON.stringify({
+            error: 'Support chat sedang tidak tersedia. Hubungi contact@dagangos.com atau WhatsApp +62 899 9155 182.',
+          }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+          });
+        }
       }
 
       // Handle API requests on Cloudflare Edge
@@ -123,7 +175,7 @@ export default {
         if (assetResponse.status >= 300 && assetResponse.status < 400) {
           // Asset handler returned a redirect — fetch the body directly
           const body = await assetResponse.text();
-          return new Response(injectLegalName(body || '<!-- redirect intercepted -->'), {
+          return new Response(injectPublicSupport(injectLegalName(body || '<!-- redirect intercepted -->')), {
             status: 200,
             headers: {
               'Content-Type': 'text/html; charset=utf-8',
@@ -137,7 +189,7 @@ export default {
         newHeaders.delete('Location'); // Remove any Location header just in case
 
         let body = await assetResponse.text();
-        body = injectLegalName(body);
+        body = injectPublicSupport(injectLegalName(body));
 
         return new Response(body, {
           status: 200,
@@ -155,7 +207,7 @@ export default {
         }));
         if (assetResponse.status >= 300 && assetResponse.status < 400) {
           const body = await assetResponse.text();
-          return new Response(injectLegalName(body || '<!-- redirect intercepted -->'), {
+          return new Response(injectPublicSupport(injectLegalName(body || '<!-- redirect intercepted -->')), {
             status: 200,
             headers: {
               'Content-Type': 'text/html; charset=utf-8',
@@ -168,7 +220,7 @@ export default {
         newHeaders.delete('Location');
 
         let body = await assetResponse.text();
-        body = injectLegalName(body);
+        body = injectPublicSupport(injectLegalName(body));
 
         return new Response(body, {
           status: 200,
@@ -188,7 +240,7 @@ export default {
       portalHeaders.delete('Location');
 
       let portalBody = await portalResponse.text();
-      portalBody = injectLegalName(portalBody);
+      portalBody = injectPublicSupport(injectLegalName(portalBody));
 
       return new Response(portalBody, {
         status: 200,
