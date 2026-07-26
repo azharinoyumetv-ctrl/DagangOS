@@ -13,9 +13,10 @@ const productRows = () => `<div class="product-rail">${products.map((product) =>
   <a class="product-row reveal" id="${product.name.toLowerCase().replace(/\s+/g, "-")}" href="${product.href}" style="--accent:${product.color}">
     <img src="${image(product.icon)}" alt=""><h3>${product.name}</h3><p>${product.desc}</p><strong>↗</strong>
   </a>`).join("")}</div>`;
-const orbit = () => `<div class="orbit-stage" data-orbit><div class="orbit-ring"></div>
-  <div class="orbit-core"><img src="${image("dagangos-icon.png")}" alt="DagangOS"></div>
-  ${products.map((product, index) => `<a class="orbit-node" data-index="${index}" href="${product.href}" style="--node:${product.color}"><img src="${image(product.icon)}" alt=""><span><b>${product.name}</b><small>${product.desc}</small></span></a>`).join("")}
+const orbit = () => `<div class="orbit-stage" data-orbit>
+  <canvas class="neuron-canvas" aria-hidden="true"></canvas>
+  <div class="orbit-core"><span class="core-object"><img src="${image("dagangos-icon.png")}" alt="DagangOS"></span><small>PUSAT EKOSISTEM</small></div>
+  ${products.map((product, index) => `<a class="orbit-node" data-index="${index}" href="${product.href}" style="--node:${product.color}"><span class="node-object"><img src="${image(product.icon)}" alt=""></span><span class="node-label"><b>${product.name}</b><small>${product.desc}</small></span></a>`).join("")}
 </div>`;
 const marquee = `<div class="marquee"><div class="marquee-track">${[...products, ...products].map((product) => `<span>${product.name}</span>`).join("")}</div></div>`;
 const cta = `<section class="shell cta-band reveal"><h2>Temukan sistem yang cocok dengan cara bisnis Anda bekerja.</h2><a class="button" href="/produk">Jelajahi ekosistem <span>↗</span></a></section>`;
@@ -65,6 +66,8 @@ document.querySelectorAll(".reveal").forEach((element) => {
 function startOrbit(stage) {
   const nodes = [...stage.querySelectorAll(".orbit-node")];
   const core = stage.querySelector(".orbit-core");
+  const canvas = stage.querySelector(".neuron-canvas");
+  const context = canvas.getContext("2d");
   let pointerX = 0;
   let pointerY = 0;
   stage.addEventListener("pointermove", (event) => {
@@ -76,24 +79,81 @@ function startOrbit(stage) {
   const draw = (time) => {
     const width = stage.clientWidth;
     const height = stage.clientHeight;
-    const radiusX = width * 0.39;
-    const radiusY = height * 0.29;
+    const pixelRatio = Math.min(devicePixelRatio || 1, 2);
+    if (canvas.width !== Math.round(width * pixelRatio) || canvas.height !== Math.round(height * pixelRatio)) {
+      canvas.width = Math.round(width * pixelRatio);
+      canvas.height = Math.round(height * pixelRatio);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+    }
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const center = { x: width * 0.5 + pointerX * 14, y: height * 0.51 + pointerY * 10 };
+    const positions = [];
     nodes.forEach((node, index) => {
-      const angle = time * 0.00013 + (index / nodes.length) * Math.PI * 2;
-      const depth = (Math.sin(angle) + 1) / 2;
-      const x = Math.cos(angle) * radiusX - node.offsetWidth / 2 + pointerX * 26 * (1 - depth);
-      const y = Math.sin(angle) * radiusY - node.offsetHeight / 2 + pointerY * 18 * (1 - depth);
-      node.style.transform = `translate3d(${x}px,${y}px,0) scale(${0.87 + depth * 0.16})`;
+      const phase = (index / nodes.length) * Math.PI * 2;
+      const speed = 0.000105 + index * 0.000008;
+      const angle = time * speed + phase;
+      const breathingX = width * (0.32 + 0.055 * Math.sin(time * 0.00031 + phase * 1.7));
+      const breathingY = height * (0.25 + 0.05 * Math.cos(time * 0.00027 + phase));
+      const wanderX = Math.sin(time * 0.00043 + phase * 2.1) * width * 0.065;
+      const wanderY = Math.cos(time * 0.00037 + phase * 1.3) * height * 0.075;
+      const xCenter = center.x + Math.cos(angle) * breathingX + wanderX;
+      const yCenter = center.y + Math.sin(angle * 1.17) * breathingY + wanderY;
+      const depth = (Math.sin(angle * 1.17) + 1) / 2;
+      const x = xCenter - width * 0.5 - node.offsetWidth / 2 + pointerX * 18 * (1 - depth);
+      const y = yCenter - height * 0.5 - node.offsetHeight / 2 + pointerY * 14 * (1 - depth);
+      positions.push({ x: xCenter, y: yCenter, color: getComputedStyle(node).getPropertyValue("--node").trim(), depth });
+      node.style.transform = `translate3d(${x}px,${y}px,0) scale(${0.8 + depth * 0.22}) rotate(${Math.sin(time * 0.0004 + phase) * 2.2}deg)`;
       node.style.zIndex = String(2 + Math.round(depth * 4));
-      node.style.opacity = String(0.7 + depth * 0.3);
+      node.style.opacity = String(0.78 + depth * 0.22);
     });
+    positions.forEach((position, index) => {
+      const bend = Math.sin(time * 0.00055 + index) * 48;
+      const midX = (center.x + position.x) / 2 + bend;
+      const midY = (center.y + position.y) / 2 - bend * 0.35;
+      const gradient = context.createLinearGradient(center.x, center.y, position.x, position.y);
+      gradient.addColorStop(0, "rgba(66,114,255,.5)");
+      gradient.addColorStop(0.62, `${position.color}65`);
+      gradient.addColorStop(1, `${position.color}18`);
+      context.beginPath();
+      context.moveTo(center.x, center.y);
+      context.quadraticCurveTo(midX, midY, position.x, position.y);
+      context.strokeStyle = gradient;
+      context.lineWidth = 0.8 + position.depth * 0.9;
+      context.stroke();
+      const travel = (time * 0.00016 + index * 0.17) % 1;
+      const inv = 1 - travel;
+      const pulseX = inv * inv * center.x + 2 * inv * travel * midX + travel * travel * position.x;
+      const pulseY = inv * inv * center.y + 2 * inv * travel * midY + travel * travel * position.y;
+      context.beginPath();
+      context.arc(pulseX, pulseY, 2.3 + position.depth * 1.5, 0, Math.PI * 2);
+      context.fillStyle = position.color;
+      context.shadowColor = position.color;
+      context.shadowBlur = 13;
+      context.fill();
+      context.shadowBlur = 0;
+    });
+    for (let index = 0; index < positions.length; index += 1) {
+      const next = positions[(index + 2) % positions.length];
+      const current = positions[index];
+      const distance = Math.hypot(current.x - next.x, current.y - next.y);
+      if (distance < width * 0.48) {
+        context.beginPath();
+        context.moveTo(current.x, current.y);
+        context.lineTo(next.x, next.y);
+        context.strokeStyle = "rgba(81,112,173,.1)";
+        context.lineWidth = 0.65;
+        context.stroke();
+      }
+    }
     core.style.transform = `translate(calc(-50% + ${pointerX * 14}px),calc(-50% + ${pointerY * 10}px))`;
     requestAnimationFrame(draw);
   };
   if (reduced) {
     nodes.forEach((node, index) => {
       const angle = (index / nodes.length) * Math.PI * 2;
-      node.style.transform = `translate(${Math.cos(angle) * stage.clientWidth * 0.34 - node.offsetWidth / 2}px,${Math.sin(angle) * stage.clientHeight * 0.27 - node.offsetHeight / 2}px)`;
+      node.style.transform = `translate(${Math.cos(angle) * stage.clientWidth * 0.32 - node.offsetWidth / 2}px,${Math.sin(angle) * stage.clientHeight * 0.25 - node.offsetHeight / 2}px)`;
     });
   } else {
     requestAnimationFrame(draw);
