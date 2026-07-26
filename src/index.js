@@ -1,7 +1,8 @@
 function injectLegalName(body) {
-  const legal = 'DagangOS Digital Indonesia';
+  const legal = 'PT DagangOS Digital Indonesia';
   const replacement = `<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 ${legal}. Platform SaaS Terpadu Indonesia.</div>`;
   const oldPattern = /<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 DagangOS\. Platform SaaS Terpadu Indonesia\.<\/div>/;
+  if (body.includes(legal)) return body;
   if (oldPattern.test(body)) {
     return body.replace(oldPattern, replacement).replace('</footer>', replacement + '</footer>').replace('</body>', replacement + '</body>');
   }

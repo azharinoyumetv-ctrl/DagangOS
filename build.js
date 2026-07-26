@@ -92,12 +92,12 @@ if (existsSync(PUBLIC_DIR)) {
 }
 
 // Inject legal business name into all HTML outputs for Meta verification
-const legal = 'DagangOS Digital Indonesia';
+const legal = 'PT DagangOS Digital Indonesia';
 const replacement = `<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 ${legal}. Platform SaaS Terpadu Indonesia.</div>`;
 for (const file of [resolve(`${OUT}/index.html`), resolve(`${OUT}/geraina/index.html`), resolve(`${OUT}/dapuros/index.html`)]) {
   if (existsSync(file)) {
     let html = readFileSync(file, 'utf8');
-    if (html.includes('</footer>')) {
+    if (!html.includes(legal) && html.includes('</footer>')) {
       html = html.replace(/<div class="text-center text-xs py-2" style="color:#f5f5f5">© 2026 DagangOS\. Platform SaaS Terpadu Indonesia\.<\/div>/, replacement).replace('</footer>', replacement + '</footer>');
       writeFileSync(file, html);
       console.log(`Injected legal name into ${file}`);
