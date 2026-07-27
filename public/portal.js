@@ -1,18 +1,30 @@
 const products = [
-  { name: "Geraina POS", desc: "POS retail dan inventori.", href: "/geraina", icon: "geraina-icon.png", color: "#25c96f" },
-  { name: "DapurOS", desc: "Operasional restoran dan F&B.", href: "/dapuros", icon: "dapuros-icon.png", color: "#ff7a31" },
-  { name: "LaundryOS", desc: "Operasional laundry dan dry cleaning.", href: "/produk#laundryos", icon: "laundryos-icon.png", color: "#2b9bf0" },
-  { name: "AutoCareOS", desc: "Sistem workshop dan autocare.", href: "/produk#autocareos", icon: "autocareos-icon.png", color: "#176fe8" },
-  { name: "SalonOS", desc: "Operasional salon dan layanan.", href: "/produk#salonos", icon: "salonos-icon.png", color: "#e14ab4" },
-  { name: "DagangOS Web", desc: "Kehadiran digital untuk bisnis.", href: "/produk#dagangos-web", icon: "dagangosweb-icon.png", color: "#7257ef" },
+  { name: "Geraina POS", desc: "POS retail dan inventori.", href: "/geraina", icon: "geraina-icon.png", color: "#25c96f", status: "available" },
+  { name: "DapurOS", desc: "Operasional restoran dan F&B.", href: "/dapuros", icon: "dapuros-icon.png", color: "#ff7a31", status: "available" },
+  { name: "LaundryOS", desc: "Operasional laundry dan dry cleaning.", icon: "laundryos-icon.png", color: "#2b9bf0", status: "coming-soon" },
+  { name: "AutoCareOS", desc: "Sistem workshop dan autocare.", icon: "autocareos-icon.png", color: "#176fe8", status: "coming-soon" },
+  { name: "SalonOS", desc: "Operasional salon dan layanan.", icon: "salonos-icon.png", color: "#e14ab4", status: "coming-soon" },
+  { name: "DagangOS Web", desc: "Kehadiran digital untuk bisnis.", href: "/produk#dagangos-web", icon: "dagangosweb-icon.png", color: "#7257ef", status: "available" },
 ];
 
 const route = location.pathname.replace(/^\/|\/$/g, "") || "home";
 const image = (name) => `/assets/brand/${name}`;
-const productRows = () => `<div class="product-rail">${products.map((product) => `
-  <a class="product-row reveal" id="${product.name.toLowerCase().replace(/\s+/g, "-")}" href="${product.href}" style="--accent:${product.color}">
-    <img src="${image(product.icon)}" alt=""><h3>${product.name}</h3><p>${product.desc}</p><strong>↗</strong>
-  </a>`).join("")}</div>`;
+const productRows = () => `<div class="product-rail">${products.map((product) => {
+  const id = product.name.toLowerCase().replace(/\s+/g, "-");
+  const content = `<img src="${image(product.icon)}" alt=""><h3>${product.name}</h3><p>${product.desc}</p>${product.status === "coming-soon"
+    ? `<span class="product-status is-coming">Segera hadir</span>`
+    : `<span class="product-status is-available">Tersedia <strong>↗</strong></span>`}`;
+  return product.status === "coming-soon"
+    ? `<div class="product-row is-coming reveal" id="${id}" aria-label="${product.name}, segera hadir" style="--accent:${product.color}">${content}</div>`
+    : `<a class="product-row reveal" id="${id}" href="${product.href}" style="--accent:${product.color}">${content}</a>`;
+}).join("")}</div>`;
+const orbitNode = (product, index) => {
+  const content = `<span class="node-object"><i class="node-field" aria-hidden="true"></i><i class="node-glass" aria-hidden="true"></i><img src="${image(product.icon)}" alt=""></span><span class="node-label"><b>${product.name}</b><small>${product.status === "coming-soon" ? "Segera hadir" : product.desc}</small></span>`;
+  const style = `--node:${product.color};--entrance-delay:${180 + index * 110}ms`;
+  return product.status === "coming-soon"
+    ? `<span class="orbit-node is-coming" data-index="${index}" data-status="coming-soon" aria-label="${product.name}, segera hadir" style="${style}">${content}</span>`
+    : `<a class="orbit-node" data-index="${index}" data-status="available" href="${product.href}" aria-label="Buka ${product.name}" style="${style}">${content}</a>`;
+};
 const orbit = () => `<div class="orbit-stage" data-orbit aria-label="Ekosistem produk DagangOS interaktif">
   <canvas class="neuron-canvas" role="img" aria-label="Jaringan produk yang terhubung ke pusat DagangOS"></canvas>
   <div class="universe-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -21,9 +33,9 @@ const orbit = () => `<div class="orbit-stage" data-orbit aria-label="Ekosistem p
     <span class="core-object"><span class="core-glass"><img src="${image("dagangos-icon.png")}" alt=""></span></span>
     <span class="core-caption"><b>DagangOS</b><small>Pusat ekosistem</small></span>
   </div>
-  ${products.map((product, index) => `<a class="orbit-node" data-index="${index}" href="${product.href}" aria-label="Buka ${product.name}" style="--node:${product.color};--entrance-delay:${180 + index * 110}ms"><span class="node-object"><i class="node-field" aria-hidden="true"></i><i class="node-glass" aria-hidden="true"></i><img src="${image(product.icon)}" alt=""></span><span class="node-label"><b>${product.name}</b><small>${product.desc}</small></span></a>`).join("")}
+  ${products.map(orbitNode).join("")}
 </div>`;
-const marquee = `<div class="marquee"><div class="marquee-track">${[...products, ...products].map((product) => `<span>${product.name}</span>`).join("")}</div></div>`;
+const marquee = `<div class="marquee"><div class="marquee-track">${[...products, ...products].map((product) => `<span>${product.name}${product.status === "coming-soon" ? " · Segera hadir" : ""}</span>`).join("")}</div></div>`;
 const cta = `<section class="shell cta-band reveal"><h2>Temukan sistem yang cocok dengan cara bisnis Anda bekerja.</h2><a class="button" href="/produk">Jelajahi ekosistem <span>↗</span></a></section>`;
 const flow = `<div class="flow-track"><i class="flow-packet"></i>
   <div class="flow-step"><i>01</i><b>Aktivitas</b><span>Proses bisnis dimulai di produk yang sesuai.</span></div>
@@ -34,14 +46,13 @@ const flow = `<div class="flow-track"><i class="flow-packet"></i>
 
 const pages = {
   home: `<div class="page">
-    <section class="shell hero"><div class="hero-copy"><span class="eyebrow">Ekosistem produk DagangOS</span><h1>Satu <em>ekosistem.</em><br>Banyak solusi.<br>Untuk bisnis Indonesia.</h1><p>DagangOS menyatukan produk digital yang dibangun untuk kebutuhan operasional berbeda. Setiap produk membawa identitas dan alur kerja industrinya sendiri, tetap terhubung dalam satu keluarga teknologi.</p><div class="hero-actions"><a class="button button-primary" href="/produk">Jelajahi Ekosistem <span>↗</span></a><a class="button" href="/solusi">Lihat cara kerjanya</a></div><div class="signal-list"><span><b>Identitas mandiri</b>Setiap produk punya karakter.</span><span><b>Satu keluarga</b>Bahasa desain yang konsisten.</span></div></div>${orbit()}</section>
-    ${marquee}
-    <section class="shell chapter"><div class="chapter-head reveal"><div><span class="eyebrow">Produk aktif & berkembang</span><h2>Dirancang dari cara bisnis bekerja.</h2></div><p>Bukan satu aplikasi yang dipaksakan ke semua industri. Setiap sistem fokus pada kebutuhan operasional yang berbeda, dengan pengalaman yang tetap terasa sebagai bagian dari DagangOS.</p></div>${productRows()}</section>
+    <section class="shell hero hero-universe"><div class="hero-copy"><span class="eyebrow">Ekosistem operasional DagangOS</span><h1>Bisnis bergerak.<br><em>Sistem ikut hidup.</em></h1><p>DagangOS menghubungkan produk digital yang dibangun untuk cara kerja berbeda—retail, restoran, layanan, dan kebutuhan bisnis lainnya—dalam satu keluarga teknologi.</p><div class="hero-actions"><a class="button button-primary" href="/produk">Jelajahi Ekosistem <span>↗</span></a><a class="button" href="/solusi">Lihat cara kerjanya</a></div><div class="hero-availability"><span><i></i>Geraina POS</span><span><i></i>DapurOS</span><small>Tersedia sekarang</small></div></div>${orbit()}</section>
+    <section class="shell chapter"><div class="chapter-head reveal"><div><span class="eyebrow">Status produk</span><h2>Tersedia sekarang.<br>Berikutnya sedang dibangun.</h2></div><p>Geraina POS dan DapurOS dapat langsung digunakan. LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan dan ditandai jelas sebagai “Segera hadir”.</p></div>${productRows()}</section>
     <section class="shell chapter dark-stage reveal"><span class="eyebrow">Satu alur operasional</span><h2>Teknologi yang mengikuti pergerakan bisnis.</h2><p>Dari aktivitas di lapangan hingga informasi untuk mengambil keputusan.</p>${flow}</section>${cta}
   </div>`,
-  produk: `<div class="page"><section class="shell page-hero"><span class="eyebrow">Produk DagangOS</span><h1>Bukan kumpulan kartu.<br><em>Sistem yang punya peran.</em></h1><p>Masuk ke produk yang sesuai dengan konteks bisnis Anda. Geraina POS dan DapurOS dapat langsung digunakan; produk lain ditampilkan sebagai bagian dari arah ekosistem.</p><div class="hero-actions"><a class="button button-primary" href="/geraina">Buka Geraina POS</a><a class="button" href="/dapuros">Buka DapurOS</a></div></section>${marquee}<section class="shell chapter">${productRows()}</section><section class="shell chapter dark-stage reveal"><span class="eyebrow">Pusat ekosistem</span><h2>Produk bergerak mengitari satu identitas DagangOS.</h2><p>Gerakkan pointer untuk merasakan kedalaman. Setiap produk bergerak di ruangnya sendiri sambil tetap terhubung ke pusat DagangOS.</p>${orbit()}</section>${cta}</div>`,
+  produk: `<div class="page"><section class="shell page-hero"><span class="eyebrow">Produk DagangOS</span><h1>Bukan kumpulan kartu.<br><em>Sistem yang punya peran.</em></h1><p>Geraina POS dan DapurOS dapat langsung digunakan. LaundryOS, AutoCareOS, dan SalonOS masih dalam pengembangan dan ditandai sebagai “Segera hadir”.</p><div class="hero-actions"><a class="button button-primary" href="/geraina">Buka Geraina POS</a><a class="button" href="/dapuros">Buka DapurOS</a></div></section>${marquee}<section class="shell chapter">${productRows()}</section><section class="shell chapter dark-stage reveal"><span class="eyebrow">Pusat ekosistem</span><h2>Produk bergerak mengitari satu identitas DagangOS.</h2><p>Gerakkan pointer untuk merasakan kedalaman. Setiap produk bergerak di ruangnya sendiri sambil tetap terhubung ke pusat DagangOS.</p>${orbit()}</section>${cta}</div>`,
   solusi: `<div class="page"><section class="shell page-hero"><span class="eyebrow">Cara kerja</span><h1>Dari pekerjaan harian<br>menjadi <em>alur yang terbaca.</em></h1><p>Solusi DagangOS dirancang di sekitar proses nyata: transaksi, produksi, layanan, pencatatan, dan tindak lanjut.</p></section>${marquee}<section class="shell chapter"><article class="solution-story reveal"><span>01 · FRONTLINE</span><div><h2>Mulai dari titik aktivitas.</h2><p>Kasir, pesanan, meja, stok, atau layanan menjadi pintu masuk data—sesuai cara bisnis beroperasi.</p><div class="motion-lane"><i class="motion-object"><img src="${image("geraina-icon.png")}" alt=""></i><i class="motion-object"><img src="${image("dapuros-icon.png")}" alt=""></i><i class="motion-object"><img src="${image("autocareos-icon.png")}" alt=""></i></div></div></article><article class="solution-story reveal"><span>02 · WORKFLOW</span><div><h2>Informasi bergerak bersama pekerjaan.</h2><p>Status, transaksi, bahan, dan tanggung jawab tidak berhenti di satu layar. Sistem meneruskan konteks ke langkah berikutnya.</p>${flow}</div></article><article class="solution-story reveal"><span>03 · CONTROL</span><div><h2>Pengelola melihat apa yang perlu ditindaklanjuti.</h2><p>Setiap produk menyajikan kontrol dan laporan yang relevan untuk industrinya, tanpa klaim atau angka yang dibuat-buat.</p></div></article></section>${cta}</div>`,
-  industri: `<div class="page"><section class="shell page-hero"><span class="eyebrow">Konteks industri</span><h1>Satu keluarga desain.<br><em>Karakter yang berbeda.</em></h1><p>Pilih industri untuk melihat bagaimana identitas, perangkat, dan alur kerja berubah tanpa kehilangan hubungan dengan DagangOS.</p></section><section class="shell chapter"><div class="industry-selector reveal"><div class="industry-tabs" role="tablist">${["Retail", "Restoran & F&B", "Laundry", "Otomotif", "Salon & Layanan", "Kehadiran Digital"].map((label, index) => `<button role="tab" data-industry="${index}" class="${index === 0 ? "is-active" : ""}">${label}<span>0${index + 1}</span></button>`).join("")}</div><div class="industry-scene" data-industry-scene><div class="scene-copy"><small data-scene-label>Geraina POS</small><h2 data-scene-title>Retail yang terhubung.</h2><p data-scene-copy>Transaksi, produk, inventori, supplier, dan laporan berada di satu alur.</p></div><div class="scene-device"></div><i class="scene-orb" style="left:63%;top:20%"></i><i class="scene-orb" style="left:48%;top:68%;animation-delay:-2s;width:40px;height:40px"></i></div></div></section>${cta}</div>`,
+  industri: `<div class="page"><section class="shell page-hero"><span class="eyebrow">Konteks industri</span><h1>Satu keluarga desain.<br><em>Karakter yang berbeda.</em></h1><p>Pilih industri untuk melihat bagaimana identitas, perangkat, dan alur kerja berubah tanpa kehilangan hubungan dengan DagangOS.</p></section><section class="shell chapter"><div class="industry-selector reveal"><div class="industry-tabs" role="tablist">${["Retail", "Restoran & F&B", "Laundry · Segera hadir", "Otomotif · Segera hadir", "Salon · Segera hadir", "Kehadiran Digital"].map((label, index) => `<button role="tab" data-industry="${index}" class="${index === 0 ? "is-active" : ""}">${label}<span>0${index + 1}</span></button>`).join("")}</div><div class="industry-scene" data-industry-scene><div class="scene-copy"><small data-scene-label>Geraina POS</small><h2 data-scene-title>Retail yang terhubung.</h2><p data-scene-copy>Transaksi, produk, inventori, supplier, dan laporan berada di satu alur.</p></div><div class="scene-device"></div><i class="scene-orb" style="left:63%;top:20%"></i><i class="scene-orb" style="left:48%;top:68%;animation-delay:-2s;width:40px;height:40px"></i></div></div></section>${cta}</div>`,
   tentang: `<div class="page"><section class="shell page-hero"><span class="eyebrow">Tentang DagangOS</span><h1>Membangun sistem dari<br><em>kebutuhan operasional.</em></h1><p>DagangOS adalah ekosistem produk digital milik PT DagangOS Digital Indonesia. Setiap produk dibentuk untuk konteks bisnis yang spesifik.</p></section>${marquee}<section class="shell chapter"><div class="timeline"><article class="reveal"><small>PRINSIP 01</small><h2>Produk harus punya fokus.</h2><p>Geraina POS berfokus pada retail. DapurOS berfokus pada restoran dan F&B. Identitas produk mengikuti pekerjaan yang dilayani.</p></article><article class="reveal"><small>PRINSIP 02</small><h2>Keluarga tidak berarti seragam.</h2><p>Struktur, kualitas interaksi, dan fondasi visual tetap konsisten, sementara warna, suasana, dan simulasi mempertahankan karakter produk.</p></article><article class="reveal"><small>PRINSIP 03</small><h2>Kejujuran sebelum promosi.</h2><p>Situs ini tidak menampilkan jumlah pengguna, mitra, testimonial, atau klaim performa yang belum didukung bukti.</p></article></div></section>${cta}</div>`,
   "sumber-daya": `<div class="page"><section class="shell page-hero"><span class="eyebrow">Sumber daya</span><h1>Masuk, mulai, atau<br><em>bicara dengan kami.</em></h1><p>Akses langsung ke produk yang sudah tersedia dan kanal resmi untuk pertanyaan lebih lanjut.</p></section><section class="shell chapter"><div class="resource-list"><a class="resource-row reveal" href="/geraina"><small>RETAIL</small><h2>Pelajari Geraina POS</h2><span>↗</span></a><a class="resource-row reveal" href="/geraina/pricing"><small>HARGA</small><h2>Paket Geraina POS</h2><span>↗</span></a><a class="resource-row reveal" href="/dapuros"><small>F&B</small><h2>Pelajari DapurOS</h2><span>↗</span></a><a class="resource-row reveal" href="/dapuros/pricing"><small>HARGA</small><h2>Paket DapurOS</h2><span>↗</span></a><a class="resource-row reveal" href="mailto:contact@dagangos.com"><small>EMAIL</small><h2>contact@dagangos.com</h2><span>↗</span></a><a class="resource-row reveal" href="https://wa.me/628999155182"><small>WHATSAPP</small><h2>+62 899 9155 182</h2><span>↗</span></a><div class="resource-row reveal"><small>LOKASI</small><h2>Subang, West Java, Indonesia</h2><span>◎</span></div></div></section>${cta}</div>`,
 };
@@ -164,6 +175,7 @@ function startOrbit(stage) {
         y: yCenter - (compact ? 7 : 13),
         depth,
         color: getComputedStyle(node).getPropertyValue("--node").trim(),
+        coming: node.dataset.status === "coming-soon",
       };
     });
 
@@ -198,9 +210,9 @@ function startOrbit(stage) {
         y: center.y + (position.y - center.y) * 0.43 - Math.sin(time * 0.00032 + index) * (compact ? 5 : 15),
       };
       const gradient = context.createLinearGradient(center.x, center.y, position.x, position.y);
-      gradient.addColorStop(0, "rgba(65,112,255,.62)");
-      gradient.addColorStop(0.55, `${position.color}78`);
-      gradient.addColorStop(1, `${position.color}1f`);
+      gradient.addColorStop(0, position.coming ? "rgba(65,112,255,.28)" : "rgba(65,112,255,.62)");
+      gradient.addColorStop(0.55, `${position.color}${position.coming ? "42" : "78"}`);
+      gradient.addColorStop(1, `${position.color}${position.coming ? "10" : "1f"}`);
       context.beginPath();
       context.moveTo(center.x, center.y);
       context.quadraticCurveTo(control.x, control.y, position.x, position.y);
@@ -212,7 +224,7 @@ function startOrbit(stage) {
       const pulse = bezierPoint(center, control, position, pulseOffset);
       context.beginPath();
       context.arc(pulse.x, pulse.y, 2 + position.depth * 1.6, 0, Math.PI * 2);
-      context.fillStyle = position.color;
+      context.fillStyle = position.coming ? `${position.color}99` : position.color;
       context.shadowColor = position.color;
       context.shadowBlur = 16;
       context.fill();
@@ -243,9 +255,9 @@ document.querySelectorAll("[data-orbit]").forEach(startOrbit);
 const industryData = [
   ["Geraina POS", "Retail yang terhubung.", "Transaksi, produk, inventori, supplier, dan laporan berada di satu alur.", "#43df8c", "#bdf6d7"],
   ["DapurOS", "Dari pesanan ke dapur.", "Kasir, meja, KDS, resep, bahan, dan status pesanan bergerak bersama.", "#ff7a31", "#ffd3b8"],
-  ["LaundryOS", "Layanan yang terlacak.", "Penerimaan, proses cucian, status, dan serah-terima berada pada urutan yang jelas.", "#2b9bf0", "#bee9ff"],
-  ["AutoCareOS", "Workshop dalam kendali.", "Kendaraan, pekerjaan servis, suku cadang, dan status pengerjaan tersusun dalam satu alur.", "#176fe8", "#b9d4ff"],
-  ["SalonOS", "Jadwal bertemu layanan.", "Reservasi, layanan, staf, dan transaksi bertemu dalam pengalaman yang rapi.", "#e14ab4", "#f7c4e9"],
+  ["LaundryOS · Segera hadir", "Layanan yang terlacak.", "Penerimaan, proses cucian, status, dan serah-terima berada pada urutan yang jelas.", "#2b9bf0", "#bee9ff"],
+  ["AutoCareOS · Segera hadir", "Workshop dalam kendali.", "Kendaraan, pekerjaan servis, suku cadang, dan status pengerjaan tersusun dalam satu alur.", "#176fe8", "#b9d4ff"],
+  ["SalonOS · Segera hadir", "Jadwal bertemu layanan.", "Reservasi, layanan, staf, dan transaksi bertemu dalam pengalaman yang rapi.", "#e14ab4", "#f7c4e9"],
   ["DagangOS Web", "Wajah digital bisnis.", "Kehadiran web membawa identitas dan informasi bisnis ke ruang digital.", "#7257ef", "#d8cdfd"],
 ];
 document.querySelectorAll("[data-industry]").forEach((button) => button.addEventListener("click", () => {
