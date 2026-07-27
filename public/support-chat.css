@@ -11,6 +11,14 @@
   color: var(--support-ink);
   font-family: "Manrope", "Plus Jakarta Sans", system-ui, sans-serif;
 }
+.dagangos-support--geraina {
+  --support-blue: #20bd73;
+  --support-green: #62e798;
+}
+.dagangos-support--dapuros {
+  --support-blue: #ed6a16;
+  --support-green: #ffab62;
+}
 
 .dagangos-support * { box-sizing: border-box; }
 
@@ -51,7 +59,7 @@
   right: 0;
   bottom: 68px;
   display: grid;
-  grid-template-rows: auto minmax(220px, 340px) auto auto;
+  grid-template-rows: auto minmax(220px, 340px) auto;
   width: min(390px, calc(100vw - 28px));
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.9);
@@ -76,6 +84,29 @@
   background:
     radial-gradient(circle at 86% 5%, rgba(69,130,255,.7), transparent 38%),
     linear-gradient(135deg, #10233f, #193c69);
+}
+.dagangos-support--geraina .dagangos-support__head {
+  background:
+    radial-gradient(circle at 86% 5%, rgba(58,220,135,.48), transparent 38%),
+    linear-gradient(135deg, #071d17, #0c4935);
+}
+.dagangos-support--dapuros .dagangos-support__head {
+  background:
+    radial-gradient(circle at 86% 5%, rgba(255,129,47,.5), transparent 38%),
+    linear-gradient(135deg, #1d0d05, #633016);
+}
+.dagangos-support__identity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.dagangos-support__identity > img {
+  width: 34px;
+  height: 34px;
+  padding: 5px;
+  border-radius: 11px;
+  object-fit: contain;
+  background: rgba(255,255,255,.1);
 }
 
 .dagangos-support__head:after {
@@ -154,6 +185,12 @@
 }
 
 .dagangos-support__message--status { color: var(--support-muted); font-style: italic; }
+.dagangos-support__message a {
+  color: var(--support-blue);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .dagangos-support__form {
   display: flex;
@@ -196,18 +233,6 @@
 
 .dagangos-support__send:disabled { opacity: .45; cursor: not-allowed; }
 
-.dagangos-support__contact {
-  display: grid;
-  gap: 5px;
-  padding: 11px 17px 14px;
-  border-top: 1px solid var(--support-line);
-  color: var(--support-muted);
-  background: #f8faff;
-  font-size: 10px;
-}
-
-.dagangos-support__contact a { color: var(--support-ink); font-weight: 700; text-decoration: none; }
-
 @keyframes support-open {
   from { opacity: 0; transform: translateY(12px) scale(.96); }
   to { opacity: 1; transform: none; }
@@ -217,7 +242,7 @@
   .dagangos-support__launcher { min-width: 54px; padding-right: 8px; }
   .dagangos-support__launcher > span,
   .dagangos-support__launcher > i { display: none; }
-  .dagangos-support__panel { bottom: 64px; grid-template-rows: auto minmax(190px, 48vh) auto auto; }
+  .dagangos-support__panel { bottom: 64px; grid-template-rows: auto minmax(190px, 48vh) auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
