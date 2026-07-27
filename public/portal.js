@@ -46,7 +46,8 @@ const flow = `<div class="flow-track"><i class="flow-packet"></i>
 
 const pages = {
   home: `<div class="page">
-    <section class="shell hero hero-universe"><div class="hero-copy"><span class="eyebrow">Ekosistem operasional DagangOS</span><h1>Bisnis bergerak.<br><em>Sistem ikut hidup.</em></h1><p>DagangOS menghubungkan produk digital yang dibangun untuk cara kerja berbeda—retail, restoran, layanan, dan kebutuhan bisnis lainnya—dalam satu keluarga teknologi.</p><div class="hero-actions"><a class="button button-primary" href="/produk">Jelajahi Ekosistem <span>↗</span></a><a class="button" href="/solusi">Lihat cara kerjanya</a></div><div class="hero-availability"><span><i></i>Geraina POS</span><span><i></i>DapurOS</span><small>Tersedia sekarang</small></div></div>${orbit()}</section>
+    <section class="shell hero hero-cinematic" data-cinematic><div class="cinematic-backdrop" aria-hidden="true"></div><div class="cinematic-vignette" aria-hidden="true"></div><div class="cinematic-core-logo" aria-hidden="true"><span></span><img src="${image("dagangos-icon.png")}" alt=""></div><div class="hero-copy"><span class="eyebrow">Ekosistem operasional DagangOS</span><h1>Satu <em>ekosistem.</em><br>Semua solusi.<br>Untuk bisnis Indonesia.</h1><p>DagangOS menghubungkan produk digital yang dibangun untuk cara kerja berbeda—retail, restoran, dan kebutuhan operasional lainnya—dalam satu keluarga teknologi.</p><div class="hero-actions"><a class="button button-primary" href="/produk">Jelajahi Ekosistem <span>↗</span></a><a class="button" href="/solusi">Lihat cara kerjanya</a></div><div class="hero-availability"><span><i></i>Geraina POS</span><span><i></i>DapurOS</span><small>Tersedia sekarang</small></div></div></section>
+    <section class="shell ecosystem-dock" aria-label="Produk DagangOS">${products.map((product) => { const content = `<img src="${image(product.icon)}" alt=""><span><b>${product.name}</b><small>${product.status === "coming-soon" ? "Segera hadir" : product.desc}</small></span>`; return product.status === "coming-soon" ? `<div class="dock-product is-coming" style="--accent:${product.color}">${content}</div>` : `<a class="dock-product" href="${product.href}" style="--accent:${product.color}">${content}<strong>↗</strong></a>`; }).join("")}</section>
     <section class="shell chapter"><div class="chapter-head reveal"><div><span class="eyebrow">Status produk</span><h2>Tersedia sekarang.<br>Berikutnya sedang dibangun.</h2></div><p>Geraina POS dan DapurOS dapat langsung digunakan. LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan dan ditandai jelas sebagai “Segera hadir”.</p></div>${productRows()}</section>
     <section class="shell chapter dark-stage reveal"><span class="eyebrow">Satu alur operasional</span><h2>Teknologi yang mengikuti pergerakan bisnis.</h2><p>Dari aktivitas di lapangan hingga informasi untuk mengambil keputusan.</p>${flow}</section>${cta}
   </div>`,
@@ -69,6 +70,18 @@ toggle?.addEventListener("click", () => {
 });
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+document.querySelectorAll("[data-cinematic]").forEach((scene) => {
+  if (reduced) return;
+  scene.addEventListener("pointermove", (event) => {
+    const rect = scene.getBoundingClientRect();
+    scene.style.setProperty("--cinematic-x", `${((event.clientX - rect.left) / rect.width - 0.5) * 14}px`);
+    scene.style.setProperty("--cinematic-y", `${((event.clientY - rect.top) / rect.height - 0.5) * 10}px`);
+  });
+  scene.addEventListener("pointerleave", () => {
+    scene.style.setProperty("--cinematic-x", "0px");
+    scene.style.setProperty("--cinematic-y", "0px");
+  });
+});
 document.querySelectorAll(".reveal").forEach((element) => {
   const observer = new IntersectionObserver(([entry]) => {
     if (entry.isIntersecting) {
