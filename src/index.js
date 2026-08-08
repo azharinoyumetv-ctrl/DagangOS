@@ -19,7 +19,7 @@ const portalDocuments = {
   '/produk': {
     title: 'Produk — DagangOS',
     description: 'Produk DagangOS untuk retail, restoran, dan kehadiran digital bisnis.',
-    content: '<span class="eyebrow">Produk DagangOS</span><h1>Sistem yang punya peran.</h1><p><a href="/geraina">Geraina POS</a> untuk retail, <a href="/dapuros">DapurOS</a> untuk restoran dan F&amp;B, serta <a href="https://store.dagangos.com/">DagangOS Web</a> untuk website dan kehadiran digital.</p><p>LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan.</p>',
+    content: '<span class="eyebrow">Produk DagangOS</span><h1>Sistem yang punya peran.</h1><p><a href="/geraina">Geraina POS</a> untuk retail, <a href="/dapuros">DapurOS</a> untuk restoran dan F&amp;B, serta <a href="https://wmp.dagangos.com/">DagangOS Web</a> untuk website dan kehadiran digital.</p><p>LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan.</p>',
   },
   '/solusi': {
     title: 'Solusi — DagangOS',
@@ -39,7 +39,7 @@ const portalDocuments = {
   '/sumber-daya': {
     title: 'Sumber Daya & Kontak — DagangOS',
     description: 'Akses produk, harga, dan kanal kontak resmi PT DagangOS Digital Indonesia.',
-    content: '<span class="eyebrow">Sumber daya</span><h1>Masuk, mulai, atau bicara dengan kami.</h1><p><a href="/geraina/pricing">Harga Geraina POS</a> · <a href="/dapuros/pricing">Harga DapurOS</a> · <a href="https://store.dagangos.com/id/pricing">Harga DagangOS Web</a></p><p>Email: <a href="mailto:contact@dagangos.com">contact@dagangos.com</a> · WhatsApp: <a href="https://wa.me/628999155182">+62 899 9155 182</a></p><p>Subang, West Java, Indonesia</p>',
+    content: '<span class="eyebrow">Sumber daya</span><h1>Masuk, mulai, atau bicara dengan kami.</h1><p><a href="/geraina/pricing">Harga Geraina POS</a> · <a href="/dapuros/pricing">Harga DapurOS</a> · <a href="https://wmp.dagangos.com/id/pricing">Harga DagangOS Web</a></p><p>Email: <a href="mailto:contact@dagangos.com">contact@dagangos.com</a> · WhatsApp: <a href="https://wa.me/628999155182">+62 899 9155 182</a></p><p>Subang, West Java, Indonesia</p>',
   },
 };
 
@@ -271,7 +271,7 @@ export default {
           });
         }
 
-        const supportUrl = new URL('https://store.dagangos.com/api/support-chat');
+        const supportUrl = new URL('https://wmp.dagangos.com/api/support-chat');
         const supportHeaders = new Headers(request.headers);
         supportHeaders.set('Host', supportUrl.hostname);
         supportHeaders.set('Content-Type', 'application/json');

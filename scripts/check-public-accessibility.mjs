@@ -20,31 +20,31 @@ const publicPages = [
   ['https://dagangos.com/dapuros/pricing', /Rp\s*249\.000/i],
   ['https://dagangos.com/robots.txt', /Sitemap:\s*https:\/\/dagangos\.com\/sitemap\.xml/i],
   ['https://dagangos.com/sitemap.xml', /https:\/\/dagangos\.com\/geraina\/pricing/i],
-  ['https://store.dagangos.com/', /PT DagangOS Digital Indonesia/i],
-  ['https://store.dagangos.com/en', /PT DagangOS Digital Indonesia/i],
-  ['https://store.dagangos.com/id', /PT DagangOS Digital Indonesia/i],
-  ['https://store.dagangos.com/en/pricing', /Website and Platform Pricing/i],
-  ['https://store.dagangos.com/id/pricing', /Harga Paket Website dan Platform/i],
-  ['https://store.dagangos.com/en/business', /Business Information/i],
-  ['https://store.dagangos.com/id/business', /Informasi Bisnis/i],
-  ['https://store.dagangos.com/en/site/about', /About Us/i],
-  ['https://store.dagangos.com/id/site/about', /Tentang Kami/i],
-  ['https://store.dagangos.com/en/site/catalog', /Solutions Catalog/i],
-  ['https://store.dagangos.com/id/site/catalog', /Solutions Catalog/i],
-  ['https://store.dagangos.com/en/site/shop', /Ownership Packages/i],
-  ['https://store.dagangos.com/id/site/shop', /Paket Kepemilikan/i],
-  ['https://store.dagangos.com/en/site/contact', /contact@dagangos\.com/i],
-  ['https://store.dagangos.com/id/site/contact', /contact@dagangos\.com/i],
-  ['https://store.dagangos.com/en/site/support', /Support/i],
-  ['https://store.dagangos.com/id/site/support', /Dukungan/i],
-  ['https://store.dagangos.com/en/site/terms', /Terms of Service/i],
-  ['https://store.dagangos.com/id/site/terms', /Syarat (?:&amp;|&) Ketentuan/i],
-  ['https://store.dagangos.com/en/site/privacy', /Privacy Policy/i],
-  ['https://store.dagangos.com/id/site/privacy', /Kebijakan Privasi/i],
-  ['https://store.dagangos.com/en/site/refund', /Cancellation and Refund Policy/i],
-  ['https://store.dagangos.com/id/site/refund', /Kebijakan Pembatalan dan Refund/i],
-  ['https://store.dagangos.com/robots.txt', /Sitemap:\s*https:\/\/store\.dagangos\.com\/sitemap\.xml/i],
-  ['https://store.dagangos.com/sitemap.xml', /https:\/\/store\.dagangos\.com\/id\/pricing/i],
+  ['https://wmp.dagangos.com/', /PT DagangOS Digital Indonesia/i],
+  ['https://wmp.dagangos.com/en', /PT DagangOS Digital Indonesia/i],
+  ['https://wmp.dagangos.com/id', /PT DagangOS Digital Indonesia/i],
+  ['https://wmp.dagangos.com/en/pricing', /Website and Platform Pricing/i],
+  ['https://wmp.dagangos.com/id/pricing', /Harga Paket Website dan Platform/i],
+  ['https://wmp.dagangos.com/en/business', /Business Information/i],
+  ['https://wmp.dagangos.com/id/business', /Informasi Bisnis/i],
+  ['https://wmp.dagangos.com/en/site/about', /About Us/i],
+  ['https://wmp.dagangos.com/id/site/about', /Tentang Kami/i],
+  ['https://wmp.dagangos.com/en/site/catalog', /Solutions Catalog/i],
+  ['https://wmp.dagangos.com/id/site/catalog', /Solutions Catalog/i],
+  ['https://wmp.dagangos.com/en/site/shop', /Ownership Packages/i],
+  ['https://wmp.dagangos.com/id/site/shop', /Paket Kepemilikan/i],
+  ['https://wmp.dagangos.com/en/site/contact', /contact@dagangos\.com/i],
+  ['https://wmp.dagangos.com/id/site/contact', /contact@dagangos\.com/i],
+  ['https://wmp.dagangos.com/en/site/support', /Support/i],
+  ['https://wmp.dagangos.com/id/site/support', /Dukungan/i],
+  ['https://wmp.dagangos.com/en/site/terms', /Terms of Service/i],
+  ['https://wmp.dagangos.com/id/site/terms', /Syarat (?:&amp;|&) Ketentuan/i],
+  ['https://wmp.dagangos.com/en/site/privacy', /Privacy Policy/i],
+  ['https://wmp.dagangos.com/id/site/privacy', /Kebijakan Privasi/i],
+  ['https://wmp.dagangos.com/en/site/refund', /Cancellation and Refund Policy/i],
+  ['https://wmp.dagangos.com/id/site/refund', /Kebijakan Pembatalan dan Refund/i],
+  ['https://wmp.dagangos.com/robots.txt', /Sitemap:\s*https:\/\/wmp\.dagangos\.com\/sitemap\.xml/i],
+  ['https://wmp.dagangos.com/sitemap.xml', /https:\/\/wmp\.dagangos\.com\/id\/pricing/i],
 ]
 
 const applicationPages = [
@@ -52,13 +52,13 @@ const applicationPages = [
   ['https://dagangos.com/geraina/register', /<div id="root">/i],
   ['https://dagangos.com/dapuros/login', /<div id="root">/i],
   ['https://dagangos.com/dapuros/register', /<div id="root">/i],
-  ['https://store.dagangos.com/checkout', /DagangOS/i],
-  ['https://store.dagangos.com/login', /PT DagangOS Digital Indonesia/i],
-  ['https://store.dagangos.com/register', /PT DagangOS Digital Indonesia/i],
-  ['https://store.dagangos.com/terms', /Terms of Service/i],
-  ['https://store.dagangos.com/privacy', /Privacy Policy/i],
-  ['https://store.dagangos.com/refund-policy', /Cancellation and Refund Policy/i],
-  ['https://store.dagangos.com/contact', /contact@dagangos\.com/i],
+  ['https://wmp.dagangos.com/checkout', /DagangOS/i],
+  ['https://wmp.dagangos.com/login', /PT DagangOS Digital Indonesia/i],
+  ['https://wmp.dagangos.com/register', /PT DagangOS Digital Indonesia/i],
+  ['https://wmp.dagangos.com/terms', /Terms of Service/i],
+  ['https://wmp.dagangos.com/privacy', /Privacy Policy/i],
+  ['https://wmp.dagangos.com/refund-policy', /Cancellation and Refund Policy/i],
+  ['https://wmp.dagangos.com/contact', /contact@dagangos\.com/i],
 ]
 
 async function get(url, userAgent, redirect = 'follow') {
@@ -113,9 +113,9 @@ for (const [url, marker] of applicationPages) {
 }
 
 await checkStatus('https://dagangos.com/random-healthcheck-nonexistent', 404)
-await checkStatus('https://store.dagangos.com/definitely-not-real', 404, googlebotAgent, 'follow')
+await checkStatus('https://wmp.dagangos.com/definitely-not-real', 404, googlebotAgent, 'follow')
 
-const admin = await get('https://store.dagangos.com/en/admin', browserAgent, 'manual')
+const admin = await get('https://wmp.dagangos.com/en/admin', browserAgent, 'manual')
 if (![302, 307, 308].includes(admin.status) || !/\/en\/auth\/login/.test(admin.headers.get('location') || '')) {
   throw new Error(`Protected admin route did not redirect to login: ${admin.status} ${admin.headers.get('location')}`)
 }
@@ -126,8 +126,8 @@ await checkRedirect(
   'https://dagangos.com/produk?source=visibility-check',
 )
 await checkRedirect(
-  'https://shop.dagangos.com/id/pricing?source=visibility-check',
   'https://store.dagangos.com/id/pricing?source=visibility-check',
+  'https://wmp.dagangos.com/id/pricing?source=visibility-check',
 )
 
 const unknownTenant = await get('https://random-visibility-check.dagangos.com/', browserAgent, 'manual')

@@ -71,7 +71,7 @@ audit.findings = {
   dnsAuditAvailable: Array.isArray(dnsRecords),
   wildcardRecords: wildcardRecords.map(record => ({ id: record.id, type: record.type, name: record.name, content: record.content, proxied: record.proxied })),
   missingExactRecords: Array.isArray(dnsRecords)
-    ? ['www.dagangos.com', 'shop.dagangos.com'].filter(name => !exactNames.has(name))
+    ? ['www.dagangos.com', 'wmp.dagangos.com'].filter(name => !exactNames.has(name))
     : null,
   hasDynamicRedirectRuleset: Array.isArray(redirectRulesets) && redirectRulesets.length > 0,
 }
