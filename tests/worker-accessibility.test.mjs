@@ -66,6 +66,26 @@ test('robots and sitemap are served as public assets', async () => {
   assert.match(await sitemap.text(), /https:\/\/dagangos\.com\/geraina\/pricing/)
 })
 
+test('every public portal route exposes route-specific content and canonical metadata without JavaScript', async () => {
+  const expectations = [
+    ['/', /Satu ekosistem\. Semua solusi\./, 'https://dagangos.com/'],
+    ['/produk', /Geraina POS/, 'https://dagangos.com/produk'],
+    ['/solusi', /aktivitas, alur kerja, data, dan kontrol bisnis/i, 'https://dagangos.com/solusi'],
+    ['/industri', /DapurOS melayani restoran/i, 'https://dagangos.com/industri'],
+    ['/tentang', /PT DagangOS Digital Indonesia/, 'https://dagangos.com/tentang'],
+    ['/sumber-daya', /contact@dagangos\.com/, 'https://dagangos.com/sumber-daya'],
+  ]
+
+  for (const [pathname, marker, canonical] of expectations) {
+    const response = await get(pathname, 'Mozilla/5.0 (compatible; Googlebot/2.1)')
+    const body = await response.text()
+    assert.equal(response.status, 200)
+    assert.match(body, marker)
+    assert.match(body, new RegExp(`<link rel="canonical" href="${canonical.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">`))
+    assert.match(body, /data-server-rendered-public-content/)
+  }
+})
+
 test('unknown portal routes return a branded true 404', async () => {
   const response = await get('/definitely-not-real')
   const body = await response.text()

@@ -6,7 +6,8 @@
     "build": "node build.js",
     "deploy": "wrangler deploy",
     "test": "node --test tests/worker-accessibility.test.mjs",
-    "check:public": "node scripts/check-public-accessibility.mjs"
+    "check:public": "node scripts/check-public-accessibility.mjs",
+    "audit:cloudflare": "node scripts/audit-cloudflare-zone.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

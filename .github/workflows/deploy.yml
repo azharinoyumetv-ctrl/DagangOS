@@ -6,6 +6,34 @@ on:
     branches: [main]
 
 jobs:
+  cloudflare-zone-audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout DagangOS
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit DagangOS DNS, Worker routes, and redirect rules
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run audit:cloudflare -- --output=cloudflare-zone-audit.json
+
+      - name: Upload sanitized Cloudflare zone audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-zone-audit
+          path: cloudflare-zone-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
+
   deploy:
     runs-on: ubuntu-latest
     permissions:

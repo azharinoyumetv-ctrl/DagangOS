@@ -10,6 +10,68 @@ function injectPublicSupport(body) {
     : `${withHead}${bodyAssets}`;
 }
 
+const portalDocuments = {
+  '/': {
+    title: 'DagangOS — Ekosistem Operasional Bisnis',
+    description: 'DagangOS menyatukan produk digital untuk operasional bisnis Indonesia.',
+    content: '<span class="eyebrow">Ekosistem operasional DagangOS</span><h1>Satu ekosistem. Semua solusi. Untuk bisnis Indonesia.</h1><p>DagangOS menghubungkan produk digital untuk retail, restoran, dan kebutuhan operasional lainnya.</p><p><a href="/produk">Jelajahi produk DagangOS</a></p>',
+  },
+  '/produk': {
+    title: 'Produk — DagangOS',
+    description: 'Produk DagangOS untuk retail, restoran, dan kehadiran digital bisnis.',
+    content: '<span class="eyebrow">Produk DagangOS</span><h1>Sistem yang punya peran.</h1><p><a href="/geraina">Geraina POS</a> untuk retail, <a href="/dapuros">DapurOS</a> untuk restoran dan F&amp;B, serta <a href="https://store.dagangos.com/">DagangOS Web</a> untuk website dan kehadiran digital.</p><p>LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan.</p>',
+  },
+  '/solusi': {
+    title: 'Solusi — DagangOS',
+    description: 'Solusi DagangOS menghubungkan aktivitas, alur kerja, data, dan kontrol bisnis.',
+    content: '<span class="eyebrow">Cara kerja</span><h1>Dari pekerjaan harian menjadi alur yang terbaca.</h1><p>Solusi DagangOS dirancang di sekitar proses nyata: transaksi, produksi, layanan, pencatatan, dan tindak lanjut.</p><p><a href="/produk">Lihat produk dan solusi</a></p>',
+  },
+  '/industri': {
+    title: 'Industri — DagangOS',
+    description: 'Solusi DagangOS untuk retail, restoran dan F&B, serta kehadiran digital bisnis.',
+    content: '<span class="eyebrow">Konteks industri</span><h1>Satu keluarga desain. Karakter yang berbeda.</h1><p>Geraina POS melayani retail. DapurOS melayani restoran dan F&amp;B. DagangOS Web membangun kehadiran digital bisnis.</p><p><a href="/produk">Pilih produk berdasarkan industri</a></p>',
+  },
+  '/tentang': {
+    title: 'Tentang Kami — DagangOS',
+    description: 'Tentang PT DagangOS Digital Indonesia dan ekosistem produk digital DagangOS.',
+    content: '<span class="eyebrow">Tentang DagangOS</span><h1>Membangun sistem dari kebutuhan operasional.</h1><p>DagangOS adalah ekosistem produk digital milik PT DagangOS Digital Indonesia. Setiap produk dibentuk untuk konteks bisnis yang spesifik.</p>',
+  },
+  '/sumber-daya': {
+    title: 'Sumber Daya & Kontak — DagangOS',
+    description: 'Akses produk, harga, dan kanal kontak resmi PT DagangOS Digital Indonesia.',
+    content: '<span class="eyebrow">Sumber daya</span><h1>Masuk, mulai, atau bicara dengan kami.</h1><p><a href="/geraina/pricing">Harga Geraina POS</a> · <a href="/dapuros/pricing">Harga DapurOS</a> · <a href="https://store.dagangos.com/id/pricing">Harga DagangOS Web</a></p><p>Email: <a href="mailto:contact@dagangos.com">contact@dagangos.com</a> · WhatsApp: <a href="https://wa.me/628999155182">+62 899 9155 182</a></p><p>Subang, West Java, Indonesia</p>',
+  },
+};
+
+function renderPortalDocument(body, pathname) {
+  const page = portalDocuments[pathname];
+  if (!page || !body) return body;
+
+  const canonical = `https://dagangos.com${pathname === '/' ? '/' : pathname}`;
+  let rendered = body
+    .replace(/<title>[^<]*<\/title>/i, `<title>${page.title}</title>`)
+    .replace(
+      /<meta name="description" content="[^"]*">/i,
+      `<meta name="description" content="${page.description}">`,
+    )
+    .replace(
+      /<meta property="og:title" content="[^"]*">/i,
+      `<meta property="og:title" content="${page.title}">`,
+    )
+    .replace(
+      /<meta property="og:description" content="[^"]*">/i,
+      `<meta property="og:description" content="${page.description}">`,
+    )
+    .replace(
+      '<main id="app" tabindex="-1"></main>',
+      `<main id="app" tabindex="-1"><section class="shell page-hero" data-server-rendered-public-content>${page.content}</section></main>`,
+    );
+
+  const metadata = `<link rel="canonical" href="${canonical}"><meta property="og:url" content="${canonical}">`;
+  rendered = rendered.replace('</head>', `${metadata}</head>`);
+  return rendered;
+}
+
 async function serveHtmlAsset(env, request, assetPath, status = 200) {
   const assetUrl = new URL(assetPath, request.url);
   const assetResponse = await env.ASSETS.fetch(new Request(assetUrl.toString(), {
@@ -467,6 +529,7 @@ export default {
       portalHeaders.delete('Location');
 
       let portalBody = await portalResponse.text();
+      portalBody = renderPortalDocument(portalBody, pathname);
       portalBody = injectPublicSupport(portalBody);
 
       return new Response(portalBody, {
