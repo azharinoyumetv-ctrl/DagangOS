@@ -88,17 +88,17 @@ async function checkStatus(url, expectedStatus, userAgent = googlebotAgent, redi
   console.log(`PASS ${expectedStatus} ${url}`)
 }
 
-async function checkRedirect(url, expectedTarget) {
+async function checkDirectPage(url, marker) {
   for (const [agentName, userAgent] of agents) {
     const response = await get(url, userAgent, 'manual')
-    if (![301, 308].includes(response.status)) {
-      throw new Error(`${url} returned ${response.status} to ${agentName}; expected 301/308`)
+    const body = await response.text()
+    if (response.status !== 200 || response.headers.has('location')) {
+      throw new Error(`${url} returned ${response.status} with Location ${response.headers.get('location')} to ${agentName}; expected a direct 200`)
     }
-    const location = response.headers.get('location')
-    if (location !== expectedTarget) {
-      throw new Error(`${url} redirected to ${location}; expected ${expectedTarget}`)
+    if (challenge.test(body) || jsOnlyShell.test(body) || !marker.test(body)) {
+      throw new Error(`${url} did not return usable server-rendered content to ${agentName}`)
     }
-    console.log(`PASS ${response.status} ${url} -> ${location} [${agentName}]`)
+    console.log(`PASS direct 200 ${url} [${agentName}]`)
   }
 }
 
@@ -121,14 +121,15 @@ if (![302, 307, 308].includes(admin.status) || !/\/en\/auth\/login/.test(admin.h
 }
 console.log(`PASS protected admin redirect ${admin.status} -> ${admin.headers.get('location')}`)
 
-await checkRedirect(
-  'https://www.dagangos.com/produk?source=visibility-check',
-  'https://dagangos.com/produk?source=visibility-check',
-)
-await checkRedirect(
-  'https://store.dagangos.com/id/pricing?source=visibility-check',
-  'https://wmp.dagangos.com/id/pricing?source=visibility-check',
-)
+await checkDirectPage('https://www.dagangos.com/produk?source=visibility-check', /PT DagangOS Digital Indonesia/i)
+await checkDirectPage('https://store.dagangos.com/id/pricing?source=visibility-check', /Harga Paket Website dan Platform/i)
+await checkDirectPage('https://wmp.dagangos.com/', /PT DagangOS Digital Indonesia/i)
+
+const wmpRobots = await (await get('https://wmp.dagangos.com/robots.txt', googlebotAgent)).text()
+if (/Disallow:\s*\/\*\/checkout\/|Disallow:\s*\/\*\/project-setup\//i.test(wmpRobots)) {
+  throw new Error('WMP robots.txt still blocks checkout or project setup')
+}
+console.log('PASS WMP robots.txt allows checkout and project setup')
 
 const unknownTenant = await get('https://random-visibility-check.dagangos.com/', browserAgent, 'manual')
 const unknownTenantBody = await unknownTenant.text()
