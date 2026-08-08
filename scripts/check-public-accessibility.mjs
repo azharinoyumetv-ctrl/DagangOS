@@ -1,11 +1,13 @@
 const browserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/127 Safari/537.36'
 const googlebotAgent = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+const facebookAgent = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
 const challenge = /Just a moment|cf-chl-|403 Forbidden/i
 const jsOnlyShell = /You need to enable JavaScript to run this app/i
 const agents = [
   ['browser', browserAgent],
   ['Googlebot', googlebotAgent],
 ]
+const verificationAgents = [...agents, ['Facebook', facebookAgent]]
 
 const publicPages = [
   ['https://dagangos.com/', /PT DagangOS Digital Indonesia/i],
@@ -89,7 +91,7 @@ async function checkStatus(url, expectedStatus, userAgent = googlebotAgent, redi
 }
 
 async function checkDirectPage(url, marker) {
-  for (const [agentName, userAgent] of agents) {
+  for (const [agentName, userAgent] of verificationAgents) {
     const response = await get(url, userAgent, 'manual')
     const body = await response.text()
     if (response.status !== 200 || response.headers.has('location')) {
@@ -99,6 +101,20 @@ async function checkDirectPage(url, marker) {
       throw new Error(`${url} did not return usable server-rendered content to ${agentName}`)
     }
     console.log(`PASS direct 200 ${url} [${agentName}]`)
+  }
+}
+
+async function checkDirectAsset(url, expectedContentType) {
+  for (const [agentName, userAgent] of verificationAgents) {
+    const response = await get(url, userAgent, 'manual')
+    const contentType = response.headers.get('content-type') || ''
+    if (response.status !== 200 || response.headers.has('location')) {
+      throw new Error(`${url} returned ${response.status} with Location ${response.headers.get('location')} to ${agentName}; expected a direct 200`)
+    }
+    if (!expectedContentType.test(contentType)) {
+      throw new Error(`${url} returned content type ${contentType} to ${agentName}; expected ${expectedContentType}`)
+    }
+    console.log(`PASS direct asset 200 ${url} [${agentName}]`)
   }
 }
 
@@ -124,6 +140,11 @@ console.log(`PASS protected admin redirect ${admin.status} -> ${admin.headers.ge
 await checkDirectPage('https://www.dagangos.com/produk?source=visibility-check', /PT DagangOS Digital Indonesia/i)
 await checkDirectPage('https://store.dagangos.com/id/pricing?source=visibility-check', /Harga Paket Website dan Platform/i)
 await checkDirectPage('https://wmp.dagangos.com/', /PT DagangOS Digital Indonesia/i)
+await checkDirectAsset('https://www.dagangos.com/portal.css?source=visibility-check', /text\/css/i)
+await checkDirectAsset('https://www.dagangos.com/portal.js?source=visibility-check', /(?:application|text)\/javascript/i)
+await checkDirectAsset('https://www.dagangos.com/support-chat.css?source=visibility-check', /text\/css/i)
+await checkDirectAsset('https://www.dagangos.com/support-chat.js?source=visibility-check', /(?:application|text)\/javascript/i)
+await checkDirectAsset('https://www.dagangos.com/assets/brand/dagangos-icon.png?source=visibility-check', /image\/png/i)
 
 const wmpRobots = await (await get('https://wmp.dagangos.com/robots.txt', googlebotAgent)).text()
 if (/Disallow:\s*\/\*\/checkout\/|Disallow:\s*\/\*\/project-setup\//i.test(wmpRobots)) {
