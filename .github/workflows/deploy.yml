@@ -1,6 +1,7 @@
 name: Deploy DagangOS
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -93,6 +94,9 @@ jobs:
       - name: Combine builds
         run: node build.js
 
+      - name: Verify Worker public routing
+        run: npm test
+
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
@@ -162,3 +166,28 @@ jobs:
           name: playwright-report
           path: gerainaos/frontend/playwright-report/
           retention-days: 14
+
+  public-accessibility:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout DagangOS
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Wait for public deployment
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://dagangos.com/robots.txt || echo "000")
+            if [ "$code" = "200" ]; then exit 0; fi
+            echo "waiting for deployment... ($code)"
+            sleep 5
+          done
+          exit 1
+
+      - name: Verify browser and crawler accessibility
+        run: npm run check:public

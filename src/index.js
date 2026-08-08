@@ -10,6 +10,21 @@ function injectPublicSupport(body) {
     : `${withHead}${bodyAssets}`;
 }
 
+async function serveHtmlAsset(env, request, assetPath, status = 200) {
+  const assetUrl = new URL(assetPath, request.url);
+  const assetResponse = await env.ASSETS.fetch(new Request(assetUrl.toString(), {
+    method: 'GET',
+    headers: request.headers,
+    redirect: 'manual',
+  }));
+  const headers = new Headers(assetResponse.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('X-Robots-Tag', status === 404 ? 'noindex' : 'index, follow');
+  headers.delete('Location');
+  const body = injectPublicSupport(await assetResponse.text());
+  return new Response(body, { status, headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -360,6 +375,16 @@ export default {
 
       // === SPA Routing for non-asset paths ===
       // DapurOS: ALL /dapuros/* paths → serve /dapuros/index.html content
+      const publicProductPages = {
+        '/geraina': '/marketing/geraina.html',
+        '/geraina/pricing': '/marketing/geraina-pricing.html',
+        '/dapuros': '/marketing/dapuros.html',
+        '/dapuros/pricing': '/marketing/dapuros-pricing.html',
+      };
+      if (publicProductPages[pathname]) {
+        return serveHtmlAsset(env, request, publicProductPages[pathname]);
+      }
+
       if (pathname === '/dapuros' || pathname.startsWith('/dapuros/')) {
         const spaUrl = new URL('/dapuros/index.html', request.url);
         const assetResponse = await env.ASSETS.fetch(new Request(spaUrl.toString(), {
@@ -426,6 +451,11 @@ export default {
       }
 
       // Portal: ALL remaining paths → root /index.html
+      const portalRoutes = new Set(['/', '/produk', '/solusi', '/industri', '/tentang', '/sumber-daya']);
+      if (!portalRoutes.has(pathname)) {
+        return serveHtmlAsset(env, request, '/404.html', 404);
+      }
+
       const portalUrl = new URL('/index.html', request.url);
       const portalResponse = await env.ASSETS.fetch(new Request(portalUrl.toString(), {
         method: 'GET',

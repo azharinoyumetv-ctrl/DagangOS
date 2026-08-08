@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /geraina/app/
+Disallow: /dapuros/app/
+Disallow: /api/
+
+Sitemap: https://dagangos.com/sitemap.xml
