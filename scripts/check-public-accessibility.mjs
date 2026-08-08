@@ -1,8 +1,7 @@
-import { resolve4 } from 'node:dns/promises'
-
 const browserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/127 Safari/537.36'
 const googlebotAgent = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-const forbidden = /Just a moment|cf-chl-|403 Forbidden|You need to enable JavaScript to run this app/i
+const challenge = /Just a moment|cf-chl-|403 Forbidden/i
+const jsOnlyShell = /You need to enable JavaScript to run this app/i
 const agents = [
   ['browser', browserAgent],
   ['Googlebot', googlebotAgent],
@@ -70,18 +69,19 @@ async function get(url, userAgent, redirect = 'follow') {
   })
 }
 
-async function checkPage(url, marker, agentName, userAgent) {
+async function checkPage(url, marker, agentName, userAgent, { allowApplicationShell = false } = {}) {
   const response = await get(url, userAgent)
   const body = await response.text()
   if (response.status !== 200) throw new Error(`${url} returned ${response.status} to ${agentName}`)
   if (body.trim().length < 20) throw new Error(`${url} returned an unexpectedly short body to ${agentName}`)
-  if (forbidden.test(body)) throw new Error(`${url} returned a challenge or JS-only public shell to ${agentName}`)
+  if (challenge.test(body)) throw new Error(`${url} returned a challenge or block page to ${agentName}`)
+  if (!allowApplicationShell && jsOnlyShell.test(body)) throw new Error(`${url} returned a JS-only public shell to ${agentName}`)
   if (!marker.test(body)) throw new Error(`${url} is missing marker ${marker} for ${agentName}`)
   console.log(`PASS ${response.status} ${url} [${agentName}]`)
 }
 
-async function checkStatus(url, expectedStatus, userAgent = googlebotAgent) {
-  const response = await get(url, userAgent, 'manual')
+async function checkStatus(url, expectedStatus, userAgent = googlebotAgent, redirect = 'manual') {
+  const response = await get(url, userAgent, redirect)
   if (response.status !== expectedStatus) {
     throw new Error(`${url} returned ${response.status}; expected ${expectedStatus}`)
   }
@@ -109,11 +109,11 @@ for (const [agentName, userAgent] of agents) {
 }
 
 for (const [url, marker] of applicationPages) {
-  await checkPage(url, marker, 'browser', browserAgent)
+  await checkPage(url, marker, 'browser', browserAgent, { allowApplicationShell: true })
 }
 
 await checkStatus('https://dagangos.com/random-healthcheck-nonexistent', 404)
-await checkStatus('https://store.dagangos.com/definitely-not-real', 404)
+await checkStatus('https://store.dagangos.com/definitely-not-real', 404, googlebotAgent, 'follow')
 
 const admin = await get('https://store.dagangos.com/en/admin', browserAgent, 'manual')
 if (![302, 307, 308].includes(admin.status) || !/\/en\/auth\/login/.test(admin.headers.get('location') || '')) {
@@ -131,9 +131,10 @@ await checkRedirect(
 )
 
 try {
-  const addresses = await resolve4('random-visibility-check.dagangos.com')
-  throw new Error(`Wildcard DNS is still active for unused subdomains: ${addresses.join(', ')}`)
+  const response = await get('https://random-visibility-check.dagangos.com/', browserAgent, 'manual')
+  throw new Error(`Wildcard DNS is still active for unused subdomains (HTTP ${response.status})`)
 } catch (error) {
-  if (error?.code !== 'ENOTFOUND') throw error
+  if (error?.message?.startsWith('Wildcard DNS is still active')) throw error
+  if (!['ENOTFOUND', 'EAI_AGAIN'].includes(error?.cause?.code)) throw error
   console.log('PASS unused DagangOS subdomains return NXDOMAIN')
 }

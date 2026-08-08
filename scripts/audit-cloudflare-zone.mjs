@@ -28,7 +28,7 @@ const zone = zones.find(candidate => candidate.name === zoneName)
 if (!zone) throw new Error(`Cloudflare zone ${zoneName} was not found for this token`)
 
 const [dnsRecords, rulesets, workerRoutes, workerDomains] = await Promise.all([
-  api(`/zones/${zone.id}/dns_records?per_page=5000`),
+  api(`/zones/${zone.id}/dns_records?per_page=5000`, { optional: true }),
   api(`/zones/${zone.id}/rulesets`, { optional: true }),
   api(`/zones/${zone.id}/workers/routes`, { optional: true }),
   accountId ? api(`/accounts/${accountId}/workers/domains`, { optional: true }) : Promise.resolve({ unavailable: 'CLOUDFLARE_ACCOUNT_ID not set' }),
@@ -45,7 +45,7 @@ const redirectRulesets = Array.isArray(rulesets)
 const audit = {
   generatedAt: new Date().toISOString(),
   zone: { id: zone.id, name: zone.name, status: zone.status, type: zone.type },
-  dnsRecords: dnsRecords.map(record => ({
+  dnsRecords: (Array.isArray(dnsRecords) ? dnsRecords : []).map(record => ({
     id: record.id,
     type: record.type,
     name: record.name,
@@ -57,13 +57,22 @@ const audit = {
   redirectRulesets,
   workerRoutes,
   workerDomains,
+  unavailable: {
+    dnsRecords: dnsRecords?.unavailable || null,
+    rulesets: rulesets?.unavailable || null,
+    workerRoutes: workerRoutes?.unavailable || null,
+    workerDomains: workerDomains?.unavailable || null,
+  },
 }
 
 const exactNames = new Set(audit.dnsRecords.map(record => record.name))
 const wildcardRecords = audit.dnsRecords.filter(record => record.name.startsWith('*.'))
 audit.findings = {
+  dnsAuditAvailable: Array.isArray(dnsRecords),
   wildcardRecords: wildcardRecords.map(record => ({ id: record.id, type: record.type, name: record.name, content: record.content, proxied: record.proxied })),
-  missingExactRecords: ['www.dagangos.com', 'shop.dagangos.com'].filter(name => !exactNames.has(name)),
+  missingExactRecords: Array.isArray(dnsRecords)
+    ? ['www.dagangos.com', 'shop.dagangos.com'].filter(name => !exactNames.has(name))
+    : null,
   hasDynamicRedirectRuleset: Array.isArray(redirectRulesets) && redirectRulesets.length > 0,
 }
 
