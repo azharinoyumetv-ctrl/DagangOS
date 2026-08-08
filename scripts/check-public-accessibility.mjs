@@ -130,11 +130,12 @@ await checkRedirect(
   'https://store.dagangos.com/id/pricing?source=visibility-check',
 )
 
-try {
-  const response = await get('https://random-visibility-check.dagangos.com/', browserAgent, 'manual')
-  throw new Error(`Wildcard DNS is still active for unused subdomains (HTTP ${response.status})`)
-} catch (error) {
-  if (error?.message?.startsWith('Wildcard DNS is still active')) throw error
-  if (!['ENOTFOUND', 'EAI_AGAIN'].includes(error?.cause?.code)) throw error
-  console.log('PASS unused DagangOS subdomains return NXDOMAIN')
+const unknownTenant = await get('https://random-visibility-check.dagangos.com/', browserAgent, 'manual')
+const unknownTenantBody = await unknownTenant.text()
+if (unknownTenant.status !== 404) {
+  throw new Error(`Unknown tenant hostname returned ${unknownTenant.status}; expected controlled 404`)
 }
+if (challenge.test(unknownTenantBody)) {
+  throw new Error('Unknown tenant hostname returned a Cloudflare challenge or block page')
+}
+console.log('PASS intentional WMP tenant wildcard is active and unknown tenant hostnames return 404')
