@@ -1,0 +1,24 @@
+.checkout-shell { max-width: 1060px; width: calc(100% - 40px); margin: 48px auto 72px; }
+.checkout h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.15; letter-spacing: -.04em; }
+.checkout .eyebrow { color: var(--brand); }
+.checkout.dapuros { --brand: #d85c12; --brand-deep: #91400e; }
+.checkout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.checkout h2 { font-size: 22px; margin: 0 0 18px; }
+.checkout label { display: block; font-weight: 750; font-size: 14px; margin: 18px 0 8px; }
+.checkout input, .checkout select { width: 100%; font: inherit; border: 1px solid #b6ccc2; border-radius: 10px; padding: 12px; background: #fff; color: var(--ink); }
+.checkout input:focus, .checkout select:focus { outline: 3px solid #a7dbc9; outline-offset: 2px; }
+.checkout .button { margin: 16px 8px 0 0; border: none; cursor: pointer; font: inherit; font-weight: 800; }
+.checkout .button--quiet { border: 1px solid var(--line); }
+.checkout .button:disabled { opacity: .5; cursor: not-allowed; }
+.checkout-steps { padding: 0; margin: 26px 0; list-style: none; display: flex; flex-wrap: wrap; gap: 10px; counter-reset: steps; }
+.checkout-steps li { counter-increment: steps; padding: 10px 14px; border-radius: 999px; background: #eaf3ef; font-size: 13px; font-weight: 700; }
+.checkout-steps li::before { content: counter(steps) '. '; color: var(--brand-deep); }
+.order-details { display: grid; grid-template-columns: 1fr auto; gap: 15px; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 24px; }
+.order-details dt { color: var(--copy); }
+.order-details dd { margin: 0; text-align: right; font-weight: 750; }
+.order-total { font-size: 24px; color: var(--brand-deep); }
+.checkout .muted { font-size: 13px; color: var(--copy); line-height: 1.7; }
+.checkout .reference { overflow-wrap: anywhere; }
+.checkout .honeypot { position: absolute; left: -10000px; }
+.checkout .notice { font-size: 13px; }
+@media(max-width:720px) { .checkout-grid { grid-template-columns: 1fr; } .checkout-shell { width: calc(100% - 28px); margin-top: 32px; } }

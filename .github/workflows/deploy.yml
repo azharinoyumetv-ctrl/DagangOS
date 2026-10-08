@@ -135,6 +135,13 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      - name: Configure subscription payment secret
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
+        run: node scripts/deploy-subscription-secret.mjs
+
   e2e-geraina:
     needs: deploy
     runs-on: ubuntu-latest

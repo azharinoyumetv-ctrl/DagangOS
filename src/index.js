@@ -1,3 +1,5 @@
+import { handleSubscriptionCheckout } from './subscription-checkout.js';
+
 function injectPublicSupport(body) {
   if (!body || body.includes('/support-chat.js')) return body;
   const headAssets = '<link rel="stylesheet" href="/support-chat.css?v=20260727b">';
@@ -92,6 +94,11 @@ export default {
     try {
       const url = new URL(request.url);
       const pathname = url.pathname;
+
+      const subscriptionResponse = await handleSubscriptionCheckout(request, env);
+      if (subscriptionResponse) return request.method === 'HEAD'
+        ? new Response(null, { status: subscriptionResponse.status, headers: subscriptionResponse.headers })
+        : subscriptionResponse;
 
       // CORS: batasi ke origin dagangos.com (+ localhost dev); selain itu fallback domain utama.
       const reqOrigin = request.headers.get('Origin') || '';

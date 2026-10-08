@@ -4,7 +4,8 @@
   "compatibility_date": "2026-06-27",
   "vars": {
     "BACKEND_ORIGIN": "dapuros.vercel.app",
-    "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app"
+    "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app",
+    "MIDTRANS_ENVIRONMENT": "production"
   },
   "assets": {
     "directory": "./dist",
