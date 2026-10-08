@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { webcrypto } from 'node:crypto';
 import { handleSubscriptionCheckout, selection, signReceipt, readReceipt, verifiedStatus } from '../src/subscription-checkout.js';
+
+// Workers expose Web Crypto natively; the existing Node 18 CI runner does not.
+globalThis.crypto ??= webcrypto;
 
 const env = { MIDTRANS_SERVER_KEY: 'test-only-server-secret', MIDTRANS_ENVIRONMENT: 'sandbox' };
 const snapToken = 'f15304df-522e-41ee-af62-ffb73a9f7581';
