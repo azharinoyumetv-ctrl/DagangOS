@@ -28,6 +28,7 @@ test('all six paid packages expose native checkout without JavaScript or a login
     assert.match(body, /tidak menarik dana atau mengaktifkan paket/);
     assert.ok(body.includes(selection(module, tier, period).amount.toLocaleString('id-ID')));
     assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.equal(response.headers.get('Referrer-Policy'), 'same-origin');
   }
 });
 
@@ -80,6 +81,7 @@ test('invalid customer input, cross-site submits, honeypots and expired carts ne
   assert.equal((await submit({ email: 'invalid' })).status, 400);
   assert.equal((await submit({ website: 'bot.test' })).status, 400);
   assert.equal((await submit({}, { Origin: 'https://attacker.test' })).status, 403);
+  assert.equal((await submit({}, { Origin: 'null' })).status, 403);
   assert.equal((await submit({ cart: await signReceipt({ ...cart, expires: 1 }, env.MIDTRANS_SERVER_KEY) })).status, 400);
   assert.equal(globalThis.fetch.mock.callCount(), 0);
 });

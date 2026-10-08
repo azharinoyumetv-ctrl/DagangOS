@@ -10,7 +10,8 @@ const money = value => `Rp ${Number(value).toLocaleString('id-ID')}`;
 const label = value => value[0].toUpperCase() + value.slice(1);
 const securityHeaders = {
   'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
-  'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex, follow',
+  // Preserve Origin on native same-origin POSTs without leaking external referrers.
+  'Referrer-Policy': 'same-origin', 'X-Robots-Tag': 'noindex, follow',
   'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
 function page(module, title, body, status = 200) {
@@ -123,7 +124,7 @@ export async function handleSubscriptionCheckout(request, env) {
         return page(module, 'Pembayaran belum dapat dimulai', `<p>Midtrans belum menerima pesanan ini. Tidak ada paket yang diaktifkan atau pembayaran yang ditarik.</p><p>Jika sebelumnya sudah membuat pesanan, gunakan tautan pesanan sebelumnya. Jika belum, coba kembali atau hubungi contact@dagangos.com.</p><a class="button button--quiet" href="/${module}/checkout?plan=${cart.tier}&period=${cart.period}">Kembali ke checkout</a>`, 502);
       }
       const receipt = await signReceipt({ ...cart, snapToken: result.token }, secret);
-      return new Response(null, { status: 303, headers: { Location: `/${module}/order?receipt=${encodeURIComponent(receipt)}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+      return new Response(null, { status: 303, headers: { Location: `/${module}/order?receipt=${encodeURIComponent(receipt)}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'same-origin' } });
     } catch {
       return page(module, 'Koneksi pembayaran terputus', '<p>Status pembuatan pesanan belum dapat dipastikan. Hubungi contact@dagangos.com sebelum mencoba lagi.</p>', 502);
     }
