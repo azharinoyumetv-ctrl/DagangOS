@@ -1,0 +1,12 @@
+{
+  "planSteps": [
+    { "type": "action", "description": "Navigate to https://dagangos.com/geraina/pricing" },
+    { "type": "action", "description": "Choose the Pro paid subscription package" },
+    { "type": "action", "description": "Choose the yearly subscription period on checkout" },
+    { "type": "action", "description": "Update the order summary using the package and period form" },
+    { "type": "action", "description": "Choose the monthly subscription period on checkout" },
+    { "type": "action", "description": "Update the order summary again using the package and period form" },
+    { "type": "assertion", "description": "Verify the checkout summary actually changed from Geraina Pro yearly Rp 3.490.000 for 12 months to monthly Rp 349.000 for one month, with package selection on the left and the customer details form on the right on desktop" },
+    { "type": "assertion", "description": "Verify an anonymous visitor can enter customer details and use the enabled payment-continuation button without a login or free-trial registration gate. Do not submit the customer form, create an order, make a payment, or leave the DagangOS checkout page." }
+  ]
+}

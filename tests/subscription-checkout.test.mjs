@@ -34,6 +34,9 @@ test('all six paid packages expose native checkout without JavaScript or a login
 test('invalid tiers, periods and forged receipt tokens are rejected', async () => {
   assert.equal(selection('geraina', 'trial', 'monthly'), null);
   assert.equal(selection('dapuros', 'starter', 'weekly'), null);
+  assert.equal(selection('geraina', '__proto__', 'monthly'), null);
+  assert.equal(selection('geraina', 'toString', 'monthly'), null);
+  assert.equal(selection('__proto__', 'starter', 'monthly'), null);
   const token = await signReceipt(cart, env.MIDTRANS_SERVER_KEY);
   assert.deepEqual(await readReceipt(token, env.MIDTRANS_SERVER_KEY), cart);
   assert.equal(await readReceipt(token, 'other-secret'), null);

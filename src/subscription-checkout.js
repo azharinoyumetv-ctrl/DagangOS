@@ -18,8 +18,9 @@ function page(module, title, body, status = 200) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} — ${product.name}</title><link rel="icon" href="/assets/brand/${module}-icon.png"><link rel="stylesheet" href="/product-public.css"><link rel="stylesheet" href="/subscription-checkout.css"></head><body class="checkout ${module}"><header class="topbar"><div class="shell topbar__inner"><a class="brand" href="/${module}"><img src="/assets/brand/${module}-icon.png" alt="">${product.name}</a><nav class="nav"><a href="/${module}/pricing">Kembali ke paket</a></nav></div></header><main class="checkout-shell"><p class="eyebrow">LANGGANAN DAGANGOS</p><h1>${escape(title)}</h1>${body}</main><footer class="footer"><div class="shell footer__inner"><span>PT DagangOS Digital Indonesia</span><a href="mailto:contact@dagangos.com">contact@dagangos.com</a></div></footer></body></html>`, { status, headers: securityHeaders });
 }
 export function selection(module, tier, period) {
+  if (!Object.hasOwn(CATALOG, module)) return null;
   const product = CATALOG[module];
-  if (!product?.prices[tier] || !['monthly', 'yearly'].includes(period)) return null;
+  if (!Object.hasOwn(product.prices, tier) || !['monthly', 'yearly'].includes(period)) return null;
   return { module, tier, period, amount: product.prices[tier][period === 'yearly' ? 1 : 0] };
 }
 function summary(cart) {

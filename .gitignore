@@ -9,3 +9,6 @@ GerainaOS/
 # Jangan pernah commit kredensial
 .env
 *.env
+output/
+tmp/pdfs/
+.testsprite/runs/
