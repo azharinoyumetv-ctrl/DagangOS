@@ -1,4 +1,5 @@
 import { handleSubscriptionCheckout } from './subscription-checkout.js';
+import { portalInformationDocuments } from './portal-information.js';
 
 function injectPublicSupport(body) {
   if (!body || body.includes('/support-chat.js')) return body;
@@ -13,6 +14,7 @@ function injectPublicSupport(body) {
 }
 
 const portalDocuments = {
+  ...portalInformationDocuments,
   '/': {
     title: 'DagangOS — Ekosistem Operasional Bisnis',
     description: 'DagangOS menyatukan produk digital untuk operasional bisnis Indonesia.',
@@ -66,7 +68,7 @@ function renderPortalDocument(body, pathname) {
     )
     .replace(
       '<main id="app" tabindex="-1"></main>',
-      `<main id="app" tabindex="-1"><section class="shell page-hero" data-server-rendered-public-content>${page.content}</section></main>`,
+      `<main id="app" tabindex="-1"><div class="page" data-server-rendered-public-content><section class="shell page-hero${page.details ? ' information-hero' : ''}">${page.content}</section>${page.details || ''}</div></main>`,
     );
 
   const metadata = `<link rel="canonical" href="${canonical}"><meta property="og:url" content="${canonical}">`;
@@ -219,7 +221,7 @@ export default {
           dagangos: {
             home: 'https://dagangos.com/',
             products: 'https://dagangos.com/produk',
-            contact: 'https://dagangos.com/sumber-daya',
+            contact: 'https://dagangos.com/kontak',
           },
         };
         const injectionRequest = /(ignore|abaikan|lupakan|bypass|jailbreak).{0,40}(instruction|instruksi|aturan|prompt|sebelumnya|system)|(?:reveal|tampilkan|bocorkan).{0,30}(prompt|instruction|instruksi|system)|developer message|system prompt/i.test(message);
@@ -520,20 +522,23 @@ export default {
       }
 
       // Portal: ALL remaining paths → root /index.html
-      const portalRoutes = new Set(['/', '/produk', '/solusi', '/industri', '/tentang', '/sumber-daya']);
-      if (!portalRoutes.has(pathname)) {
+      if (!Object.hasOwn(portalDocuments, pathname)) {
         return serveHtmlAsset(env, request, '/404.html', 404);
       }
 
       const portalUrl = new URL('/index.html', request.url);
       const portalResponse = await env.ASSETS.fetch(new Request(portalUrl.toString(), {
         method: 'GET',
-        headers: request.headers,
+        // Always read the complete shell: a browser validator can otherwise yield
+        // an empty 304 asset response that becomes a blank 200 after rendering.
         redirect: 'manual',
       }));
       const portalHeaders = new Headers(portalResponse.headers);
       portalHeaders.set('Content-Type', 'text/html; charset=utf-8');
       portalHeaders.delete('Location');
+      // The asset validators describe the shared shell, not this route's HTML.
+      portalHeaders.delete('ETag');
+      portalHeaders.delete('Last-Modified');
 
       let portalBody = await portalResponse.text();
       portalBody = renderPortalDocument(portalBody, pathname);

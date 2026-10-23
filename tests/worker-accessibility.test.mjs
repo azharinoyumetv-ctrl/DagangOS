@@ -15,6 +15,9 @@ const contentTypes = {
 const env = {
   ASSETS: {
     async fetch(request) {
+      if (request.headers.has('If-None-Match') || request.headers.has('If-Modified-Since')) {
+        return new Response(null, { status: 304 })
+      }
       const pathname = new URL(request.url).pathname
       const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '')
       try {
@@ -74,6 +77,10 @@ test('every public portal route exposes route-specific content and canonical met
     ['/industri', /DapurOS melayani restoran/i, 'https://dagangos.com/industri'],
     ['/tentang', /PT DagangOS Digital Indonesia/, 'https://dagangos.com/tentang'],
     ['/sumber-daya', /contact@dagangos\.com/, 'https://dagangos.com/sumber-daya'],
+    ['/kontak', /Kanal kontak resmi/, 'https://dagangos.com/kontak'],
+    ['/syarat-ketentuan', /1\. Layanan dan ruang lingkup/, 'https://dagangos.com/syarat-ketentuan'],
+    ['/kebijakan-privasi', /5\. Pilihan dan hak Anda/, 'https://dagangos.com/kebijakan-privasi'],
+    ['/kebijakan-refund', /14–21 hari kerja/, 'https://dagangos.com/kebijakan-refund'],
   ]
 
   for (const [pathname, marker, canonical] of expectations) {
@@ -83,6 +90,32 @@ test('every public portal route exposes route-specific content and canonical met
     assert.match(body, marker)
     assert.match(body, new RegExp(`<link rel="canonical" href="${canonical.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">`))
     assert.match(body, /data-server-rendered-public-content/)
+  }
+})
+
+test('the main portal footer exposes contact channels and working legal documents', async () => {
+  const body = await (await get('/')).text()
+  const footer = body.match(/<footer class="site-footer">([\s\S]*?)<\/footer>/)?.[1]
+  assert.ok(footer, 'the homepage has a footer')
+  assert.match(footer, /href="mailto:contact@dagangos\.com"/)
+  assert.match(footer, /href="https:\/\/wa\.me\/628999155182"/)
+  for (const pathname of ['/kontak', '/syarat-ketentuan', '/kebijakan-privasi', '/kebijakan-refund']) {
+    assert.ok(footer.includes(`href="${pathname}"`), `${pathname} is discoverable from the footer`)
+    const response = await get(pathname)
+    assert.equal(response.status, 200)
+    const document = await response.text()
+    assert.match(document, /PT DagangOS Digital Indonesia/)
+    assert.doesNotMatch(document, /<h1>Halaman tidak ditemukan/)
+  }
+})
+
+test('revisiting a portal document with browser cache validators still returns its full content', async () => {
+  for (const pathname of ['/', '/kontak', '/syarat-ketentuan', '/kebijakan-privasi', '/kebijakan-refund']) {
+    const response = await worker.fetch(new Request(`https://dagangos.com${pathname}`, {
+      headers: { 'If-None-Match': '"cached-portal-shell"', 'If-Modified-Since': 'Mon, 27 Jul 2026 00:00:00 GMT' },
+    }), env, {})
+    assert.equal(response.status, 200)
+    assert.match(await response.text(), /data-server-rendered-public-content/, pathname)
   }
 })
 

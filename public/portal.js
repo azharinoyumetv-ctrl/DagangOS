@@ -58,9 +58,12 @@ const pages = {
   "sumber-daya": `<div class="page"><section class="shell page-hero"><span class="eyebrow">Sumber daya</span><h1>Masuk, mulai, atau<br><em>bicara dengan kami.</em></h1><p>Akses langsung ke produk yang sudah tersedia dan kanal resmi untuk pertanyaan lebih lanjut.</p></section><section class="shell chapter"><div class="resource-list"><a class="resource-row reveal" href="/geraina"><small>RETAIL</small><h2>Pelajari Geraina POS</h2><span>↗</span></a><a class="resource-row reveal" href="/geraina/pricing"><small>HARGA</small><h2>Paket Geraina POS</h2><span>↗</span></a><a class="resource-row reveal" href="/dapuros"><small>F&B</small><h2>Pelajari DapurOS</h2><span>↗</span></a><a class="resource-row reveal" href="/dapuros/pricing"><small>HARGA</small><h2>Paket DapurOS</h2><span>↗</span></a><a class="resource-row reveal" href="mailto:contact@dagangos.com"><small>EMAIL</small><h2>contact@dagangos.com</h2><span>↗</span></a><a class="resource-row reveal" href="https://wa.me/628999155182"><small>WHATSAPP</small><h2>+62 899 9155 182</h2><span>↗</span></a><div class="resource-row reveal"><small>LOKASI</small><h2>Subang, West Java, Indonesia</h2><span>◎</span></div></div></section>${cta}</div>`,
 };
 
-document.getElementById("app").innerHTML = pages[route] || pages.home;
+const app = document.getElementById("app");
+// Contact and legal documents are rendered by the Worker and remain readable without JavaScript.
+if (pages[route]) app.innerHTML = pages[route];
+else if (!app.querySelector("[data-server-rendered-public-content]")) app.innerHTML = pages.home;
 document.querySelector(`[data-route="${route}"]`)?.classList.add("is-active");
-document.title = route === "home" ? "DagangOS — Ekosistem Operasional Bisnis" : `${route.replace("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())} — DagangOS`;
+if (pages[route]) document.title = route === "home" ? "DagangOS — Ekosistem Operasional Bisnis" : `${route.replace("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())} — DagangOS`;
 
 const toggle = document.querySelector(".nav-toggle");
 const nav = document.querySelector(".main-nav");
