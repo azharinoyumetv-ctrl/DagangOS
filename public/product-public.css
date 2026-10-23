@@ -6,6 +6,45 @@
   --brand: #0f8f6f;
   --brand-deep: #08664f;
   --paper: #f7faf8;
+  --topbar: rgba(247,250,248,.94);
+  --brand-shadow: rgba(15,143,111,.18);
+  --brand-soft-shadow: rgba(15,143,111,.13);
+  --hero-background: radial-gradient(circle at 82% 14%, rgba(39,204,159,.22), transparent 32%), linear-gradient(145deg,#081b15,#123b30);
+  --eyebrow: #8cf1ce;
+  --hero-copy: #c6dcd4;
+  --hero-list: #d9e8e3;
+  --card-shadow: rgba(16,35,29,.06);
+  --badge: #dff8ee;
+  --footer: #081b15;
+  --footer-copy: #b8cec5;
+  --footer-link: #e5f5ef;
+  --input-line: #b6ccc2;
+  --focus-ring: #a7dbc9;
+  --step-fill: #eaf3ef;
+}
+
+body.dapuros {
+  --ink: #321a0b;
+  --copy: #664b3a;
+  --line: #eddccf;
+  --brand: #bd4e12;
+  --brand-deep: #8d3508;
+  --paper: #fffaf5;
+  --topbar: rgba(255,250,245,.94);
+  --brand-shadow: rgba(237,106,22,.18);
+  --brand-soft-shadow: rgba(237,106,22,.13);
+  --hero-background: radial-gradient(circle at 82% 14%, rgba(237,106,22,.24), transparent 32%), linear-gradient(145deg,#160b06,#4a2414);
+  --eyebrow: #ffad43;
+  --hero-copy: #eed5c4;
+  --hero-list: #f3dfcf;
+  --card-shadow: rgba(50,26,11,.06);
+  --badge: #fff0df;
+  --footer: #160b06;
+  --footer-copy: #d9bca7;
+  --footer-link: #ffeadc;
+  --input-line: #cfb7a5;
+  --focus-ring: #efb386;
+  --step-fill: #f9ecdf;
 }
 
 * { box-sizing: border-box; }
@@ -13,24 +52,24 @@ html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: Manrope, Inter, system-ui, sans-serif; }
 a { color: inherit; }
 .shell { width: min(1160px, calc(100% - 40px)); margin-inline: auto; }
-.topbar { position: sticky; top: 0; z-index: 10; background: rgba(247,250,248,.94); border-bottom: 1px solid var(--line); backdrop-filter: blur(16px); }
+.topbar { position: sticky; top: 0; z-index: 10; background: var(--topbar); border-bottom: 1px solid var(--line); backdrop-filter: blur(16px); }
 .topbar__inner { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .brand { display: inline-flex; align-items: center; gap: 11px; font-weight: 900; text-decoration: none; letter-spacing: -.03em; }
 .brand img { width: 38px; height: 38px; object-fit: contain; }
 .nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 18px; }
 .nav a { font-size: 14px; font-weight: 750; text-decoration: none; }
-.button { display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; padding: 12px 18px; background: var(--brand); color: #fff; font-weight: 850; text-decoration: none; box-shadow: 0 12px 28px rgba(15,143,111,.18); }
+.button { display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; padding: 12px 18px; background: var(--brand); color: #fff; font-weight: 850; text-decoration: none; box-shadow: 0 12px 28px var(--brand-shadow); }
 .button--quiet { background: #fff; color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
-.hero { position: relative; overflow: hidden; padding: 104px 0 86px; background: radial-gradient(circle at 82% 14%, rgba(39,204,159,.22), transparent 32%), linear-gradient(145deg,#081b15,#123b30); color: #fff; }
+.hero { position: relative; overflow: hidden; padding: 104px 0 86px; background: var(--hero-background); color: #fff; }
 .hero__grid { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(300px,.85fr); gap: 56px; align-items: center; }
-.eyebrow { color: #8cf1ce; font-size: 12px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+.eyebrow { color: var(--eyebrow); font-size: 12px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
 h1 { max-width: 780px; margin: 18px 0 20px; font-size: clamp(42px,7vw,76px); line-height: .98; letter-spacing: -.06em; }
-.hero p { max-width: 680px; color: #c6dcd4; font-size: 18px; line-height: 1.75; }
+.hero p { max-width: 680px; color: var(--hero-copy); font-size: 18px; line-height: 1.75; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .hero-card { border: 1px solid rgba(255,255,255,.14); border-radius: 28px; padding: 28px; background: rgba(255,255,255,.07); box-shadow: 0 30px 80px rgba(0,0,0,.24); }
 .hero-card img { width: 68px; height: 68px; object-fit: contain; }
 .hero-card h2 { margin: 18px 0 8px; font-size: 28px; }
-.hero-card ul { margin: 18px 0 0; padding: 0; list-style: none; color: #d9e8e3; }
+.hero-card ul { margin: 18px 0 0; padding: 0; list-style: none; color: var(--hero-list); }
 .hero-card li { margin-top: 10px; }
 .section { padding: 76px 0; }
 .section--white { background: #fff; border-block: 1px solid var(--line); }
@@ -38,29 +77,29 @@ h1 { max-width: 780px; margin: 18px 0 20px; font-size: clamp(42px,7vw,76px); lin
 .section__head h2 { margin: 8px 0 12px; font-size: clamp(30px,4vw,48px); letter-spacing: -.045em; }
 .section__head p { color: var(--copy); line-height: 1.7; }
 .grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
-.card { border: 1px solid var(--line); border-radius: 22px; padding: 24px; background: #fff; box-shadow: 0 14px 42px rgba(16,35,29,.06); }
+.card { border: 1px solid var(--line); border-radius: 22px; padding: 24px; background: #fff; box-shadow: 0 14px 42px var(--card-shadow); }
 .card h3 { margin: 0 0 10px; font-size: 20px; }
 .card p, .card li { color: var(--copy); font-size: 14px; line-height: 1.65; }
 .pricing-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; align-items: stretch; }
 .price-card { position: relative; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 22px; padding: 24px; background: #fff; }
-.price-card--best { border: 2px solid var(--brand); box-shadow: 0 20px 54px rgba(15,143,111,.13); }
-.badge { align-self: flex-start; border-radius: 999px; padding: 6px 10px; background: #dff8ee; color: var(--brand-deep); font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.price-card--best { border: 2px solid var(--brand); box-shadow: 0 20px 54px var(--brand-soft-shadow); }
+.badge { align-self: flex-start; border-radius: 999px; padding: 6px 10px; background: var(--badge); color: var(--brand-deep); font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .price-card h2 { margin: 16px 0 3px; font-size: 24px; }
 .price { margin: 18px 0 2px; font-size: 29px; font-weight: 950; letter-spacing: -.04em; }
 .period { color: var(--copy); font-size: 12px; font-weight: 700; }
 .price-card ul { flex: 1; margin: 22px 0; padding-left: 19px; color: var(--copy); }
 .price-card li { margin: 9px 0; font-size: 13px; line-height: 1.5; }
 .notice { border: 1px solid #efd594; border-radius: 18px; padding: 20px; background: #fff8e6; color: #6b5018; line-height: 1.65; }
-.footer { padding: 36px 0; background: #081b15; color: #b8cec5; }
+.footer { padding: 36px 0; background: var(--footer); color: var(--footer-copy); }
 .footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; }
-.footer a { color: #e5f5ef; }
+.footer a { color: var(--footer-link); }
 .pricing-controls { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 36px; text-align: center; }
 .pricing-controls p, .pricing-note { color: var(--copy); font-size: 13px; line-height: 1.7; }
 .pricing-controls p { margin: 0; }
 .billing-toggle { display: inline-flex; gap: 4px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
 .billing-toggle button { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; min-height: 46px; padding: 12px 20px; border: 0; border-radius: 999px; color: var(--copy); background: transparent; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
 .billing-toggle button[aria-pressed="true"] { background: var(--brand); color: #fff; }
-.billing-toggle span { padding: 3px 7px; border-radius: 999px; background: #dff8ee; color: var(--brand-deep); font-size: 10px; white-space: nowrap; }
+.billing-toggle span { padding: 3px 7px; border-radius: 999px; background: var(--badge); color: var(--brand-deep); font-size: 10px; white-space: nowrap; }
 .billing-toggle button:focus-visible, .plan-purchase button:focus-visible { outline: 3px solid var(--brand); outline-offset: 4px; }
 .plan-purchase { margin-top: auto; }
 .plan-purchase button { width: 100%; border: 1px solid transparent; font: inherit; font-size: 14px; cursor: pointer; }
