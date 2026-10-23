@@ -1,4 +1,4 @@
-import { handleSubscriptionCheckout } from './subscription-checkout.js';
+import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscription-checkout.js';
 import { portalInformationDocuments } from './portal-information.js';
 
 function injectPublicSupport(body) {
@@ -80,14 +80,22 @@ async function serveHtmlAsset(env, request, assetPath, status = 200) {
   const assetUrl = new URL(assetPath, request.url);
   const assetResponse = await env.ASSETS.fetch(new Request(assetUrl.toString(), {
     method: 'GET',
-    headers: request.headers,
     redirect: 'manual',
   }));
   const headers = new Headers(assetResponse.headers);
   headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('X-Robots-Tag', status === 404 ? 'noindex' : 'index, follow');
   headers.delete('Location');
-  const body = injectPublicSupport(await assetResponse.text());
+  headers.delete('ETag');
+  headers.delete('Last-Modified');
+  let html = await assetResponse.text();
+  const pricing = new URL(request.url).pathname.match(/^\/(geraina|dapuros)\/pricing$/);
+  if (pricing) {
+    html = await renderSubscriptionPricing(html, pricing[1], request, env);
+    headers.set('Cache-Control', 'no-store');
+    headers.set('Referrer-Policy', 'same-origin');
+  }
+  const body = injectPublicSupport(html);
   return new Response(body, { status, headers });
 }
 

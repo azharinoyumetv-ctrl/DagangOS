@@ -54,6 +54,20 @@ h1 { max-width: 780px; margin: 18px 0 20px; font-size: clamp(42px,7vw,76px); lin
 .footer { padding: 36px 0; background: #081b15; color: #b8cec5; }
 .footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; }
 .footer a { color: #e5f5ef; }
+.pricing-controls { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 36px; text-align: center; }
+.pricing-controls p, .pricing-note { color: var(--copy); font-size: 13px; line-height: 1.7; }
+.pricing-controls p { margin: 0; }
+.billing-toggle { display: inline-flex; gap: 4px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+.billing-toggle button { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; min-height: 46px; padding: 12px 20px; border: 0; border-radius: 999px; color: var(--copy); background: transparent; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.billing-toggle button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+.billing-toggle span { padding: 3px 7px; border-radius: 999px; background: #dff8ee; color: var(--brand-deep); font-size: 10px; white-space: nowrap; }
+.billing-toggle button:focus-visible, .plan-purchase button:focus-visible { outline: 3px solid var(--brand); outline-offset: 4px; }
+.plan-purchase { margin-top: auto; }
+.plan-purchase button { width: 100%; border: 1px solid transparent; font: inherit; font-size: 14px; cursor: pointer; }
+.plan-purchase .button--quiet { border-color: var(--line); }
+.plan-purchase button:disabled { cursor: not-allowed; opacity: .55; }
+.pricing-note { max-width: 780px; margin: 24px auto 0; text-align: center; }
+.price-card { scroll-margin-top: 100px; }
 
 @media (max-width: 980px) {
   .hero__grid { grid-template-columns: 1fr; }
