@@ -8,6 +8,7 @@ DapurOS/
 GerainaOS/
 # Jangan pernah commit kredensial
 .env
+.env.*
 *.env
 output/
 tmp/pdfs/
