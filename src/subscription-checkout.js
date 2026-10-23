@@ -96,7 +96,7 @@ async function backend(module, env, path, { token, body } = {}) {
   const response = await fetch(`https://${host}/api/subscriptions${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: { 'Content-Type': 'application/json', 'X-DagangOS-Module': module, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20000), redirect: 'error',
+    body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20000), redirect: 'manual',
   });
   const data = await response.json().catch(() => ({}));
   return { response, data };
@@ -105,7 +105,7 @@ async function paymentStatus(cart, env) {
   let data = {}, status = 'unverified';
   try {
     const host = env.MIDTRANS_ENVIRONMENT === 'sandbox' ? 'api.sandbox.midtrans.com' : 'api.midtrans.com';
-    const response = await fetch(`https://${host}/v2/${cart.orderId}/status`, { headers: { Authorization: `Basic ${btoa(`${env.MIDTRANS_SERVER_KEY}:`)}`, Accept: 'application/json' }, signal: AbortSignal.timeout(10000), redirect: 'error' });
+    const response = await fetch(`https://${host}/v2/${cart.orderId}/status`, { headers: { Authorization: `Basic ${btoa(`${env.MIDTRANS_SERVER_KEY}:`)}`, Accept: 'application/json' }, signal: AbortSignal.timeout(10000), redirect: 'manual' });
     data = await response.json();
     if (response.ok && String(data.status_code) !== '404') status = verifiedStatus(data, cart);
     else if (String(data.status_code) === '404') status = 'pending';
@@ -213,7 +213,7 @@ export async function handleSubscriptionCheckout(request, env) {
       const attached = await backend(module, env, `/orders/${cart.orderId}/reference`, { token: accessToken, body: { receipt } });
       if (!attached.response.ok) return page(module, 'Pesanan belum dapat disiapkan', '<p>Referensi akun belum tersimpan. Pembayaran belum dimulai; silakan coba lagi dari halaman paket.</p>', 502);
       const response = await fetch(`https://${paymentHost(env)}/snap/v1/transactions`, {
-        method: 'POST', signal: AbortSignal.timeout(20000),
+        method: 'POST', signal: AbortSignal.timeout(20000), redirect: 'manual',
         headers: { Authorization: `Basic ${btoa(`${secret}:`)}`, 'Content-Type': 'application/json', Accept: 'application/json', 'X-Override-Notification': 'https://dagangos.com/api/subscriptions/webhook' },
         body: JSON.stringify({
           transaction_details: { order_id: cart.orderId, gross_amount: cart.amount },
