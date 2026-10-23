@@ -5,7 +5,7 @@
   "vars": {
     "BACKEND_ORIGIN": "dapuros.vercel.app",
     "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app",
-    "MIDTRANS_ENVIRONMENT": "production"
+    "XENDIT_ENVIRONMENT": "production"
   },
   "assets": {
     "directory": "./dist",

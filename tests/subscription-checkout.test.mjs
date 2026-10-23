@@ -5,13 +5,13 @@ import { readFile } from 'node:fs/promises';
 import { handleSubscriptionCheckout as checkout, renderSubscriptionPricing, selection, signReceipt, readReceipt, verifiedStatus } from '../src/subscription-checkout.js';
 
 globalThis.crypto ??= webcrypto;
-const env = { MIDTRANS_SERVER_KEY: 'test-only-secret', MIDTRANS_ENVIRONMENT: 'sandbox' };
-const snapToken = 'f15304df-522e-41ee-af62-ffb73a9f7581';
+const env = { SUBSCRIPTION_SIGNING_KEY: 'test-only-secret', XENDIT_SECRET_KEY: 'xnd_development_test_only', XENDIT_WEBHOOK_TOKEN: 'test-webhook-token' };
+const paymentUrl = 'https://checkout.xendit.co/web/abcdef123456abcdef123456';
 const ownerId = '11111111-1111-4111-8111-111111111111';
 const storeId = '22222222-2222-4222-8222-222222222222';
-const cart = { ...selection('geraina', 'starter', 'monthly'), orderId: `DG-geraina-${'a'.repeat(32)}`, expires: Date.now() + 3600000 };
+const cart = { ...selection('geraina', 'starter', 'monthly'), provider: 'xendit', orderId: `DG-geraina-${'a'.repeat(32)}`, expires: Date.now() + 3600000 };
 const boundCart = { ...cart, ownerId, storeId };
-const sign = value => signReceipt(value, env.MIDTRANS_SERVER_KEY);
+const sign = value => signReceipt(value, env.SUBSCRIPTION_SIGNING_KEY);
 const post = (url, body) => new Request(`https://dagangos.com${url}`, { method: 'POST', body: JSON.stringify(body) });
 async function submit(override = {}, headers = {}, chosen = cart) {
   return checkout(new Request(`https://dagangos.com/${chosen.module}/checkout`, {
@@ -29,14 +29,14 @@ function mockCheckout(t, options = {}) {
       return Response.json({ owner_id: ownerId, store_id: storeId, order_id: body.orderId, amount: selection(request.headers['X-DagangOS-Module'], body.tier, body.period).amount, email: 'owner@example.test' });
     }
     if (url.pathname.endsWith('/reference')) return Response.json({ ok: true }, { status: options.referenceError ? 503 : 200 });
-    assert.equal(address, 'https://app.sandbox.midtrans.com/snap/v1/transactions');
+    assert.equal(address, 'https://api.xendit.co/v2/invoices');
     invoices.push(body);
-    return options.gatewayError ? Response.json({}, { status: 403 }) : Response.json({ token: snapToken, redirect_url: 'https://evil.test/phishing' }, { status: 201 });
+    return options.gatewayError ? Response.json({}, { status: 403 }) : Response.json({ external_id: body.external_id, amount: body.amount, currency: 'IDR', invoice_url: paymentUrl, id: 'abcdef123456abcdef123456' }, { status: 201 });
   });
   return { calls, invoices };
 }
 
-test('all twelve pricing choices go directly to Midtrans with the correct account and catalogue amount', async t => {
+test('all twelve pricing choices go directly to Xendit with the correct account and catalogue amount', async t => {
   const { calls, invoices } = mockCheckout(t);
   for (const module of ['geraina', 'dapuros']) for (const period of ['monthly', 'yearly']) {
     const html = await renderSubscriptionPricing(await readFile(`public/marketing/${module}-pricing.html`, 'utf8'), module, new Request(`https://dagangos.com/${module}/pricing?period=${period}`), env);
@@ -45,27 +45,26 @@ test('all twelve pricing choices go directly to Midtrans with the correct accoun
     for (const tier of ['starter', 'pro', 'business']) {
       const card = html.match(new RegExp(`<article[^>]+id="plan-${tier}"[^>]*>([\\s\\S]*?)</article>`))[1];
       const signed = card.match(/name="cart"[^>]* value="([^"]+)"/)[1];
-      const chosen = await readReceipt(signed, env.MIDTRANS_SERVER_KEY);
+      const chosen = await readReceipt(signed, env.SUBSCRIPTION_SIGNING_KEY);
       assert.deepEqual([chosen.module, chosen.tier, chosen.period], [module, tier, period]);
       assert.equal(chosen.amount, selection(module, tier, period).amount);
       assert.ok(card.includes(`>Rp ${chosen.amount.toLocaleString('id-ID')}</p>`));
       const response = await submit({ cart: signed, amount: '1', name: 'Unneeded', business: 'Unneeded' }, {}, chosen);
       assert.equal(response.status, 303);
-      assert.equal(response.headers.get('Location'), `https://app.sandbox.midtrans.com/snap/v2/vtweb/${snapToken}`);
+      assert.equal(response.headers.get('Location'), paymentUrl);
       const payload = invoices.at(-1);
-      assert.equal(payload.transaction_details.gross_amount, chosen.amount);
-      assert.equal(payload.item_details[0].price, chosen.amount);
-      assert.deepEqual(payload.customer_details, { email: 'owner@example.test' });
-      assert.equal(payload.custom_field1, ownerId);
-      assert.equal(payload.custom_field3, storeId);
-      assert.equal(payload.custom_field2, `${module}:${tier}:${period}:automatic`);
-      assert.ok(!payload.enabled_payments.includes('credit_card'));
-      const reference = new URL(payload.callbacks.finish).searchParams.get('receipt');
-      const receipt = await readReceipt(reference, env.MIDTRANS_SERVER_KEY);
+      assert.equal(payload.amount, chosen.amount);
+      assert.equal(payload.items[0].price, chosen.amount);
+      assert.equal(payload.payer_email, 'owner@example.test');
+      assert.equal(payload.external_id, chosen.orderId);
+      assert.equal(payload.currency, 'IDR');
+      assert.equal(payload.should_send_email, false);
+      assert.equal(payload.enabled_payments, undefined);
+      const reference = new URL(payload.success_redirect_url).searchParams.get('receipt');
+      const receipt = await readReceipt(reference, env.SUBSCRIPTION_SIGNING_KEY);
       assert.equal(receipt.ownerId, ownerId);
       assert.equal(receipt.storeId, storeId);
       assert.equal(calls.at(-2).body.receipt, reference);
-      assert.equal(calls.at(-1).headers['X-Override-Notification'], 'https://dagangos.com/api/subscriptions/webhook');
       assert.ok(!JSON.stringify(receipt).includes('owner@example.test'));
     }
   }
@@ -117,20 +116,19 @@ test('gateway rejection reports unpaid failure instead of redirecting or activat
   const response = await submit();
   assert.equal(response.status, 502);
   assert.equal(response.headers.get('Location'), null);
-  assert.match(await response.text(), /Tidak ada paket yang diaktifkan/);
+  assert.match(await response.text(), /Status pembuatan pesanan belum dapat dipastikan/);
 });
 
-test('payment verification requires matching order, amount, currency and accepted fraud status', () => {
-  const data = { order_id: cart.orderId, gross_amount: '149000.00', currency: 'IDR', transaction_status: 'settlement' };
+test('Xendit verification requires exact external reference, amount, currency and confirmed paid amount', () => {
+  const data = { external_id: cart.orderId, amount: 149000, currency: 'IDR', status: 'PAID', paid_amount: 149000, paid_at: '2026-10-23T05:00:00Z' };
   assert.equal(verifiedStatus(data, cart), 'paid');
-  for (const overrides of [{ gross_amount: '1.00' }, { order_id: 'other' }, { currency: 'USD' }]) assert.equal(verifiedStatus({ ...data, ...overrides }, cart), 'unverified');
-  assert.equal(verifiedStatus({ ...data, transaction_status: 'expire' }, cart), 'failed');
-  assert.equal(verifiedStatus({ ...data, fraud_status: 'challenge' }, cart), 'pending');
-  assert.equal(verifiedStatus({ ...data, transaction_status: 'capture', fraud_status: 'challenge' }, cart), 'pending');
+  for (const overrides of [{ amount: 1 }, { external_id: 'other' }, { currency: 'USD' }, { paid_amount: 1 }, { paid_at: null }]) assert.equal(verifiedStatus({ ...data, ...overrides }, cart), 'unverified');
+  assert.equal(verifiedStatus({ ...data, status: 'PENDING' }, cart), 'pending');
+  assert.equal(verifiedStatus({ ...data, status: 'EXPIRED' }, cart), 'failed');
 });
 
-test('payment service returns provider-confirmed account-bound data and rejects forged references', async t => {
-  t.mock.method(globalThis, 'fetch', async () => Response.json({ order_id: cart.orderId, gross_amount: '149000.00', currency: 'IDR', transaction_status: 'settlement', settlement_time: '2026-10-23 12:00:00' }));
+test('payment service only returns independently verified Xendit invoice data', async t => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json([{ external_id: cart.orderId, amount: 149000, currency: 'IDR', status: 'PAID', paid_amount: 149000, paid_at: '2026-10-23T05:00:00Z' }]));
   const response = await checkout(post('/api/subscriptions/payment-status', { receipt: await sign(boundCart), status: 'failed', ownerId: 'attacker' }), env);
   const data = await response.json();
   assert.deepEqual([data.status, data.ownerId, data.storeId, data.paidAt], ['paid', ownerId, storeId, '2026-10-23T05:00:00.000Z']);
@@ -138,29 +136,45 @@ test('payment service returns provider-confirmed account-bound data and rejects 
   assert.equal(globalThis.fetch.mock.callCount(), 1);
 });
 
-test('only signed Midtrans notifications trigger independent backend reconciliation', async t => {
+test('only Xendit verification-token notifications trigger independent reconciliation', async t => {
   t.mock.method(globalThis, 'fetch', async (url, request) => {
     assert.equal(url, 'https://geraina-os.vercel.app/api/subscriptions/reconcile');
     assert.deepEqual(JSON.parse(request.body), { orderId: cart.orderId });
     return Response.json({ status: 'paid', activation: 'active' });
   });
-  const data = { order_id: cart.orderId, status_code: '200', gross_amount: '149000.00', transaction_status: 'settlement' };
+  const data = { external_id: cart.orderId, status: 'PAID' };
   assert.equal((await checkout(post('/api/subscriptions/webhook', data), env)).status, 403);
-  const hash = await crypto.subtle.digest('SHA-512', new TextEncoder().encode(`${cart.orderId}200149000.00${env.MIDTRANS_SERVER_KEY}`));
-  data.signature_key = [...new Uint8Array(hash)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-  assert.equal((await checkout(post('/api/subscriptions/webhook', data), env)).status, 200);
+  const request = post('/api/subscriptions/webhook', data);
+  request.headers.set('x-callback-token', env.XENDIT_WEBHOOK_TOKEN);
+  assert.equal((await checkout(request, env)).status, 200);
   assert.equal(globalThis.fetch.mock.callCount(), 1);
 });
 
-test('return URLs cannot fake payment and only confirmed backend activation produces an active result', async t => {
-  const url = `https://dagangos.com/geraina/order?receipt=${await sign(boundCart)}&transaction_status=settlement`;
-  t.mock.method(globalThis, 'fetch', async () => Response.json({ status_code: '404' }));
+test('the shared Xendit webhook routes Web orders only to the fixed WMP endpoint', async t => {
+  const data = { external_id: ownerId, id: 'abcdef123456abcdef123456', status: 'PAID' };
+  t.mock.method(globalThis, 'fetch', async (url, request) => {
+    assert.equal(url, 'https://wmp.dagangos.com/api/webhooks/payments/xendit');
+    assert.equal(request.redirect, 'manual');
+    assert.equal(request.headers['x-callback-token'], env.XENDIT_WEBHOOK_TOKEN);
+    assert.deepEqual(JSON.parse(request.body), data);
+    return Response.json({ received: true });
+  });
+  const request = post('/api/subscriptions/webhook', data);
+  request.headers.set('x-callback-token', env.XENDIT_WEBHOOK_TOKEN);
+  assert.equal((await checkout(request, env)).status, 200);
+  assert.equal(globalThis.fetch.mock.callCount(), 1);
+});
+
+test('browser return parameters cannot fake payment and only backend activation shows an active package', async t => {
+  const url = 'https://dagangos.com/geraina/order?receipt=' + await sign(boundCart) + '&status=PAID';
+  t.mock.method(globalThis, 'fetch', async () => Response.json([]));
   assert.match(await (await checkout(new Request(url), env)).text(), /Menunggu pembayaran/);
   t.mock.restoreAll();
-  t.mock.method(globalThis, 'fetch', async address => address.includes('/v2/') ? Response.json({ order_id: cart.orderId, gross_amount: '149000.00', transaction_status: 'settlement', settlement_time: '2026-10-23 12:00:00' }) : Response.json({ status: 'paid', activation: 'active', expires_at: '2026-11-23T05:00:00Z' }));
+  t.mock.method(globalThis, 'fetch', async address => address.startsWith('https://api.xendit.co')
+    ? Response.json([{ external_id: cart.orderId, amount: 149000, currency: 'IDR', status: 'PAID', paid_amount: 149000, paid_at: '2026-10-23T05:00:00Z' }])
+    : Response.json({ status: 'paid', activation: 'active', expires_at: '2026-11-23T05:00:00Z' }));
   const html = await (await checkout(new Request(url), env)).text();
   assert.match(html, /paket aktif/);
   assert.match(html, /diaktifkan otomatis/);
-  assert.match(html, /\/geraina\/app\/dashboard/);
   assert.doesNotMatch(html, /Aktivasi paket dilakukan oleh tim/);
 });
