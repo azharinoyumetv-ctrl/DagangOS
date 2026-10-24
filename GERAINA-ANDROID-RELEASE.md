@@ -29,6 +29,9 @@ The signed 1.2.0 APK is 18,984,722 bytes. SHA-256: `d79a8fb1bc11aaeec3f223a2a244
 - Android unit tests: 14/14, including fractional receipt amounts and both paper widths. Bundled barcode decoding: EAN-13 at two rotations on Android 14, repeated with connectivity disabled; this decoder test uses debug instrumentation. Signed release camera startup and frame processing passed the installed matrix.
 - Browser checks: six offline scenarios, nine presentation checks and 54 metadata validation/recovery scenarios across three widths. Bridge checks remain 9/9.
 - Signing certificate retained; APK/AAB validation, 16 KB ZIP/native ELF alignment and private-credential exclusion passed. Release lint has zero errors and 47 warnings.
+- Portal tests: 25/25. Local and live download-page checks: 6/6 each, including the actual APK bytes and responsive layouts at 320/393/768/1440 px. The protected offline endpoint returns 401 without authentication.
+- TestSprite public APK verification passed: run `23259860-3df5-4060-bf3f-f7ba7f233912`, code `v-d855eddf5e60`, [execution](https://www.testsprite.com/dashboard-v3/o/7468bfad-8578-53ea-8da7-d93ac8f0989d/projects/1466ba50-a196-4dc9-a160-f14658033239/execution/e20f1cdc-20c4-4fed-968c-fc8b11ba33d5/test/23259860-3df5-4060-bf3f-f7ba7f233912).
+- Published APK and page: https://dagangos.com/geraina/android. [Deployment](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40117314573), release commit `84dc68d`.
 
 ## Usability update 1.1.2, 24 October 2026
 
