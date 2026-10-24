@@ -154,10 +154,13 @@ await checkDirectAsset('https://www.dagangos.com/support-chat.js?source=visibili
 await checkDirectAsset('https://www.dagangos.com/assets/brand/dagangos-icon.png?source=visibility-check', /image\/png/i)
 
 const wmpRobots = await (await get('https://wmp.dagangos.com/robots.txt', googlebotAgent)).text()
-if (/Disallow:\s*\/\*\/checkout\/|Disallow:\s*\/\*\/project-setup\//i.test(wmpRobots)) {
-  throw new Error('WMP robots.txt still blocks checkout or project setup')
+if (!/^Allow:\s*\/\s*$/im.test(wmpRobots) || /^Disallow:\s*\/\s*$/im.test(wmpRobots) || /Disallow:\s*\/\*\/site\//i.test(wmpRobots)) {
+  throw new Error('WMP robots.txt blocks public website pages')
 }
-console.log('PASS WMP robots.txt allows checkout and project setup')
+for (const privatePath of ['/api/', '/*/admin/', '/*/auth/', '/*/orders/', '/*/project-setup/']) {
+  if (!wmpRobots.includes(`Disallow: ${privatePath}`)) throw new Error(`WMP robots.txt is missing the intended private-flow exclusion: ${privatePath}`)
+}
+console.log('PASS WMP robots.txt allows public pages and excludes account and order flows')
 
 const unknownTenant = await get('https://random-visibility-check.dagangos.com/', browserAgent)
 const unknownTenantBody = await unknownTenant.text()
