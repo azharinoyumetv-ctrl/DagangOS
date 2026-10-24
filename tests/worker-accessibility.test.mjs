@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import test from 'node:test'
+import { createHash } from 'node:crypto'
 import worker from '../src/index.js'
 
 const contentTypes = {
@@ -58,6 +59,64 @@ test('intentional product application routes still receive their SPA shell', asy
   assert.equal(response.status, 200)
   assert.match(body, /<div id="root">/)
   assert.match(body, /\/geraina\/static\/js\//)
+})
+
+test('Geraina privacy and account deletion are public documents rather than the app login', async () => {
+  const privacy = await get('/geraina/privacy')
+  assert.equal(privacy.status, 200)
+  const privacyBody = await privacy.text()
+  assert.match(privacyBody, /Kebijakan Privasi Geraina POS/)
+  assert.match(privacyBody, /\/geraina\/delete-account/)
+  const deletion = await get('/geraina/delete-account')
+  assert.equal(deletion.status, 200)
+  const deletionBody = await deletion.text()
+  assert.match(deletionBody, /Minta penghapusan akun Geraina POS/)
+  assert.match(deletionBody, /mailto:contact@dagangos\.com/)
+  assert.doesNotMatch(deletionBody, /<div id="root">/)
+})
+
+test('Android listing is discoverable and serves the verified APK without SPA conversion', async () => {
+  const listing = await get('/geraina/android')
+  assert.equal(listing.status, 200)
+  const body = await listing.text()
+  assert.match(body, /Geraina untuk Android/)
+  assert.match(body, /data-download-link/)
+  assert.doesNotMatch(body, /<div id="root">/)
+  assert.match(await (await get('/geraina')).text(), /href="\/geraina\/android"/)
+  const metadata = await get('/downloads/geraina/latest.json')
+  assert.equal(metadata.headers.get('Cache-Control'), 'no-cache')
+  const release = await metadata.json()
+  assert.equal(release.downloadUrl, `/downloads/geraina/Geraina-POS-${release.version}.apk`)
+  const response = await get(release.downloadUrl)
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('Content-Type'), 'application/vnd.android.package-archive')
+  assert.equal(response.headers.get('Content-Disposition'), `attachment; filename="Geraina-POS-${release.version}.apk"`)
+  assert.match(response.headers.get('Cache-Control'), /immutable/)
+  const bytes = Buffer.from(await response.arrayBuffer())
+  assert.equal(bytes.subarray(0, 2).toString(), 'PK')
+  assert.equal(bytes.length, release.bytes)
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), release.sha256)
+  assert.match(await (await get('/downloads/geraina/SHA256SUMS.txt')).text(), new RegExp(release.sha256))
+})
+
+test('Android downloads preserve HEAD, revalidation, ranges and true missing-file errors', async () => {
+  const release = await (await get('/downloads/geraina/latest.json')).json()
+  const head = await worker.fetch(new Request(`https://dagangos.com${release.downloadUrl}`, { method: 'HEAD' }), env, {})
+  assert.equal(head.status, 200)
+  assert.equal((await head.arrayBuffer()).byteLength, 0)
+  const cached = await worker.fetch(new Request(`https://dagangos.com${release.downloadUrl}`, { headers: { 'If-None-Match': '"apk"' } }), env, {})
+  assert.equal(cached.status, 304)
+  const range = await worker.fetch(new Request(`https://dagangos.com${release.downloadUrl}`), { ASSETS: { fetch: async () => new Response('PK', { status: 206, headers: { 'Content-Range': `bytes 0-1/${release.bytes}` } }) } }, {})
+  assert.equal(range.status, 206)
+  assert.equal(range.headers.get('Content-Range'), `bytes 0-1/${release.bytes}`)
+  assert.equal(await range.text(), 'PK')
+  for (const path of ['/downloads/geraina/Geraina-POS-999.0.0.apk', '/downloads/geraina/signing.jks']) {
+    const missing = await get(path)
+    assert.equal(missing.status, 404)
+    assert.doesNotMatch(await missing.text(), /<html|<div id="root">/)
+  }
+  const post = await worker.fetch(new Request(`https://dagangos.com${release.downloadUrl}`, { method: 'POST' }), env, {})
+  assert.equal(post.status, 405)
 })
 
 test('robots and sitemap are served as public assets', async () => {

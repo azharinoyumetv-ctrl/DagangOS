@@ -425,6 +425,23 @@ export default {
         }
       }
 
+      // Android downloads are binary assets; they must never fall through to a SPA.
+      if (pathname.startsWith('/downloads/geraina/')) {
+        if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
+        const isApk = /^\/downloads\/geraina\/Geraina-POS-\d+\.\d+\.\d+\.apk$/.test(pathname);
+        if (!isApk && !['/downloads/geraina/latest.json', '/downloads/geraina/SHA256SUMS.txt'].includes(pathname)) return new Response('Not Found', { status: 404 });
+        const asset = await env.ASSETS.fetch(request);
+        if (!asset.ok && asset.status !== 304) return new Response('Not Found', { status: 404 });
+        const headers = new Headers(asset.headers);
+        headers.set('X-Content-Type-Options', 'nosniff');
+        headers.set('Cache-Control', isApk ? 'public, max-age=31536000, immutable' : 'no-cache');
+        if (isApk) {
+          headers.set('Content-Type', 'application/vnd.android.package-archive');
+          headers.set('Content-Disposition', `attachment; filename="${pathname.split('/').pop()}"`);
+        } else headers.set('Content-Type', pathname.endsWith('.json') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8');
+        return new Response(request.method === 'HEAD' || asset.status === 304 ? null : asset.body, { status: asset.status, headers });
+      }
+
       // Check if path is a static asset by extension
       const isStaticAsset = /\.(js|css|png|jpg|jpeg|gif|ico|svg|json|woff|woff2|ttf|eot|map|webp|avif|txt|xml|webmanifest)$/i.test(pathname);
 
@@ -457,6 +474,9 @@ export default {
       const publicProductPages = {
         '/geraina': '/marketing/geraina.html',
         '/geraina/pricing': '/marketing/geraina-pricing.html',
+        '/geraina/android': '/marketing/geraina-android.html',
+        '/geraina/privacy': '/marketing/geraina-privacy.html',
+        '/geraina/delete-account': '/marketing/geraina-delete-account.html',
         '/dapuros': '/marketing/dapuros.html',
         '/dapuros/pricing': '/marketing/dapuros-pricing.html',
       };
