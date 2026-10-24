@@ -19,6 +19,7 @@ def test_android_download_is_the_advertised_signed_package():
     release = metadata.json()
     assert re.fullmatch(r"\d+\.\d+\.\d+", release["version"])
     assert release["applicationId"] == "com.dagangos.geraina"
+    assert release["minimumSdk"] == 34 and release["minimumAndroid"] == "14.0"
     assert release["downloadUrl"] == "/downloads/geraina/Geraina-POS-" + release["version"] + ".apk"
     apk = requests.get(BASE + release["downloadUrl"], timeout=60)
     assert apk.status_code == 200

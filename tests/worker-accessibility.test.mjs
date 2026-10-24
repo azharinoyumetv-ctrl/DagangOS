@@ -86,6 +86,8 @@ test('Android listing is discoverable and serves the verified APK without SPA co
   const metadata = await get('/downloads/geraina/latest.json')
   assert.equal(metadata.headers.get('Cache-Control'), 'no-cache')
   const release = await metadata.json()
+  assert.equal(release.minimumSdk, 34)
+  assert.equal(release.minimumAndroid, '14.0')
   assert.equal(release.downloadUrl, `/downloads/geraina/Geraina-POS-${release.version}.apk`)
   const response = await get(release.downloadUrl)
   assert.equal(response.status, 200)
