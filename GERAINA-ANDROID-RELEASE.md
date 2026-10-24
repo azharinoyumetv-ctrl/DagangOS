@@ -13,3 +13,13 @@ The Android listing is `/geraina/android`; it is linked from the Geraina product
 Versioned APK URLs are immutable. Keep previously published APKs available; update only `latest.json` and `SHA256SUMS.txt` to advertise the new release. Android updates must retain `com.dagangos.geraina`, the signing certificate and a higher version code. Users download and install the new APK over their existing app. A future Play release must preserve app identity and signing compatibility.
 
 The local Android matrix uses Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output, provider settlement and older Android versions require separate validation.
+
+## Published release, 24 October 2026
+
+Geraina **1.1.1**, version code **3**, is published at https://dagangos.com/geraina/android. The APK SHA-256 is `37b2d7cf47f2f6cfcb43a10608d9f1be4906f7ec071ce8a89090bcb6feb0008f`.
+
+- Android phone: 24/24 checks; large-tablet matrix: 116/116 checks.
+- Android unit tests: 9/9; presentation: 9/9; bridge: 9/9; signed release installation/login smoke: passed.
+- Portal tests: 25/25; live browser checks: 6/6, including the actual downloaded bytes and 320/393/768/1440 px layouts.
+- TestSprite `6aeabb04-2f07-46ac-ab0e-b5d7a715ae0c`, **Official Geraina Android download matches its public checksum and metadata**: **passed**. [Run](https://www.testsprite.com/dashboard/tests/52c365d6-4b9f-4b5d-a09e-b4726079328e/test/6aeabb04-2f07-46ac-ab0e-b5d7a715ae0c).
+- Deployment: https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40080523087, release commit `74046f7`.
