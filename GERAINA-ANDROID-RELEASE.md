@@ -14,6 +14,14 @@ Versioned APK URLs are immutable. Keep previously published APKs available; upda
 
 The current release requires Android 14 (API 34) or newer on a 64-bit ARM or x86 device. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
 
+## Branding cleanup 1.2.1, 25 October 2026
+
+Version code 6 shows the Geraina logo, wordmark and store identity once in the Android top bar. The sidebar header now contains the Suite switcher and, on narrow screens, the drawer-close control. The duplicate sidebar logo, app name and store label are hidden by the Android presentation layer.
+
+The signed APK is 18,984,806 bytes. SHA-256: `e2c07bccd069617b6ddb9cab4d8c3f5b026d0b65123e51d322c42c18d8a9f2f5`. The original package identity and signing certificate are retained, so users install it over their existing app. Earlier versioned downloads remain available.
+
+GerainaOS source commit: `46f9091`. The signed APK passed 50 usability checks and 24 offline/hardware checks across Android 14 and 17 phones and Xiaomi / Samsung large-tablet screen profiles. Native tablet screenshots were inspected to confirm the duplicate branding is absent in portrait and landscape. The Suite switcher remains usable on narrow and wide layouts. Android unit tests passed 14/14, browser metadata checks 54/54 and presentation checks 9/9; signing, package validation and 16 KB alignment passed. Portal tests passed 25/25 and the local download page passed 6/6 checks. The backend and barcode-decoder assertions recorded for 1.2.0 remain the unchanged baseline for this presentation-only update.
+
 ## Offline and hardware update 1.2.0, 25 October 2026
 
 Version code 5 retains the original app identity and signing certificate. The APK bundles the frontend and camera barcode model. After login and catalog preparation online, cash checkout and receipt recovery work without a connection, including after a cold restart. A durable local record is saved before checkout succeeds. Queued sales retry while the app is open, including from the dashboard; a server transaction commits the order, counter and stock together. Replays retain the same identifier and cannot create a second sale. Electronic payments require connectivity. Clearing app data or uninstalling can delete unsynchronized sales.
