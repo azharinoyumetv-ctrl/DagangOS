@@ -20,6 +20,15 @@ Version code 4 retains the app identity and signing certificate. It fixes unread
 
 Current signed-APK results are in `GerainaOS/android-app/releases/android-usability-report/`. The suite uses the prepared frontend at the production origin before deployment. Metadata writes and cashier products are intercepted fixtures; no merchant record or support message is written. A public live check verifies the advertised APK bytes and minimum Android requirement after deployment.
 
+The update is published at https://dagangos.com/geraina/android. Its SHA-256 is `61464a4f35701232e8e2f7fcab4592fdd7dda36c0ab201914e511ecc23e4bc65` (516,417 bytes).
+
+- Current signed-APK matrix: 50/50 checks across Android 14 and 17 phones and Xiaomi / Samsung large-tablet profiles. These are AOSP emulators.
+- After deployment, the installed signed APK passed another 13/13 checks against the live frontend on the Samsung-size tablet. This includes keyboard/dialog dismissal, text selection, metadata form recovery, persistent landscape navigation, double-Back exit and retained login.
+- Unit, presentation and bridge checks: 9/9 each. Login/register contrast: 12 cases. Form validation and recovery: 54 browser scenarios across three widths.
+- Portal tests: 25/25; live website checks: 6/6, including an actual APK download and its exact checksum.
+- TestSprite public download verification: passed, run `8d3f1596-e0ff-4095-bb13-74144deb4369`, [execution](https://www.testsprite.com/dashboard-v3/o/7468bfad-8578-53ea-8da7-d93ac8f0989d/projects/1466ba50-a196-4dc9-a160-f14658033239/execution/4c7052b6-8030-40bb-a801-bf63f61f0cab/test/8d3f1596-e0ff-4095-bb13-74144deb4369).
+- [Deployment](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40095588108), release commit `ec48b0c`: deploy, Cloudflare audit, public accessibility and Geraina end-to-end suite all passed.
+
 ## Previous published release 1.1.1
 
 Geraina **1.1.1**, version code **3**, is published at https://dagangos.com/geraina/android. The APK SHA-256 is `37b2d7cf47f2f6cfcb43a10608d9f1be4906f7ec071ce8a89090bcb6feb0008f`.
