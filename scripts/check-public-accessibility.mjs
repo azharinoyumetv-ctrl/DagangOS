@@ -29,10 +29,10 @@ const publicPages = [
   ['https://wmp.dagangos.com/', /PT DagangOS Digital Indonesia/i],
   ['https://wmp.dagangos.com/en', /PT DagangOS Digital Indonesia/i],
   ['https://wmp.dagangos.com/id', /PT DagangOS Digital Indonesia/i],
-  ['https://wmp.dagangos.com/en/pricing', /Website and Platform Pricing/i],
-  ['https://wmp.dagangos.com/id/pricing', /Harga Paket Website dan Platform/i],
-  ['https://wmp.dagangos.com/en/business', /Business Information/i],
-  ['https://wmp.dagangos.com/id/business', /Informasi Bisnis/i],
+  ['https://wmp.dagangos.com/en/pricing', /Ownership Packages/i],
+  ['https://wmp.dagangos.com/id/pricing', /Paket Kepemilikan/i],
+  ['https://wmp.dagangos.com/en/business', /About Us/i],
+  ['https://wmp.dagangos.com/id/business', /Tentang Kami/i],
   ['https://wmp.dagangos.com/en/site/about', /About Us/i],
   ['https://wmp.dagangos.com/id/site/about', /Tentang Kami/i],
   ['https://wmp.dagangos.com/en/site/catalog', /Solutions Catalog/i],
@@ -47,10 +47,10 @@ const publicPages = [
   ['https://wmp.dagangos.com/id/site/terms', /Syarat (?:&amp;|&) Ketentuan/i],
   ['https://wmp.dagangos.com/en/site/privacy', /Privacy Policy/i],
   ['https://wmp.dagangos.com/id/site/privacy', /Kebijakan Privasi/i],
-  ['https://wmp.dagangos.com/en/site/refund', /Cancellation and Refund Policy/i],
-  ['https://wmp.dagangos.com/id/site/refund', /Kebijakan Pembatalan dan Refund/i],
+  ['https://wmp.dagangos.com/en/site/refund', /Refund Policy/i],
+  ['https://wmp.dagangos.com/id/site/refund', /Kebijakan Refund/i],
   ['https://wmp.dagangos.com/robots.txt', /Sitemap:\s*https:\/\/wmp\.dagangos\.com\/sitemap\.xml/i],
-  ['https://wmp.dagangos.com/sitemap.xml', /https:\/\/wmp\.dagangos\.com\/id\/pricing/i],
+  ['https://wmp.dagangos.com/sitemap.xml', /https:\/\/wmp\.dagangos\.com\/id\/site\/shop/i],
 ]
 
 const applicationPages = [
@@ -63,7 +63,7 @@ const applicationPages = [
   ['https://wmp.dagangos.com/register', /PT DagangOS Digital Indonesia/i],
   ['https://wmp.dagangos.com/terms', /Terms of Service/i],
   ['https://wmp.dagangos.com/privacy', /Privacy Policy/i],
-  ['https://wmp.dagangos.com/refund-policy', /Cancellation and Refund Policy/i],
+  ['https://wmp.dagangos.com/refund-policy', /Refund Policy/i],
   ['https://wmp.dagangos.com/contact', /contact@dagangos\.com/i],
 ]
 
@@ -142,8 +142,11 @@ if (![302, 307, 308].includes(admin.status) || !/\/en\/auth\/login/.test(admin.h
 console.log(`PASS protected admin redirect ${admin.status} -> ${admin.headers.get('location')}`)
 
 await checkDirectPage('https://www.dagangos.com/produk?source=visibility-check', /PT DagangOS Digital Indonesia/i)
-await checkDirectPage('https://store.dagangos.com/id/pricing?source=visibility-check', /Harga Paket Website dan Platform/i)
-await checkDirectPage('https://wmp.dagangos.com/', /PT DagangOS Digital Indonesia/i)
+// These product hostnames are deliberately reserved; WMP must not claim them.
+for (const host of ['store.dagangos.com', 'shop.dagangos.com']) {
+  await checkStatus(`https://${host}/id/pricing?source=visibility-check`, 404, browserAgent)
+}
+await checkDirectPage('https://wmp.dagangos.com/en', /PT DagangOS Digital Indonesia/i)
 await checkDirectAsset('https://www.dagangos.com/portal.css?source=visibility-check', /text\/css/i)
 await checkDirectAsset('https://www.dagangos.com/portal.js?source=visibility-check', /(?:application|text)\/javascript/i)
 await checkDirectAsset('https://www.dagangos.com/support-chat.css?source=visibility-check', /text\/css/i)
@@ -156,7 +159,7 @@ if (/Disallow:\s*\/\*\/checkout\/|Disallow:\s*\/\*\/project-setup\//i.test(wmpRo
 }
 console.log('PASS WMP robots.txt allows checkout and project setup')
 
-const unknownTenant = await get('https://random-visibility-check.dagangos.com/', browserAgent, 'manual')
+const unknownTenant = await get('https://random-visibility-check.dagangos.com/', browserAgent)
 const unknownTenantBody = await unknownTenant.text()
 if (unknownTenant.status !== 404) {
   throw new Error(`Unknown tenant hostname returned ${unknownTenant.status}; expected controlled 404`)
