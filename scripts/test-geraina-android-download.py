@@ -20,6 +20,7 @@ def test_android_download_is_the_advertised_signed_package():
     assert re.fullmatch(r"\d+\.\d+\.\d+", release["version"])
     assert release["applicationId"] == "com.dagangos.geraina"
     assert release["minimumSdk"] == 34 and release["minimumAndroid"] == "14.0"
+    assert set(release["supportedAbis"]) == {"arm64-v8a", "x86_64"}
     assert release["downloadUrl"] == "/downloads/geraina/Geraina-POS-" + release["version"] + ".apk"
     apk = requests.get(BASE + release["downloadUrl"], timeout=60)
     assert apk.status_code == 200
@@ -30,6 +31,9 @@ def test_android_download_is_the_advertised_signed_package():
     with zipfile.ZipFile(io.BytesIO(apk.content)) as package:
         assert "AndroidManifest.xml" in package.namelist()
         assert "classes.dex" in package.namelist()
+        assert "assets/frontend/bundle-manifest.json" in package.namelist()
+        assert "assets/device-features.js" in package.namelist()
+        assert any("barhopper" in name for name in package.namelist())
         assert not any(name.endswith((".jks", "keystore.properties")) for name in package.namelist())
     checksum = requests.get(BASE + "/downloads/geraina/SHA256SUMS.txt", timeout=30)
     assert checksum.status_code == 200 and release["sha256"] in checksum.text
@@ -39,6 +43,8 @@ def test_android_download_is_the_advertised_signed_package():
     missing = requests.get(BASE + "/downloads/geraina/Geraina-POS-999.0.0.apk", timeout=30)
     assert missing.status_code == 404
     assert '<div id="root">' not in missing.text
+    protected_sync = requests.post(BASE + "/api/offline/orders", headers={"X-DagangOS-Module": "geraina"}, json={}, timeout=30)
+    assert protected_sync.status_code == 401, "Offline sale synchronization must require authentication"
     print(json.dumps({"status": "passed", "version": release["version"], "sha256": release["sha256"], "merchantWrites": 0}))
 
 test_android_download_is_the_advertised_signed_package()

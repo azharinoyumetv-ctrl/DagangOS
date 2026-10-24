@@ -5,14 +5,30 @@ The Android listing is `/geraina/android`; it is linked from the Geraina product
 ## Updating the release
 
 1. In `GerainaOS/android-app`, retain the original signing key and increment both the app version and version code. Build and verify with `scripts/Build-Release.ps1` and `scripts/Verify-Release.ps1`.
-2. Run the signed-APK usability suite on `android14`, `android17`, `xiaomi12` and `tablet146`. Export with `node scripts/export-usability-reports.cjs android14 android17 xiaomi12 tablet146`. Record current results and the exact APK SHA-256 in `releases/release-verification.json`. Earlier debug-APK benches remain historical regression evidence, not results for a new APK.
+2. Run `scripts/Run-FinalVerification.ps1 -Profile <profile>` for `android14`, `android17`, `xiaomi12` and `tablet146`. Export with `node scripts/export-usability-reports.cjs android14 android17 xiaomi12 tablet146` and `node scripts/export-offline-reports.cjs`. Run the isolated MongoDB transaction tests, browser checks and native library alignment check, then record current results with `node scripts/record-usability-release.cjs`. Earlier debug-APK benches remain historical regression evidence, not results for a new APK.
 3. From this portal repository, run `node scripts/stage-geraina-android.mjs`. It refuses to stage an APK whose bytes differ from the verified artifact, or an incomplete device matrix.
 4. Run `npm run build`, `npm test`, and the local website verification script against a local Worker. The browser check confirms responsive layouts, the actual downloaded bytes, and the unavailable-release state.
 5. Deploy the portal through its existing Cloudflare deployment workflow. Verify the live page, manifest, checksum and APK. `scripts/test-geraina-android-download.py` is a read-only public HTTP check suitable for the existing TestSprite project.
 
 Versioned APK URLs are immutable. Keep previously published APKs available; update only `latest.json` and `SHA256SUMS.txt` to advertise the new release. Android updates must retain `com.dagangos.geraina`, the signing certificate and a higher version code. Users download and install the new APK over their existing app. A future Play release must preserve app identity and signing compatibility.
 
-The current release requires Android 14 (API 34) or newer. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
+The current release requires Android 14 (API 34) or newer on a 64-bit ARM or x86 device. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
+
+## Offline and hardware update 1.2.0, 25 October 2026
+
+Version code 5 retains the original app identity and signing certificate. The APK bundles the frontend and camera barcode model. After login and catalog preparation online, cash checkout and receipt recovery work without a connection, including after a cold restart. A durable local record is saved before checkout succeeds. Queued sales retry while the app is open, including from the dashboard; a server transaction commits the order, counter and stock together. Replays retain the same identifier and cannot create a second sale. Electronic payments require connectivity. Clearing app data or uninstalling can delete unsynchronized sales.
+
+Camera scanning uses an on-device model. Native receipts target ESC/POS over Bluetooth Classic SPP, or USB printer-class bulk OUT through OTG, with 58 mm and 80 mm profiles. Settings > Printer provides device setup and a test receipt. BLE-only, proprietary vendor protocols and USB serial adapters are not claimed. No printer model or physical printer was supplied, so paper output and model-specific compatibility remain unverified.
+
+The exact signed APK must pass both device matrices before staging. Results are retained in `GerainaOS/android-app/releases/android-usability-report/`, `android-offline-report/` and `release-verification.json`. Merchant product/sale writes and support messages remain zero during verification; backend write tests use an isolated local MongoDB replica set.
+
+The signed 1.2.0 APK is 18,984,722 bytes. SHA-256: `d79a8fb1bc11aaeec3f223a2a244cc98da5931bde6daedb9324cd8001d9fafe2`. Application source is commit `8b2fbc0` in GerainaOS; `26b7b85` refines the test's page-ready wait without changing the APK.
+
+- Installed signed APK: 50/50 usability checks and 24/24 offline/hardware checks across all four profiles. Offline checks disable Android connectivity, block API responses, force-stop/restart the app, exercise camera denial/preview, open native printer setup, and verify failed replay/retry without duplicate identifiers. An open receipt updates when synchronization completes.
+- Isolated MongoDB: 9/9 tests, including concurrent replay, lost-response replay, rollback of stock/order/counter, and account/store validation.
+- Android unit tests: 14/14, including fractional receipt amounts and both paper widths. Bundled barcode decoding: EAN-13 at two rotations on Android 14, repeated with connectivity disabled; this decoder test uses debug instrumentation. Signed release camera startup and frame processing passed the installed matrix.
+- Browser checks: six offline scenarios, nine presentation checks and 54 metadata validation/recovery scenarios across three widths. Bridge checks remain 9/9.
+- Signing certificate retained; APK/AAB validation, 16 KB ZIP/native ELF alignment and private-credential exclusion passed. Release lint has zero errors and 47 warnings.
 
 ## Usability update 1.1.2, 24 October 2026
 
