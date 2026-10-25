@@ -35,7 +35,11 @@ def test_android_download_is_the_advertised_signed_package():
         assert "assets/device-features.js" in package.namelist()
         device_api = package.read("assets/device-features.js").decode("utf-8")
         assert "appInfo" in device_api and "target" in device_api and "checkForUpdates" in device_api
-        assert "res/xml/update_paths.xml" in package.namelist()
+        manifest = package.read("AndroidManifest.xml")
+        # Release resource optimization shortens XML filenames; inspect the compiled
+        # manifest's string pool rather than asserting a source resource filename.
+        for value in ("androidx.core.content.FileProvider", "android.permission.REQUEST_INSTALL_PACKAGES", "com.dagangos.geraina.updates"):
+            assert any(value.encode(encoding) in manifest for encoding in ("utf-8", "utf-16-le"))
         bundle = json.loads(package.read("assets/frontend/bundle-manifest.json"))
         main_scripts = [row["path"] for row in bundle["files"] if re.fullmatch(r"static/js/main\.[^/]+\.js", row["path"])]
         assert len(main_scripts) == 1
