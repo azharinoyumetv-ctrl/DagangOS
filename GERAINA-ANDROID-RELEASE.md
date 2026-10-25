@@ -14,6 +14,18 @@ Versioned APK URLs are immutable. Keep previously published APKs available; upda
 
 The current release requires Android 14 (API 34) or newer on a 64-bit ARM or x86 device. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
 
+## Defect audit update 1.2.2, 25 October 2026
+
+Version code 7 fixes the reported About version, loading delays, password visibility and missing product-camera entry point. About now reads the installed Android version/device metadata and the account plan. Native menu changes retain the running document, saved Android sessions render while validation runs, repeated session checks are shared, hidden dashboard requests are skipped and the Android bundle uses system fonts without remote font/analytics startup dependencies. Login, registration and integration secrets have show/hide controls. Products > Produk Baru / Edit > SKU / Barcode has a native Scan barcode button; it fills the draft and requires explicit Save.
+
+The audit also fixes product failure/retry states, structured validation errors, repeated Save submissions, partial settings/default business details, settings save feedback, import-dialog Back/scroll handling and draft loss during orientation changes. GerainaOS source commit: `1cbd4d4`. See `GerainaOS/android-app/DEFECT-AUDIT-1.2.2.md` for causes, tests and limits.
+
+The signed APK is 17,134,002 bytes. SHA-256: `257b55f6c3e170d6d18cc04e683e9a1c6245b366e83f79c7c0a99436c4864df1`. Install over the previous app using the retained signing identity.
+
+The audit covers 26 screens with merchant mutations blocked, 13 isolated defect regressions, 16 Android unit tests and a 12-rotation product-draft preservation check. The signed-APK matrix passed 50 usability checks and 32 offline/native checks on Android 14/17 phones and Xiaomi/Samsung-size tablet profiles. Camera startup/cancel is exercised; decoded product return values are explicit fixtures and native routing has unit coverage. Physical optical scanning and printer output are not certified. The unchanged backend and EAN-13 decoder results remain the 1.2.0 baseline.
+
+Synthetic startup with a two-second validation delay rendered the saved interface in 352 ms. Initial final-APK phone/tablet route checks with isolated data measured roughly 0.17–0.45 seconds, without document reload. These are controlled bench measurements, not promises of network or physical-device response times.
+
 ## Branding cleanup 1.2.1, 25 October 2026
 
 Version code 6 shows the Geraina logo, wordmark and store identity once in the Android top bar. The sidebar header now contains the Suite switcher and, on narrow screens, the drawer-close control. The duplicate sidebar logo, app name and store label are hidden by the Android presentation layer.

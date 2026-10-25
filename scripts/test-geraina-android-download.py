@@ -33,6 +33,18 @@ def test_android_download_is_the_advertised_signed_package():
         assert "classes.dex" in package.namelist()
         assert "assets/frontend/bundle-manifest.json" in package.namelist()
         assert "assets/device-features.js" in package.namelist()
+        device_api = package.read("assets/device-features.js").decode("utf-8")
+        assert "appInfo" in device_api and "target" in device_api
+        bundle = json.loads(package.read("assets/frontend/bundle-manifest.json"))
+        main_scripts = [row["path"] for row in bundle["files"] if re.fullmatch(r"static/js/main\.[^/]+\.js", row["path"])]
+        assert len(main_scripts) == 1
+        javascript = package.read("assets/frontend/" + main_scripts[0]).decode("utf-8")
+        for feature in ("about-version", "pf-scan-barcode", "login-password-toggle", "register-password-toggle", "GerainaRouter"):
+            assert feature in javascript, "Missing Android quality fix: " + feature
+        for row in bundle["files"]:
+            if row["path"].endswith((".html", ".css")):
+                text = package.read("assets/frontend/" + row["path"]).decode("utf-8")
+                assert not any(host in text for host in ("fonts.googleapis.com", "fonts.gstatic.com", "api.fontshare.com", "posthog.init"))
         assert any("barhopper" in name for name in package.namelist())
         assert not any(name.endswith((".jks", "keystore.properties")) for name in package.namelist())
     checksum = requests.get(BASE + "/downloads/geraina/SHA256SUMS.txt", timeout=30)
