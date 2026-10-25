@@ -44,9 +44,8 @@ def test_android_download_is_the_advertised_signed_package():
         main_scripts = [row["path"] for row in bundle["files"] if re.fullmatch(r"static/js/main\.[^/]+\.js", row["path"])]
         assert len(main_scripts) == 1
         javascript = package.read("assets/frontend/" + main_scripts[0]).decode("utf-8")
-        assert "https://geraina-os.vercel.app/api/webhooks/xendit" in javascript
         assert "https://api.dagangos.com/api/webhooks/xendit" not in javascript
-        for feature in ("about-version", "about-check-updates", "qris-integration", "qris-byok", "pf-scan-barcode", "login-password-toggle", "register-password-toggle", "GerainaRouter"):
+        for feature in ("about-version", "about-check-updates", "bank-qris-settings", "bank-qris-upload", "bank-qris-confirm", "confirm-bank-qris", "bank-qris-resume", "pf-scan-barcode", "login-password-toggle", "register-password-toggle", "GerainaRouter"):
             assert feature in javascript, "Missing Android quality fix: " + feature
         for row in bundle["files"]:
             if row["path"].endswith((".html", ".css")):
@@ -66,6 +65,10 @@ def test_android_download_is_the_advertised_signed_package():
     assert protected_sync.status_code == 401, "Offline sale synchronization must require authentication"
     setup_status = requests.get(BASE + "/api/integrations/qris/status", headers={"X-DagangOS-Module": "geraina"}, timeout=30)
     assert setup_status.status_code == 401, "Merchant QRIS configuration must require authentication"
+    bank_setup = requests.get(BASE + "/api/payments/bank-qris", headers={"X-DagangOS-Module": "geraina"}, timeout=30)
+    assert bank_setup.status_code == 401, "Bank QRIS configuration must exist and require authentication"
+    bank_confirm = requests.post(BASE + "/api/orders/public-contract-no-order/confirm-bank-qris", headers={"X-DagangOS-Module": "geraina"}, json={"checked_in_bank": True, "received_amount": "12500"}, timeout=30)
+    assert bank_confirm.status_code == 401, "Bank payment confirmation must require authentication"
     callback = requests.post("https://geraina-os.vercel.app/api/webhooks/xendit", headers={"x-callback-token": "invalid-geraina-public-verification"}, json={}, timeout=30)
     assert callback.status_code == 401, "The documented Geraina callback must exist and reject invalid tokens"
     print(json.dumps({"status": "passed", "version": release["version"], "sha256": release["sha256"], "merchantWrites": 0}))

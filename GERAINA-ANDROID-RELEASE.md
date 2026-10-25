@@ -14,6 +14,16 @@ Versioned APK URLs are immutable. Keep previously published APKs available; upda
 
 The current release requires Android 14 (API 34) or newer on a 64-bit ARM or x86 device. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
 
+## Bank QRIS candidate 1.2.5, 25 October 2026
+
+The next candidate, **1.2.5 (version code 10)**, replaces the new checkout's gateway QRIS requirement with the merchant's bank-issued static QRIS and explicit staff confirmation. Owner uploads the existing QRIS in **Pembayaran > QRIS**; staff check the bank's merchant app and enter the matching amount before marking an order paid. The saved audit identifies the confirming account and time. No Xendit key or platform subscription account is used for this flow. Earlier gateway orders and clients keep their compatibility route.
+
+The candidate adds recovery of pending bank orders from POS and sales history, preserves the original QRIS destination on each order, and corrects thermal receipts to distinguish cash, pending QRIS and staff-confirmed QRIS. The image is decoded locally; its payment payload is saved unchanged and validated on the server. A synthetic image test decodes the displayed checkout QR again and compares the exact payload.
+
+Candidate APK: **17,202,259 bytes**, SHA-256 `8be453e3e42a866c488d6a617fb85e4f0b7aabda356215697a291ce516d8dd25`. The local package is staged; publication remains pending approval. Source commit: `48ae78c`. Public 1.2.4 URLs and bytes remain unchanged. Bank settlement and physical printer output are not claimed as verified by fixture/emulator tests. See `GerainaOS/android-app/BANK-QRIS.md` for setup and operational limits.
+
+The candidate passed 66 bank/legacy QRIS backend tests, 9 isolated MongoDB replay/rollback tests, 23 Android unit tests, 50 signed usability checks, 32 signed offline/hardware checks, 32 signed bank QRIS checks, 12 updater controls and 24 tablet draft rotations. Browser checks covered 24 bank QRIS scenarios, 19 defect regressions, 54 metadata cases and a 26-screen read-only audit. One preflight Xiaomi run closed during rotation for an undetermined reason; its complete rerun and 12 additional Xiaomi rotations passed. The original failure evidence is retained in the local test reports. The Samsung updater recovered through its normal Retry control after network restoration. No real bank transaction or merchant-data write was performed.
+
 ## QRIS callback correction 1.2.4, 25 October 2026
 
 Version code 9 corrects both Xendit setup instructions to use `https://geraina-os.vercel.app/api/webhooks/xendit`. Live verification showed the old `api.dagangos.com` path returned 404. The documented Geraina endpoint exists and rejects an invalid callback token with 401. This correction leaves DagangOS subscription payments and merchant credentials separate. Provider payment/settlement still requires the merchant's own approved account and a controlled test; no payment has been created during this release.
