@@ -14,6 +14,12 @@ Versioned APK URLs are immutable. Keep previously published APKs available; upda
 
 The current release requires Android 14 (API 34) or newer on a 64-bit ARM or x86 device. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
 
+## QRIS callback correction 1.2.4, 25 October 2026
+
+Version code 9 corrects both Xendit setup instructions to use `https://geraina-os.vercel.app/api/webhooks/xendit`. Live verification showed the old `api.dagangos.com` path returned 404. The documented Geraina endpoint exists and rejects an invalid callback token with 401. This correction leaves DagangOS subscription payments and merchant credentials separate. Provider payment/settlement still requires the merchant's own approved account and a controlled test; no payment has been created during this release.
+
+APK: 17,151,370 bytes, SHA-256 `40080d6e0b43a953fcbe6d123b497a9771e2c3af549c549825b3b640fe9199fd`. The 1.2.3 download remains immutable. Source: `5a434b1`. The final 1.2.4 device, browser and package verification records are under `GerainaOS/android-app/releases/`; publication and published-to-published upgrade verification are pending.
+
 ## In-app updates and merchant-owned QRIS, 1.2.3, 25 October 2026
 
 Version code 8 adds automatic foreground availability checks, a nonblocking update banner, the native **Periksa pembaruan** menu and an About action. A confirmed download is checked against the official manifest, exact byte length/SHA-256, package/version/OS compatibility and original installed signing certificate. Android controls source permission and installation approval. Existing versions require one website install of 1.2.3; later updates can start inside Geraina. The website APK self-updater must be replaced with Play's update mechanism before a Play submission. See `GerainaOS/android-app/IN-APP-UPDATES.md`.
@@ -26,7 +32,7 @@ The signed APK is 17,151,346 bytes, SHA-256 `0b5a8f2bf248e08d875750228bff2af7b63
 
 Other local validation: 21 Android unit tests, 24 QRIS/BYOK backend contract tests with fake transport/store records, 19 frontend regressions, 26 read-only screens, 12 draft-preserving rotations, 54 metadata scenarios, six offline browser scenarios, nine presentation checks, nine bridge checks and 25 portal tests. The unchanged isolated MongoDB replay/rollback and decoder instrumentation results remain the earlier baseline. Vendor firmware, physical printer output and physical optical scanning are not certified.
 
-Release source commits: `a27170e`, `3c7b594`. The owner approved publishing after verification. Public deployment and cloud verification are pending; update this record with the live result before describing the release as published.
+Release source commits: `a27170e`, `3c7b594`. The owner approved publishing after verification. Version 1.2.3 was published in [deployment 40173887206](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40173887206), release commit `b15d60c`, with all four jobs passing and six live download-page checks passing. The expanded cloud check was deferred to 1.2.4 after the live callback-address defect was discovered. The backend deployment of `3c7b594` passed; authenticated live setup status confirms merchant-store credentials, no configured key/token, and no claim of a verified payment. Version 1.2.4 corrects the callback instructions.
 
 ## Defect audit update 1.2.2, 25 October 2026
 
