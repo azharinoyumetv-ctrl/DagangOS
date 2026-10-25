@@ -13,7 +13,7 @@
     document.querySelector('[data-release-meta]').textContent=`Versi ${release.version} · ${size} · Android ${release.minimumAndroid}+ · 64-bit`;
     document.querySelector('[data-release-version]').textContent=`Versi ${release.version} · ${size}`;
     document.querySelector('[data-checksum]').textContent=release.sha256;
-    document.querySelector('[data-download-status]').textContent='Unduhan langsung dari dagangos.com. Pembaruan tersedia melalui halaman ini.';
+    document.querySelector('[data-download-status]').textContent='Unduhan resmi dari dagangos.com. Mulai versi 1.2.3, periksa pembaruan langsung di aplikasi.';
   }).catch(()=>{
     document.querySelectorAll('[data-download-label]').forEach(label=>label.textContent='Unduhan belum tersedia');
     const status=document.querySelector('[data-download-status]');status.classList.add('error');status.textContent='File belum dapat dimuat. Coba muat ulang halaman atau hubungi contact@dagangos.com.';
