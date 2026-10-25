@@ -26,6 +26,8 @@ The audit covers 26 screens with merchant mutations blocked, 13 isolated defect 
 
 Synthetic startup with a two-second validation delay rendered the saved interface in 352 ms. Initial final-APK phone/tablet route checks with isolated data measured roughly 0.17–0.45 seconds, without document reload. These are controlled bench measurements, not promises of network or physical-device response times.
 
+Portal tests passed 25/25; local and live download-page checks passed 6/6 each. The expanded [TestSprite APK verification](https://www.testsprite.com/dashboard-v3/o/7468bfad-8578-53ea-8da7-d93ac8f0989d/projects/1466ba50-a196-4dc9-a160-f14658033239/execution/30486aa4-5f38-4f9d-919e-a5c1ef77f9d9/test/f6b0ea8c-9407-4de1-a5fe-f5f30564d518) passed: run `f6b0ea8c-9407-4de1-a5fe-f5f30564d518`, code `v-a0ef212cd7dd`. It verifies the downloaded bytes and the presence of the version, password, product-camera and router fixes, plus removal of remote startup font dependencies. [Deployment](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40168612772), release commit `425adad`.
+
 ## Branding cleanup 1.2.1, 25 October 2026
 
 Version code 6 shows the Geraina logo, wordmark and store identity once in the Android top bar. The sidebar header now contains the Suite switcher and, on narrow screens, the drawer-close control. The duplicate sidebar logo, app name and store label are hidden by the Android presentation layer.
