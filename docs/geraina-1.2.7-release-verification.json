@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "status": "passed",
+  "version": "1.2.7",
+  "versionCode": 12,
+  "applicationId": "com.dagangos.geraina",
+  "minimumSdk": 34,
+  "supportedAbis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "apkSha256": "f63e22a8577c5ccc33042c4f9439b90e4f1396cd5bb0b7715aae536e1f981e52",
+  "bytes": 17207111,
+  "verifiedAt": "2026-10-26T13:50:42.196Z",
+  "publicationAuthorized": true,
+  "customerAudit": {
+    "status": "21_findings_fixed_and_verified_locally",
+    "backend": {
+      "tests": 313,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "browser": {
+      "startTime": "2026-10-26T12:47:10.742Z",
+      "duration": 340402.853,
+      "expected": 294,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "package": {
+    "version": "1.2.7",
+    "versionCode": 12,
+    "applicationId": "com.dagangos.geraina",
+    "minSdk": 34,
+    "targetSdk": 36,
+    "signatureVerified": true,
+    "signatureScheme": "v2",
+    "signerSha256": "52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8",
+    "sha256": "f63e22a8577c5ccc33042c4f9439b90e4f1396cd5bb0b7715aae536e1f981e52",
+    "bytes": 17207111,
+    "bundleManifestEntriesVerified": 18,
+    "browserAssetMatches": 17,
+    "expectedPackageTransform": "Remote font imports and remote font/analytics HTML tags removed by bundle-frontend.cjs. Native presentation assets injected at document start.",
+    "published": false,
+    "deviceInstalled": false,
+    "candidatePath": "android-app/releases/candidates/1.2.7/Geraina-POS-1.2.7-candidate.apk",
+    "candidateCopiedAndHashVerified": true
+  },
+  "backendDeployment": {
+    "status": "passed",
+    "sourceCommit": "50f17dc8f32511cfd5f8f79e27dbba9d20707786",
+    "checks": [
+      {
+        "path": "/api/auth/me",
+        "status": 200
+      },
+      {
+        "path": "/api/orders/stats",
+        "status": 200
+      },
+      {
+        "path": "/api/orders/history?limit=5",
+        "status": 200
+      },
+      {
+        "path": "/api/inventory/movements",
+        "status": 200
+      },
+      {
+        "path": "/api/inventory/branches",
+        "status": 200
+      },
+      {
+        "path": "/api/records/customers",
+        "status": 200
+      },
+      {
+        "path": "/api/records/suppliers",
+        "status": 200
+      },
+      {
+        "path": "/api/records/purchase-orders",
+        "status": 200
+      },
+      {
+        "path": "/api/records/receiving",
+        "status": 200
+      },
+      {
+        "path": "/api/records/invoices",
+        "status": 200
+      },
+      {
+        "path": "/api/records/payables",
+        "status": 200
+      },
+      {
+        "path": "/api/records/receivables",
+        "status": 200
+      },
+      {
+        "path": "/api/reports/profit",
+        "status": 200
+      },
+      {
+        "path": "/api/payments/options",
+        "status": 200
+      },
+      {
+        "path": "/api/records/customers",
+        "status": 401
+      },
+      {
+        "path": "/api/inventory/movements",
+        "status": 401
+      }
+    ],
+    "merchantWrites": 0,
+    "providerChargesOrMessages": 0,
+    "verifiedAt": "2026-10-26T13:47:18.941Z"
+  },
+  "androidUpgrade": {
+    "status": "passed",
+    "profile": "tablet7",
+    "fromVersion": "1.2.6",
+    "toVersion": "1.2.7",
+    "versionCode": 12,
+    "apkSha256": "f63e22a8577c5ccc33042c4f9439b90e4f1396cd5bb0b7715aae536e1f981e52",
+    "checks": [
+      "Signed APK installs over 1.2.6",
+      "Installed package and native appInfo report 1.2.7 / 12",
+      "Local preferences preserved",
+      "Pending offline sale preserved",
+      "Real WebView login and password reveal work"
+    ],
+    "merchantWrites": 0,
+    "scope": "AOSP Android emulator; no physical hardware or live payments",
+    "verifiedAt": "2026-10-26T13:50:42.196Z"
+  },
+  "physicalHardware": "Not certified; browser phone/Xiaomi/Samsung layouts and an actual AOSP emulator upgrade passed.",
+  "liveGatewayCharges": "Not performed; no merchant fees or real payment created.",
+  "sourceCommit": "50f17dc8f32511cfd5f8f79e27dbba9d20707786",
+  "published": false
+}

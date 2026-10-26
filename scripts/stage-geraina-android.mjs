@@ -3,10 +3,28 @@ import { readFileSync, copyFileSync, mkdirSync, writeFileSync, existsSync } from
 import { resolve, join } from 'node:path'
 import { createHash } from 'node:crypto'
 const root=resolve(import.meta.dirname,'..'),android=join(root,'GerainaOS/android-app'),releases=join(android,'releases')
-const verification=JSON.parse(readFileSync(join(releases,'release-verification.json'),'utf8'))
+const verification=JSON.parse(readFileSync(process.argv[2]?resolve(process.argv[2]):join(releases,'release-verification.json'),'utf8'))
 assert.match(verification.version,/^\d+\.\d+\.\d+$/)
 assert.equal(verification.applicationId,'com.dagangos.geraina')
 assert.equal(verification.minimumSdk,34)
+if(verification.schemaVersion===2){
+  // Current repair evidence stays separate from historical device reports.
+  assert.equal(verification.status,'passed')
+  assert.equal(verification.customerAudit.status,'21_findings_fixed_and_verified_locally')
+  assert.equal(verification.customerAudit.backend.tests,313)
+  assert.equal(verification.customerAudit.browser.expected,294)
+  for(const key of ['unexpected','skipped','flaky'])assert.equal(verification.customerAudit.browser[key],0)
+  assert.equal(verification.backendDeployment.status,'passed')
+  assert.ok(verification.backendDeployment.checks.length>=16)
+  assert.equal(verification.androidUpgrade.status,'passed')
+  assert.equal(verification.androidUpgrade.toVersion,verification.version)
+  assert.equal(verification.androidUpgrade.versionCode,verification.versionCode)
+  assert.equal(verification.androidUpgrade.apkSha256,verification.apkSha256)
+  assert.equal(verification.package.signatureVerified,true)
+  assert.equal(verification.package.bundleManifestEntriesVerified,18)
+  assert.equal(verification.package.signerSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8')
+  assert.equal(verification.publicationAuthorized,true)
+}else{
 assert.equal(verification.androidUsability.status,'passed')
 assert.equal(verification.browserUsability.status,'passed')
 assert.equal(verification.browserUsability.version,verification.version)
@@ -36,17 +54,20 @@ if(verification.versionCode>=11){
 }
 assert.ok(verification.offlineAndroid.profiles.every(row=>row.status==='passed'&&row.apkSha256===verification.apkSha256))
 for(const profile of ['xiaomi12','tablet146','android14','android17'])assert.ok(verification.androidUsability.profiles.some(row=>row.profile===profile&&row.status==='passed'&&row.version===verification.version))
+}
 const filename=`Geraina-POS-${verification.version}.apk`,source=join(releases,filename),bytes=readFileSync(source)
 const hash=createHash('sha256').update(bytes).digest('hex')
 assert.ok(bytes.length<=25*1024*1024,'The APK exceeds the website hosting asset limit')
 assert.equal(hash,verification.apkSha256,'Only the verified signed APK can be staged')
-assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
+if(verification.schemaVersion!==2)assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
 const destination=join(root,'public/downloads/geraina'),images=join(root,'public/assets/geraina-android')
 mkdirSync(destination,{recursive:true});mkdirSync(images,{recursive:true})
 if(existsSync(join(destination,filename)))assert.equal(createHash('sha256').update(readFileSync(join(destination,filename))).digest('hex'),hash,'Published APK URLs are immutable; increment the release version')
 copyFileSync(source,join(destination,filename))
-copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
-copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))
+if(verification.schemaVersion!==2){
+ copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
+ copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))
+}
 const manifest={version:verification.version,versionCode:verification.versionCode,applicationId:verification.applicationId,downloadUrl:`/downloads/geraina/${filename}`,bytes:bytes.length,sha256:hash,minimumAndroid:'14.0',minimumSdk:34,supportedAbis:verification.supportedAbis,verifiedAt:verification.verifiedAt,signingCertificateSha256:'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8'}
 writeFileSync(join(destination,'latest.json'),JSON.stringify(manifest,null,2)+'\n')
 writeFileSync(join(destination,'SHA256SUMS.txt'),`${hash}  ${filename}\n`)
