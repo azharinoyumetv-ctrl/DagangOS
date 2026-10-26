@@ -45,7 +45,7 @@ def test_android_download_is_the_advertised_signed_package():
         assert len(main_scripts) == 1
         javascript = package.read("assets/frontend/" + main_scripts[0]).decode("utf-8")
         assert "https://api.dagangos.com/api/webhooks/xendit" not in javascript
-        for feature in ("about-version", "about-check-updates", "bank-qris-settings", "bank-qris-upload", "bank-qris-confirm", "confirm-bank-qris", "bank-qris-resume", "pf-scan-barcode", "login-password-toggle", "register-password-toggle", "GerainaRouter"):
+        for feature in ("about-version", "about-check-updates", "bank-qris-settings", "bank-qris-upload", "bank-qris-confirm", "confirm-bank-qris", "bank-qris-resume", "pf-scan-barcode", "login-password-toggle", "register-password-toggle", "GerainaRouter", "account-switch-confirm", "password-setup-page", "attendance-own-status", "pos-products-next"):
             assert feature in javascript, "Missing Android quality fix: " + feature
         for row in bundle["files"]:
             if row["path"].endswith((".html", ".css")):

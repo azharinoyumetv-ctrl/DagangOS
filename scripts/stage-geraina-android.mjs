@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, copyFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { createHash } from 'node:crypto'
 const root=resolve(import.meta.dirname,'..'),android=join(root,'GerainaOS/android-app'),releases=join(android,'releases')
@@ -27,6 +27,13 @@ assert.ok(verification.defectRegression.results.length>=13)
 assert.equal(verification.readOnlyScreenAudit.status,'passed')
 assert.equal(verification.rotationDraftPreservation.status,'passed')
 assert.ok(verification.offlineBackend.passed>=9)
+if(verification.versionCode>=11){
+  assert.equal(verification.posStaffSecurity.status,'passed')
+  assert.ok(verification.posStaffSecurity.backendTests>=210)
+  assert.ok(verification.posStaffSecurity.sharedBackendTests>=27)
+  assert.equal(verification.posStaffSecurity.totalDeviceChecks,48)
+  for(const profile of ['android14','android17','xiaomi12','tablet146'])assert.ok(verification.posStaffSecurity.profiles.some(row=>row.profile===profile&&row.status==='passed'&&row.apkSha256===verification.apkSha256&&row.checks===12))
+}
 assert.ok(verification.offlineAndroid.profiles.every(row=>row.status==='passed'&&row.apkSha256===verification.apkSha256))
 for(const profile of ['xiaomi12','tablet146','android14','android17'])assert.ok(verification.androidUsability.profiles.some(row=>row.profile===profile&&row.status==='passed'&&row.version===verification.version))
 const filename=`Geraina-POS-${verification.version}.apk`,source=join(releases,filename),bytes=readFileSync(source)
@@ -36,6 +43,7 @@ assert.equal(hash,verification.apkSha256,'Only the verified signed APK can be st
 assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
 const destination=join(root,'public/downloads/geraina'),images=join(root,'public/assets/geraina-android')
 mkdirSync(destination,{recursive:true});mkdirSync(images,{recursive:true})
+if(existsSync(join(destination,filename)))assert.equal(createHash('sha256').update(readFileSync(join(destination,filename))).digest('hex'),hash,'Published APK URLs are immutable; increment the release version')
 copyFileSync(source,join(destination,filename))
 copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
 copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))

@@ -14,6 +14,20 @@ Versioned APK URLs are immutable. Keep previously published APKs available; upda
 
 The current release requires Android 14 (API 34) or newer on a 64-bit ARM or x86 device. The local matrix includes Android 14 and 17 phone emulators and Android 16 AOSP emulators with Xiaomi Pad 6S Pro and Samsung Ultra-size screen profiles. It does not emulate HyperOS, One UI or physical hardware. Physical printer output and provider settlement require separate validation.
 
+## POS staff and performance release 1.2.6, 26 October 2026
+
+Geraina **1.2.6 (version code 11)** protects shared POS devices with individual staff login and a confirmed account handoff. Owner credentials are required to return to Owner access. Unfinished carts block switching users. Employees can record their own attendance with server identity/time and retry-safe shifts. Cashiers open POS directly, and the product grid renders 48 cards per page while search and barcode lookup retain the loaded catalogue.
+
+Legacy Geraina employee accounts with shared passwords need a unique temporary password from the Owner and must set a personal password before use. Existing Owner credentials and locally stored sales are preserved. The matching server changes are already deployed from main. Source implementation `cf55d73`, staff CI contract `b593aa4`, verified Android release `08b5624`; matching shared-backend containment `8893797`.
+
+Signed APK: **17,212,963 bytes**, SHA-256 `11da42cc1a7cc02e5afa02313a6136c5206851b15553952aca63be03ffd83b53`. Package `com.dagangos.geraina`, original signing certificate, Android 14+, 64-bit ARM/x86. Older public APK URLs retain their original bytes.
+
+Checks passed on the exact signed package: **50 usability, 32 offline, 32 bank QRIS, 48 staff/POS, 12 updater controls and 24 tablet rotations** across Android 14/17 phones and Xiaomi/Samsung-size tablets. Supporting checks passed: 210 Geraina server tests, 27 shared-backend tests, 9 isolated MongoDB replay/rollback tests, 23 Android unit tests, 24 bank-QRIS browser cases, 19 defect regressions, 54 metadata cases, 12 login contrast cases, a 26-screen audit, package/signature/alignment checks, 25 portal tests and 6 local website/download checks. These are AOSP emulator/fixture checks; physical printer output and real bank settlement are not certified.
+
+An initial Samsung run encountered Android System UI not responding; an offline rerun lost the host debugging connection. Successful separate reruns and the original failure evidence are retained. The host had only 0.5 GB free memory during diagnosis; the idle build helper was stopped and profiles ran sequentially. Xiaomi screen recreation during a system-theme change requires the test connection to rediscover the WebView; retries are restricted to that transition and reject a logged application crash.
+
+The staged website metadata advertises this exact APK at `/downloads/geraina/Geraina-POS-1.2.6.apk`. Publication is followed by live byte/checksum verification, the existing TestSprite public-release contract and an actual public **1.2.5 to 1.2.6** Android installer test, including permission recovery and retained preferences/offline sales. Final results are recorded after deployment.
+
 ## Bank QRIS release 1.2.5, 25 October 2026
 
 Released **1.2.5 (version code 10)**, replaces the new checkout's gateway QRIS requirement with the merchant's bank-issued static QRIS and explicit staff confirmation. Owner uploads the existing QRIS in **Pembayaran > QRIS**; staff check the bank's merchant app and enter the matching amount before marking an order paid. The saved audit identifies the confirming account and time. No Xendit key or platform subscription account is used for this flow. Earlier gateway orders and clients keep their compatibility route.
