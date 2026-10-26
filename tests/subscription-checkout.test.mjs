@@ -26,7 +26,7 @@ function mockCheckout(t, options = {}) {
     calls.push({ url, body, headers: request.headers });
     if (url.pathname === '/api/subscriptions/orders') {
       if (options.prepareError) return Response.json(options.prepareError.body, { status: options.prepareError.status });
-      return Response.json({ owner_id: ownerId, store_id: storeId, order_id: body.orderId, amount: selection(request.headers['X-DagangOS-Module'], body.tier, body.period).amount, email: 'owner@example.test' });
+      return Response.json({ owner_id: ownerId, store_id: storeId, order_id: body.orderId, amount: selection(request.headers['X-DagangOS-Module'], body.tier, body.period).amount, email: 'owner@example.test', ...(options.active ? { active_subscription: options.active } : {}) });
     }
     if (url.pathname.endsWith('/reference')) return Response.json({ ok: true }, { status: options.referenceError ? 503 : 200 });
     assert.equal(address, 'https://api.xendit.co/v2/invoices');
@@ -78,6 +78,25 @@ test('anonymous buyers sign in with their selection preserved and no order creat
   assert.equal(location.pathname, '/geraina/login');
   assert.equal(location.searchParams.get('next'), '/geraina/pricing?period=monthly&plan=starter&checkout=1');
   assert.equal(globalThis.fetch.mock.callCount(), 0);
+});
+
+test('changing an active Geraina term requires an explicit full-price confirmation before any invoice', async t => {
+  const { calls, invoices } = mockCheckout(t, { active: { tier: 'pro', period: 'yearly', expires_at: '2027-10-27T00:00:00Z' } });
+  const response = await submit();
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Konfirmasi perubahan paket/);
+  assert.match(html, /harga penuh/);
+  assert.match(html, /sisa waktu paket lama tidak dikreditkan/);
+  assert.match(html, /Kembali tanpa membeli/);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(invoices.length, 0);
+  assert.equal(calls.length, 1);
+  const confirmed = await submit({ confirm_change: 'yes' });
+  assert.equal(confirmed.status, 303);
+  assert.equal(confirmed.headers.get('Location'), paymentUrl);
+  assert.equal(invoices.length, 1);
+  assert.equal(invoices[0].amount, 149000);
 });
 
 test('active purchases, unauthorized roles and failed persistence cannot create gateway invoices', async t => {

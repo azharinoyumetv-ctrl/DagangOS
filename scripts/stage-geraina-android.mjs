@@ -7,7 +7,35 @@ const verification=JSON.parse(readFileSync(process.argv[2]?resolve(process.argv[
 assert.match(verification.version,/^\d+\.\d+\.\d+$/)
 assert.equal(verification.applicationId,'com.dagangos.geraina')
 assert.equal(verification.minimumSdk,34)
-if(verification.schemaVersion===5){
+if(verification.schemaVersion===6){
+  assert.equal(verification.status,'passed')
+  assert.equal(verification.backendChanged,true)
+  assert.equal(verification.baseRelease.version,'1.2.9')
+  assert.equal(verification.baseRelease.published,true)
+  assert.equal(verification.backendDeployment.status,'passed')
+  assert.ok(verification.backend.tests>=359)
+  assert.ok(verification.checkout.tests>=15)
+  assert.equal(verification.subscriptionBrowser.expected,20)
+  for(const result of [verification.subscriptionBrowser,verification.paymentBrowser,verification.posBrowser]){
+    for(const key of ['unexpected','skipped','flaky'])assert.equal(result[key],0)
+  }
+  assert.equal(verification.paymentBrowser.expected,24)
+  assert.equal(verification.posBrowser.expected,48)
+  assert.equal(verification.navigation.status,'passed')
+  assert.equal(verification.navigation.results.length,31)
+  assert.ok(verification.navigation.results.every(row=>row.status==='passed'))
+  assert.equal(verification.subscriptionAndroid.status,'passed')
+  assert.equal(verification.subscriptionAndroid.checks.length,6)
+  assert.equal(verification.subscriptionAndroid.installed.versionName,verification.version)
+  assert.equal(verification.subscriptionAndroid.installed.versionCode,verification.versionCode)
+  assert.equal(verification.subscriptionAndroid.installed.subscriptionPurchases,true)
+  assert.equal(verification.subscriptionAndroid.apkSha256,verification.apkSha256)
+  assert.equal(verification.package.signatureVerified,true)
+  assert.equal(verification.package.bundleManifestEntriesVerified,18)
+  assert.equal(verification.package.lintErrors,0)
+  assert.equal(verification.package.signerSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8')
+  assert.equal(verification.publicationAuthorized,true)
+}else if(verification.schemaVersion===5){
   assert.equal(verification.status,'passed')
   assert.equal(verification.backendChanged,false)
   assert.equal(verification.baseRelease.version,'1.2.8')
@@ -118,12 +146,12 @@ const filename=`Geraina-POS-${verification.version}.apk`,source=join(releases,fi
 const hash=createHash('sha256').update(bytes).digest('hex')
 assert.ok(bytes.length<=25*1024*1024,'The APK exceeds the website hosting asset limit')
 assert.equal(hash,verification.apkSha256,'Only the verified signed APK can be staged')
-if(![2,3,4,5].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
+if(![2,3,4,5,6].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
 const destination=join(root,'public/downloads/geraina'),images=join(root,'public/assets/geraina-android')
 mkdirSync(destination,{recursive:true});mkdirSync(images,{recursive:true})
 if(existsSync(join(destination,filename)))assert.equal(createHash('sha256').update(readFileSync(join(destination,filename))).digest('hex'),hash,'Published APK URLs are immutable; increment the release version')
 copyFileSync(source,join(destination,filename))
-if(![2,3,4,5].includes(verification.schemaVersion)){
+if(![2,3,4,5,6].includes(verification.schemaVersion)){
  copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
  copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))
 }
