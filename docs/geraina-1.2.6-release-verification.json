@@ -1,0 +1,59 @@
+{
+  "version": "1.2.6",
+  "versionCode": 11,
+  "bytes": 17212963,
+  "sha256": "11da42cc1a7cc02e5afa02313a6136c5206851b15553952aca63be03ffd83b53",
+  "published": true,
+  "publicationUrl": "https://dagangos.com/geraina/android",
+  "releaseCommit": "e544cd2",
+  "androidSourceCommit": "08b5624",
+  "deviceProfiles": [
+    "android14",
+    "android17",
+    "xiaomi12",
+    "tablet146"
+  ],
+  "counts": {
+    "usability": 50,
+    "offline": 32,
+    "staffPos": 48,
+    "bankQris": 32,
+    "updaterControls": 12,
+    "actualPublicUpgrade": 7,
+    "tabletRotations": 24,
+    "backend": 210,
+    "sharedBackend": 27,
+    "transactionTests": 9,
+    "unitTests": 23,
+    "website": 6,
+    "portal": 25
+  },
+  "publicWebsite": {
+    "status": "passed",
+    "url": "https://dagangos.com/geraina/android",
+    "version": "1.2.6",
+    "checks": 6,
+    "sha256": "11da42cc1a7cc02e5afa02313a6136c5206851b15553952aca63be03ffd83b53",
+    "testsprite": {
+      "status": "passed",
+      "runId": "20c7bc29-6f3c-4a27-9ed7-09a5e40a9f1e",
+      "codeVersion": "v-6fd913a3effe"
+    },
+    "deployment": {
+      "status": "passed",
+      "run": "40276100243",
+      "jobs": 4,
+      "commit": "e544cd2"
+    }
+  },
+  "upgrade": {
+    "status": "passed",
+    "from": "1.2.5",
+    "to": "1.2.6",
+    "profile": "tablet7",
+    "installedApkSha256": "11da42cc1a7cc02e5afa02313a6136c5206851b15553952aca63be03ffd83b53",
+    "pendingOfflineSalePreserved": true,
+    "preferencesPreserved": true
+  },
+  "hardwareScope": "AOSP emulator profiles; physical printer output and real bank settlement were not tested."
+}
