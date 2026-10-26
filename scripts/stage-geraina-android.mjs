@@ -7,7 +7,45 @@ const verification=JSON.parse(readFileSync(process.argv[2]?resolve(process.argv[
 assert.match(verification.version,/^\d+\.\d+\.\d+$/)
 assert.equal(verification.applicationId,'com.dagangos.geraina')
 assert.equal(verification.minimumSdk,34)
-if(verification.schemaVersion===2){
+if(verification.schemaVersion===4){
+  assert.equal(verification.status,'passed')
+  assert.equal(verification.backendChanged,true)
+  assert.equal(verification.baseRelease.version,'1.2.7')
+  assert.equal(verification.backendDeployment.status,'passed')
+  assert.equal(verification.backendDeployment.paymentOptionsSchema,2)
+  assert.ok(verification.backend.tests>=355)
+  for(const result of [verification.paymentBrowser,verification.posBrowser,verification.customerMoneyBrowser]){
+    for(const key of ['unexpected','skipped','flaky'])assert.equal(result[key],0)
+  }
+  assert.equal(verification.paymentBrowser.expected,24)
+  assert.equal(verification.posBrowser.expected,48)
+  assert.equal(verification.customerMoneyBrowser.expected,15)
+  assert.equal(verification.navigation.status,'passed')
+  assert.equal(verification.navigation.results.length,30)
+  assert.ok(verification.navigation.results.every(row=>row.status==='passed'))
+  assert.equal(verification.nativeScanner.status,'passed')
+  assert.equal(verification.nativeScanner.apkSha256,verification.apkSha256)
+  assert.equal(verification.nativeScanner.version,verification.version)
+  for(const name of ['search-shortcut-camera-ready','dedicated-camera-ready','manual-entry-adds-product','payment-preferences-drive-cashier','qris-retains-integration-navigation'])assert.ok(verification.nativeScanner.checks.includes(name))
+  assert.equal(verification.package.signatureVerified,true)
+  assert.equal(verification.package.bundleManifestEntriesVerified,18)
+  assert.equal(verification.package.signerSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8')
+  assert.equal(verification.publicationAuthorized,true)
+}else if(verification.schemaVersion===3){
+  assert.equal(verification.status,'passed')
+  assert.equal(verification.backendChanged,false)
+  assert.equal(verification.baseRelease.version,'1.2.7')
+  assert.equal(verification.baseRelease.published,true)
+  assert.equal(verification.posBrowser.expected,48)
+  for(const key of ['unexpected','skipped','flaky'])assert.equal(verification.posBrowser[key],0)
+  assert.equal(verification.nativeScanner.status,'passed')
+  assert.equal(verification.nativeScanner.version,verification.version)
+  assert.equal(verification.nativeScanner.apkSha256,verification.apkSha256)
+  for(const name of ['search-shortcut-camera-ready','dedicated-camera-ready','manual-entry-adds-product','installed-1.2.8-build-13'])assert.ok(verification.nativeScanner.checks.includes(name))
+  assert.equal(verification.signatureVerified,true)
+  assert.equal(verification.signerSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8')
+  assert.equal(verification.publicationAuthorized,true)
+}else if(verification.schemaVersion===2){
   // Current repair evidence stays separate from historical device reports.
   assert.equal(verification.status,'passed')
   assert.equal(verification.customerAudit.status,'21_findings_fixed_and_verified_locally')
@@ -59,12 +97,12 @@ const filename=`Geraina-POS-${verification.version}.apk`,source=join(releases,fi
 const hash=createHash('sha256').update(bytes).digest('hex')
 assert.ok(bytes.length<=25*1024*1024,'The APK exceeds the website hosting asset limit')
 assert.equal(hash,verification.apkSha256,'Only the verified signed APK can be staged')
-if(verification.schemaVersion!==2)assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
+if(![2,3,4].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
 const destination=join(root,'public/downloads/geraina'),images=join(root,'public/assets/geraina-android')
 mkdirSync(destination,{recursive:true});mkdirSync(images,{recursive:true})
 if(existsSync(join(destination,filename)))assert.equal(createHash('sha256').update(readFileSync(join(destination,filename))).digest('hex'),hash,'Published APK URLs are immutable; increment the release version')
 copyFileSync(source,join(destination,filename))
-if(verification.schemaVersion!==2){
+if(![2,3,4].includes(verification.schemaVersion)){
  copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
  copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))
 }
