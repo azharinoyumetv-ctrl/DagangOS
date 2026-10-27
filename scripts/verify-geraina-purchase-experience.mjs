@@ -61,6 +61,7 @@ try{
      await page.locator('#plan-starter button').click();await page.getByRole('heading',{name:'Login required'}).waitFor();assert.equal(posts.length,0);
     }else if(['slow-click','confirmation'].includes(scenario)){
      const selector=scenario==='confirmation'?'form[data-subscription-submit]':'#plan-starter form';
+     await page.locator(selector+' button[type="submit"]').scrollIntoViewIfNeeded();
      // Hold the browser's navigation handoff so assertions inspect the painted
      // document rather than racing a pending main-frame navigation in CDP.
      await page.evaluate(()=>{const original=HTMLFormElement.prototype.submit;window.__submitCalls=0;HTMLFormElement.prototype.submit=function(){window.__submitCalls++;window.__releaseSubmit=()=>original.call(this);};});
