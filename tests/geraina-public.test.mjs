@@ -54,6 +54,7 @@ test('unified home retains the feature modules and solution workflow', async()=>
   assert.match(html,/data-geraina-chat/);assert.match(html,/mailto:support@dagangos.com/);
   assert.match(html,/<img data-geraina-hero src="\/geraina\/assets\/scenes\/geraina-retail\.png"/);
   assert.doesNotMatch(html,/<aside class="hero-card">/);
+  assert.doesNotMatch(html,/data-hero-motion|Jeda animasi|Putar animasi/);
 });
 
 test('web app pages cross the public-site boundary while application routes retain their shell',async()=>{

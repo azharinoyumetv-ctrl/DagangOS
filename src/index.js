@@ -1,6 +1,7 @@
 import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscription-checkout.js';
 import { portalInformationDocuments } from './portal-information.js';
 import { gerainaCanonicalPath, renderGerainaPublic, injectGerainaWebBoundary } from './geraina-public.js';
+import { dapurosCanonicalPath, renderDapurosPublic, injectDapurosWebBoundary } from './dapuros-public.js';
 
 function injectPublicSupport(body) {
   if (!body || body.includes('/support-chat.js')) return body;
@@ -96,7 +97,8 @@ async function serveHtmlAsset(env, request, assetPath, status = 200) {
     headers.set('Cache-Control', 'no-store');
     headers.set('Referrer-Policy', 'same-origin');
   }
-  const body = injectPublicSupport(renderGerainaPublic(html, new URL(request.url).pathname));
+  const pathname = new URL(request.url).pathname;
+  const body = injectPublicSupport(renderDapurosPublic(renderGerainaPublic(html, pathname), pathname));
   return new Response(body, { status, headers });
 }
 
@@ -106,9 +108,9 @@ export default {
       const url = new URL(request.url);
       const pathname = url.pathname;
 
-      const gerainaPath = gerainaCanonicalPath(pathname);
-      if (gerainaPath && gerainaPath !== pathname && ['GET', 'HEAD'].includes(request.method)) {
-        url.pathname = gerainaPath;
+      const publicProductPath = gerainaCanonicalPath(pathname) || dapurosCanonicalPath(pathname);
+      if (publicProductPath && publicProductPath !== pathname && ['GET', 'HEAD'].includes(request.method)) {
+        url.pathname = publicProductPath;
         return Response.redirect(url.toString(), 308);
       }
 
@@ -503,7 +505,7 @@ export default {
         if (assetResponse.status >= 300 && assetResponse.status < 400) {
           // Asset handler returned a redirect — fetch the body directly
           const body = await assetResponse.text();
-          return new Response(injectPublicSupport(body || '<!-- redirect intercepted -->'), {
+          return new Response(injectPublicSupport(injectDapurosWebBoundary(body || '<!-- redirect intercepted -->')), {
             status: 200,
             headers: {
               'Content-Type': 'text/html; charset=utf-8',
@@ -517,7 +519,7 @@ export default {
         newHeaders.delete('Location'); // Remove any Location header just in case
 
         let body = await assetResponse.text();
-        body = injectPublicSupport(body);
+        body = injectPublicSupport(injectDapurosWebBoundary(body));
 
         return new Response(body, {
           status: 200,

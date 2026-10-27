@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node build.js",
     "deploy": "wrangler deploy",
-    "test": "node --test tests/worker-accessibility.test.mjs tests/subscription-checkout.test.mjs tests/subscription-runtime.test.mjs tests/addon-checkout.test.mjs tests/geraina-public.test.mjs",
+    "test": "node --test tests/worker-accessibility.test.mjs tests/subscription-checkout.test.mjs tests/subscription-runtime.test.mjs tests/addon-checkout.test.mjs tests/geraina-public.test.mjs tests/dapuros-public.test.mjs",
     "check:public": "node scripts/check-public-accessibility.mjs",
     "audit:cloudflare": "node scripts/audit-cloudflare-zone.mjs"
   },

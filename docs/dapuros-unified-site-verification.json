@@ -1,0 +1,95 @@
+{
+  "status": "ready_for_publication",
+  "published": false,
+  "canonicalDestination": "https://dagangos.com/dapuros",
+  "mainNavigationJourney": "DagangOS → Produk → DapurOS",
+  "duplicateBehavior": "Old designs replaced; /dapuros/ redirects to /dapuros",
+  "unitTestsPassed": 44,
+  "localBrowserVerification": {
+    "status": "passed",
+    "base": "http://127.0.0.1:8792",
+    "checks": [
+      "/dapuros: 1920px layout, mobile controls, internal contact destination",
+      "/dapuros/pricing: 1920px layout, mobile controls, internal contact destination",
+      "/dapuros: 1440px layout, mobile controls, internal contact destination",
+      "/dapuros/pricing: 1440px layout, mobile controls, internal contact destination",
+      "/dapuros: 1024px layout, mobile controls, internal contact destination",
+      "/dapuros/pricing: 1024px layout, mobile controls, internal contact destination",
+      "/dapuros: 768px layout, mobile controls, internal contact destination",
+      "/dapuros/pricing: 768px layout, mobile controls, internal contact destination",
+      "/dapuros: 393px layout, mobile controls, internal contact destination",
+      "/dapuros/pricing: 393px layout, mobile controls, internal contact destination",
+      "/dapuros: 320px layout, mobile controls, internal contact destination",
+      "/dapuros/pricing: 320px layout, mobile controls, internal contact destination",
+      "Main DagangOS navigation → Produk → DapurOS opens the one unified destination at 1440px",
+      "Main DagangOS navigation → Produk → DapurOS opens the one unified destination at 393px",
+      "Trailing slash redirects retain query and section",
+      "Original kitchen hero image loads in its responsive frame at all six widths",
+      "New navigation, buttons and small section labels meet 4.5:1 text contrast",
+      "Eight live animations restore camera motion, light sweep, particles, floating emblem and pulsing rings; rendered frames change",
+      "Original large desktop hero proportions are retained without visible animation controls",
+      "Hero motion pauses offscreen and resumes when visible",
+      "Reduced-motion preference disables every hero animation",
+      "DapurOS contact opens the existing DapurOS chat without sending a message",
+      "React login logo returns to the unified public home, not the old landing",
+      "React account link reaches unified pricing",
+      "Account header: valid session preserves account storage and usable navigation",
+      "Account header: expired session preserves account storage and usable navigation",
+      "Account header: unavailable session preserves account storage and usable navigation",
+      "Mobile navigation remains accessible without JavaScript"
+    ],
+    "contrast": [
+      {
+        "selector": ".dapuros-nav-button",
+        "ratio": 5.73612972903838
+      },
+      {
+        "selector": ".hero .button",
+        "ratio": 5.73612972903838
+      },
+      {
+        "selector": ".dapuros-feature-index",
+        "ratio": 6.776905397606618
+      },
+      {
+        "selector": ".dapuros-capabilities span",
+        "ratio": 5.961281124046169
+      },
+      {
+        "selector": ".dapuros-workflow li>span",
+        "ratio": 6.776905397606618
+      },
+      {
+        "selector": ".dapuros-contact-detail>span",
+        "ratio": 6.776905397606618
+      }
+    ],
+    "animationNames": [
+      "dapuros-kitchen-camera",
+      "dapuros-kitchen-particle",
+      "dapuros-kitchen-sweep",
+      "dapuros-sigil-float",
+      "dapuros-sigil-pulse"
+    ],
+    "errors": [],
+    "mutations": [],
+    "scope": "Browser verification of the selected target; no invoice creation, emails or merchant changes"
+  },
+  "gerainaRegression": {
+    "status": "passed",
+    "base": "http://127.0.0.1:8792",
+    "checksPassed": 34,
+    "errors": [],
+    "mutations": []
+  },
+  "publicVerification": "pending",
+  "testSprite": "pending",
+  "heroPresentation": {
+    "desktopVisualWidth": 702,
+    "desktopVisualHeight": 570,
+    "tabletVisualHeight": 520,
+    "phoneVisualHeight": 430,
+    "visibleAnimationControls": false,
+    "autoplay": true
+  }
+}

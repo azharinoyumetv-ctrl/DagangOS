@@ -1,4 +1,4 @@
-const version = 'unified-20261028';
+const version = 'unified-20261028b';
 export const GERAINA_PUBLIC_PATHS = new Set(['/geraina', '/geraina/pricing', '/geraina/android', '/geraina/privacy', '/geraina/delete-account']);
 
 export function gerainaCanonicalPath(pathname) {

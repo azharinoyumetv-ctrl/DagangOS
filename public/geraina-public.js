@@ -44,12 +44,6 @@
   });
 
   const hero = document.querySelector('.geraina-hero-scene');
-  const motion = hero?.querySelector('[data-hero-motion]');
-  motion?.addEventListener('click', () => {
-    const paused = hero.classList.toggle('is-paused');
-    motion.querySelector('[data-hero-motion-label]').textContent = paused ? 'Putar animasi' : 'Jeda animasi';
-    motion.querySelector('[data-hero-motion-icon]').textContent = paused ? '▶' : 'Ⅱ';
-  });
   if (hero && 'IntersectionObserver' in window) {
     const visibility = new IntersectionObserver(entries => {
       for (const entry of entries) hero.classList.toggle('is-offscreen', !entry.isIntersecting);

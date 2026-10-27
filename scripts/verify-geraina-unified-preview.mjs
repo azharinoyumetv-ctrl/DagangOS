@@ -18,7 +18,7 @@ async function context(options={}){
 try{
  const ctx=await context(),page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));
  const paths=['/geraina','/geraina/pricing','/geraina/android'];
- for(const width of [1440,1024,768,393,320]){
+ for(const width of [1920,1440,1024,768,393,320]){
   for(const path of paths){
    await page.setViewportSize({width,height:1000});await page.goto(base+path);
    await page.locator('.geraina-header').waitFor();
@@ -63,12 +63,12 @@ try{
  await page.goto(base+'/geraina/?ref=preview#fitur');
  assert.equal(new URL(page.url()).pathname,'/geraina');assert.equal(new URL(page.url()).search,'?ref=preview');assert.equal(new URL(page.url()).hash,'#fitur');
  checks.push('Trailing slash redirects retain query and section');
- checks.push('Original retail hero image loads in its responsive frame at all five widths');
+ checks.push('Original retail hero image loads in its responsive frame at all six widths');
  await page.goto(base+'/geraina');
  const contrast=await page.evaluate(()=>{
   const rgb=value=>value.match(/[\d.]+/g).slice(0,3).map(Number);
   const luminance=value=>rgb(value).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
-  return ['.geraina-nav-button','.hero .button','.geraina-feature-index','.geraina-capabilities span','.geraina-workflow li>span','.geraina-device-label','.geraina-contact-detail>span','.geraina-hero-motion'].map(selector=>{
+  return ['.geraina-nav-button','.hero .button','.geraina-feature-index','.geraina-capabilities span','.geraina-workflow li>span','.geraina-device-label','.geraina-contact-detail>span'].map(selector=>{
    const el=document.querySelector(selector);let node=el,bg;
    while(node){bg=getComputedStyle(node).backgroundColor;if(bg!=='rgba(0, 0, 0, 0)'&&bg!=='transparent')break;node=node.parentElement;}
    const light=luminance(getComputedStyle(el).color),dark=luminance(bg);
@@ -91,14 +91,9 @@ try{
  const secondFrame=await scene.screenshot({path:join(out,'hero-motion-after.png'),animations:'allow'});
  assert.notDeepEqual(firstFrame,secondFrame,'Rendered frames change while original hero effects run');
  checks.push('Eight live animations restore camera motion, light sweep, particles, floating emblem and pulsing rings; rendered frames change');
- await page.getByRole('button',{name:'Jeda animasi',exact:true}).click();
- await page.waitForFunction(()=>document.querySelector('.geraina-hero-scene').getAnimations({subtree:true}).every(animation=>animation.playState==='paused'));
- const pausedTransform=await page.locator('[data-geraina-hero]').evaluate(image=>getComputedStyle(image).transform);
- await page.waitForTimeout(220);
- assert.equal(await page.locator('[data-geraina-hero]').evaluate(image=>getComputedStyle(image).transform),pausedTransform);
- await page.getByRole('button',{name:'Putar animasi',exact:true}).click();
- await page.waitForFunction(()=>document.querySelector('.geraina-hero-scene').getAnimations({subtree:true}).every(animation=>animation.playState==='running'));
- checks.push('Hero pause and resume controls stop and restart actual motion');
+ assert.equal(await page.locator('[data-hero-motion]').count(),0);
+ const desktopFrame=await scene.boundingBox();assert.ok(desktopFrame.width>=690&&desktopFrame.height>=570,'Desktop retains the original large cinematic frame');
+ checks.push('Original large desktop hero proportions are retained without visible animation controls');
  await page.locator('#kontak').scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>document.querySelector('.geraina-hero-scene').classList.contains('is-offscreen')&&document.querySelector('.geraina-hero-scene').getAnimations({subtree:true}).every(animation=>animation.playState==='paused'));
  await scene.scrollIntoViewIfNeeded();
@@ -106,7 +101,6 @@ try{
  checks.push('Hero motion pauses offscreen and resumes when visible');
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.waitForFunction(()=>document.querySelector('.geraina-hero-scene').getAnimations({subtree:true}).length===0);
- assert.equal(await page.locator('[data-hero-motion]').isVisible(),false);
  assert.equal(await page.locator('[data-geraina-hero]').evaluate(image=>getComputedStyle(image).transform),'none');
  checks.push('Reduced-motion preference disables every hero animation');
  await page.emulateMedia({reducedMotion:'no-preference'});

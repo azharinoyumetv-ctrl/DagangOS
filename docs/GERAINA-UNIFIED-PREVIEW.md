@@ -1,6 +1,6 @@
 # Geraina unified public website
 
-Published on 28 October 2026 from commit `0571776bf399a4c56a7470f78077d2ff5f2b9432`. The owner accepted the unified design and animated hero and requested that it replace the old versions behind the existing main DagangOS navigation link. The live website checks passed; the existing app regression CI job is still running.
+Published on 28 October 2026 from commit `0571776bf399a4c56a7470f78077d2ff5f2b9432`. The owner accepted the unified design and animated hero and requested that it replace the old versions behind the existing main DagangOS navigation link. The live website checks and the existing app regression CI job passed.
 
 Entry: https://dagangos.com/ → Produk → Geraina. Canonical destination: https://dagangos.com/geraina. Local preview: http://127.0.0.1:8792/geraina.
 
@@ -36,4 +36,8 @@ Evidence: `tmp/geraina-unified-preview/verification.json`, `worker-tests.log`, a
 
 ## Publication
 
-Published through the existing DagangOS main-branch deployment: [run 40549631388](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40549631388). Deployment, Cloudflare zone audit and public accessibility checks passed. The app regression job is pending completion. No APK rebuild or backend payment changes were required. Public verification blocked merchant mutations and sent no emails. Existing unrelated GerainaOS working-tree changes were preserved.
+Published through the existing DagangOS main-branch deployment: [run 40549631388](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40549631388). Deployment, Cloudflare zone audit, public accessibility and app regression checks passed. No APK rebuild or backend payment changes were required. Public verification blocked merchant mutations and sent no emails. Existing unrelated GerainaOS working-tree changes were preserved.
+
+## Owner's hero follow-up
+
+During the DapurOS unification, the owner requested the larger original hero proportions and removal of visible animation controls on both products. The Geraina hero now uses the original approximately 702 × 570-pixel desktop visual, with 520-pixel tablet and 430-pixel phone frames. Autoplay, offscreen pausing and reduced-motion preference remain; the visible controller is removed. The revised browser suite adds 1920-pixel coverage and checks frame dimensions and absence of controls. All **34 local browser checks** and **44 Worker tests** passed. This follow-up is awaiting publication with the DapurOS cleanup; the sections above record the earlier published revision.
