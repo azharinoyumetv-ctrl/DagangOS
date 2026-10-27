@@ -3,11 +3,13 @@ const module = location.pathname.split('/')[1];
 const intentKey = `dagangos_checkout_${module}`;
 const readToken = () => [`${module}_token`, 'dagangos_token', module === 'geraina' ? 'dapuros_token' : 'geraina_token']
   .map(key => localStorage.getItem(key)).find(value => value && value !== 'mock_master_token');
+if (module === 'geraina' && readToken()) document.querySelector('[data-anonymous-trial]')?.remove();
 const currentPeriod = () => new URL(location.href).searchParams.get('period') === 'yearly' ? 'yearly' : 'monthly';
 let resuming = false;
 let currentSubscription;
 const purchaseEnabled = [...document.querySelectorAll('.plan-purchase button')].some(button => !button.disabled);
 function updateCurrentPlan() {
+  if (window.GerainaCheckoutFeedback?.busy) return;
   if (module !== 'geraina' || !purchaseEnabled || !currentSubscription?.active) return;
   document.querySelectorAll('.plan-purchase button').forEach(button => {
     const tier = button.closest('.price-card').id.replace('plan-', '');
@@ -18,6 +20,7 @@ function updateCurrentPlan() {
 }
 
 billingToggle?.addEventListener('submit', event => {
+  if (window.GerainaCheckoutFeedback?.busy) { event.preventDefault(); return; }
   const period = event.submitter?.value;
   if (!['monthly', 'yearly'].includes(period)) return;
   event.preventDefault();
@@ -60,6 +63,23 @@ document.querySelectorAll('.plan-purchase').forEach(form => {
   });
 });
 
+function resumeCheckout() {
+  if (!readToken()) return false;
+  const url = new URL(location.href);
+  let intent;
+  try { intent = JSON.parse(sessionStorage.getItem(intentKey) || 'null'); } catch { return false; }
+  // A URL alone never authorizes an invoice. Only resume a choice actually
+  // made in this tab; the checkout backend still validates the current plan.
+  if (url.searchParams.get('checkout') !== '1' || !intent || !['starter', 'pro', 'business'].includes(intent.tier) || !Number.isFinite(intent.expires) || intent.expires < Date.now() || intent.tier !== url.searchParams.get('plan') || intent.period !== currentPeriod()) return false;
+  const form = document.querySelector(`#plan-${intent.tier} .plan-purchase`);
+  if (!form || form.querySelector('button').disabled) return false;
+  url.searchParams.delete('checkout');
+  history.replaceState(null, '', url);
+  sessionStorage.removeItem(intentKey);
+  resuming = true; form.requestSubmit();
+  return true;
+}
+
 async function showSubscription() {
   const token = readToken();
   if (!token) return;
@@ -67,7 +87,7 @@ async function showSubscription() {
     const response = await fetch('/api/subscriptions/current', { headers: { Authorization: `Bearer ${token}`, 'X-DagangOS-Module': module }, cache: 'no-store' });
     if (response.ok) {
       const { subscription } = await response.json();
-      if (subscription?.active) {
+      if (subscription?.active && !window.GerainaCheckoutFeedback?.busy) {
         currentSubscription = subscription;
         const button = document.querySelector(`#plan-${subscription.tier} .plan-purchase button`);
         if (button) { button.disabled = true; button.textContent = 'Paket Aktif'; }
@@ -87,16 +107,8 @@ async function showSubscription() {
       }
     }
   } catch { /* Checkout verifies the account again on the server. */ }
-  const url = new URL(location.href);
-  let intent;
-  try { intent = JSON.parse(sessionStorage.getItem(intentKey) || 'null'); } catch { return; }
-  // Only resume a package the visitor actually chose in this tab; a crafted URL
-  // alone must never create an invoice using an existing signed-in session.
-  if (url.searchParams.get('checkout') !== '1' || !intent || !['starter', 'pro', 'business'].includes(intent.tier) || !Number.isFinite(intent.expires) || intent.expires < Date.now() || intent.tier !== url.searchParams.get('plan') || intent.period !== currentPeriod()) return;
-  url.searchParams.delete('checkout');
-  history.replaceState(null, '', url);
-  sessionStorage.removeItem(intentKey);
-  const form = document.querySelector(`#plan-${intent.tier} .plan-purchase`);
-  if (form && !form.querySelector('button').disabled) { resuming = true; form.requestSubmit(); }
+  resumeCheckout();
 }
-showSubscription();
+// Geraina no longer waits for a redundant status request before continuing a
+// saved purchase. The server makes the authoritative duplicate/plan check.
+if (module !== 'geraina' || !resumeCheckout()) showSubscription();
