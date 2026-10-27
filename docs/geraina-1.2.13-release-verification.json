@@ -17,7 +17,7 @@
     "published": true
   },
   "publicationAuthorized": true,
-  "published": false,
+  "published": true,
   "verifiedAt": "2026-10-27T07:34:43.784392+00:00",
   "backend": {
     "tests": 384,
@@ -93,5 +93,111 @@
   "limitations": [
     "No real customer charge was made; paid fulfillment was verified with a loopback provider and real Mongo transactions.",
     "A provider creation timeout is not automatically retried; the retained order reference supports status inspection and support recovery."
-  ]
+  ],
+  "publishedVerifiedAt": "2026-10-27T07:43:59.166782+00:00",
+  "websiteSourceCommit": "6cd62fb46f2ac1c518e09a39fad8f3462e46592f",
+  "publicWebsite": {
+    "status": "passed",
+    "base": "https://dagangos.com",
+    "version": "1.2.13",
+    "checks": [
+      "Listing, images and verified download links fit 1440px",
+      "Listing, images and verified download links fit 768px",
+      "Listing, images and verified download links fit 393px",
+      "Listing, images and verified download links fit 320px",
+      "Clicking Download saves the exact verified APK bytes",
+      "Unavailable release metadata leaves download buttons safely disabled"
+    ]
+  },
+  "publicAddonSelection": {
+    "status": "passed",
+    "base": "https://dagangos.com",
+    "checks": [
+      "412px: public extra_device signed price and tier, card layout, sign-in return and selection preserved",
+      "412px: public extra_outlet signed price and tier, card layout, sign-in return and selection preserved",
+      "1480px: public extra_device signed price and tier, card layout, sign-in return and selection preserved",
+      "1480px: public extra_outlet signed price and tier, card layout, sign-in return and selection preserved"
+    ],
+    "productionWrites": 0,
+    "providerRequests": 0
+  },
+  "publicUpdater": {
+    "status": "passed",
+    "profile": "xiaomi12",
+    "mode": "real-system-upgrade",
+    "checks": [
+      {
+        "name": "Published 1.2.12 checks for a newer official update without forcing installation",
+        "status": "passed"
+      },
+      {
+        "name": "Postponing the update leaves the installed version unchanged",
+        "status": "passed"
+      },
+      {
+        "name": "Official APK downloads and is verified before requesting installation permission",
+        "status": "passed"
+      },
+      {
+        "name": "Denying installation permission leaves the current app usable",
+        "status": "passed"
+      },
+      {
+        "name": "Permission settings return to the standard Android update confirmation",
+        "status": "passed"
+      },
+      {
+        "name": "Android installs the newer package over the existing app",
+        "status": "passed"
+      },
+      {
+        "name": "The update preserves stored preferences and the pending offline-sale record",
+        "status": "passed"
+      }
+    ],
+    "merchantWrites": 0,
+    "targetVersion": "1.2.13",
+    "targetVersionCode": 18,
+    "fromVersionCode": 17,
+    "sentinelId": "336268e8-5c04-419e-9168-3c14bbae360c",
+    "finishedAt": "2026-10-27T07:40:36.332Z",
+    "sourceApkSha256": "6da08c531e0d80c4ba630cb3ab4f317961b45aa8a1d3b16dce51d973c92e3323",
+    "apkSha256": "a78bc7d8ff920c3352f6c0a30a679a03d7a48ff50b32d060174ecc4953d7a53e"
+  },
+  "ci": {
+    "status": "passed",
+    "url": "https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40468143864",
+    "jobs": [
+      {
+        "name": "deploy",
+        "conclusion": "success"
+      },
+      {
+        "name": "cloudflare-zone-audit",
+        "conclusion": "success"
+      },
+      {
+        "name": "e2e-geraina",
+        "conclusion": "success"
+      },
+      {
+        "name": "public-accessibility",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "testsprite": {
+    "status": "passed",
+    "testId": "6aeabb04-2f07-46ac-ab0e-b5d7a715ae0c",
+    "runId": "59d06b97-6b9e-4cbc-8e52-4e552d98488f",
+    "name": "Official Geraina Android download matches its public checksum and metadata",
+    "dashboardUrl": "https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/6aeabb04-2f07-46ac-ab0e-b5d7a715ae0c",
+    "executionUrl": "https://www.testsprite.com/dashboard-v3/o/7468bfad-8578-53ea-8da7-d93ac8f0989d/projects/1466ba50-a196-4dc9-a160-f14658033239/execution/447d9f45-f5cc-405d-9b27-bb8d50511943/test/59d06b97-6b9e-4cbc-8e52-4e552d98488f",
+    "verified": {
+      "status": "passed",
+      "version": "1.2.13",
+      "sha256": "a78bc7d8ff920c3352f6c0a30a679a03d7a48ff50b32d060174ecc4953d7a53e",
+      "merchantWrites": 0
+    }
+  }
 }
