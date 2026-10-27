@@ -4,6 +4,8 @@ Published on 28 October 2026 from revision `0432aa37e90fd055d63461baab0350962e59
 
 Entry: https://dagangos.com/ → Produk → DapurOS. Canonical destination: https://dagangos.com/dapuros.
 
+The subsequent [landscape-width correction](HERO-LANDSCAPE-CORRECTION.md), source `95f24410762342dd59d6f9c1514ced68fd2febf1`, supersedes the initial desktop frame dimensions recorded below. The current desktop hero uses a wide 16:9 frame and a wider page container.
+
 ## Confirmed problem
 
 Live browser inspection reproduced two different pages: `/dapuros` returned the newer static marketing page with no hero motion, while `/dapuros/` returned the older React landing with a different headline, navigation and animated kitchen illustration. The old contact navigation left DapurOS for `/sumber-daya`. Before screenshots are in `tmp/dapuros-unified-before/`.

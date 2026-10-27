@@ -1,0 +1,75 @@
+{
+  "status": "published_live_checks_passed",
+  "sourceRevision": "95f24410762342dd59d6f9c1514ced68fd2febf1",
+  "published": true,
+  "desktopAspectRatio": "16:9",
+  "products": {
+    "geraina": {
+      "status": "passed",
+      "liveChecks": 37,
+      "frameAt1685": {
+        "x": 620.65625,
+        "y": 173,
+        "width": 1024.34375,
+        "height": 576.1875
+      },
+      "heroLayoutAt1685": {
+        "x": 40,
+        "y": 173,
+        "width": 1605,
+        "height": 576.1875
+      },
+      "animationNames": [
+        "geraina-retail-camera",
+        "geraina-retail-particle",
+        "geraina-retail-sweep",
+        "geraina-sigil-float",
+        "geraina-sigil-pulse"
+      ],
+      "pageErrors": [],
+      "apiMutations": []
+    },
+    "dapuros": {
+      "status": "passed",
+      "liveChecks": 30,
+      "frameAt1685": {
+        "x": 620.65625,
+        "y": 173,
+        "width": 1024.34375,
+        "height": 576.1875
+      },
+      "heroLayoutAt1685": {
+        "x": 40,
+        "y": 173,
+        "width": 1605,
+        "height": 576.1875
+      },
+      "animationNames": [
+        "dapuros-kitchen-camera",
+        "dapuros-kitchen-particle",
+        "dapuros-kitchen-sweep",
+        "dapuros-sigil-float",
+        "dapuros-sigil-pulse"
+      ],
+      "pageErrors": [],
+      "apiMutations": []
+    }
+  },
+  "responsiveGeometrySamples": 22,
+  "testSprite": {
+    "testId": "e8c8bbdd-63d4-4197-ae73-43b27c686e60",
+    "name": "Checkout rejects invalid sessions through the backend instead of a Worker connection error",
+    "status": "passed",
+    "runId": "21c5eb36-4685-4b7a-b78d-5c70d46d6341",
+    "finishedAt": "2026-10-27T18:06:09.790Z",
+    "url": "https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/e8c8bbdd-63d4-4197-ae73-43b27c686e60",
+    "apiOutput": "geraina: backend session rejection reached; selected package preserved; no payment created\ndapuros: backend session rejection reached; selected package preserved; no payment created\n"
+  },
+  "deployment": {
+    "url": "https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40556159957",
+    "deploy": "success",
+    "cloudflareZoneAudit": "success",
+    "publicAccessibility": "success",
+    "broaderAppRegression": "in_progress"
+  }
+}
