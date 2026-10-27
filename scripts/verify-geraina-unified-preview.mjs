@@ -138,7 +138,7 @@ try{
  await plain.goto(base+'/geraina');await plain.getByRole('link',{name:'Kontak',exact:true}).waitFor({state:'visible'});
  checks.push('Mobile navigation remains accessible without JavaScript');await nojs.close();
  assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
- const report={status:'passed',base,checks,contrast,animationNames,errors,mutations,scope:'Local preview only; no publication, invoice creation, emails or merchant changes'};
+ const report={status:'passed',base,checks,contrast,animationNames,errors,mutations,scope:'Browser verification of the selected target; no invoice creation, emails or merchant changes'};
  writeFileSync(join(out,'verification.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
  await ctx.close();
 }finally{await browser.close();}

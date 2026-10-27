@@ -1,5 +1,5 @@
 {
-  "status": "ready_for_publication",
+  "status": "published_live_checks_passed",
   "canonicalDestination": "https://dagangos.com/geraina",
   "mainNavigationJourney": "DagangOS → Produk → Geraina",
   "duplicateBehavior": "Old designs replaced; /geraina/ redirects to /geraina",
@@ -85,7 +85,138 @@
     "mutations": [],
     "scope": "Local preview only; no publication, invoice creation, emails or merchant changes"
   },
-  "published": false,
-  "publicVerification": "pending",
-  "testSprite": "pending"
+  "published": true,
+  "publicVerification": {
+    "status": "passed",
+    "base": "https://dagangos.com",
+    "checks": [
+      "/geraina: 1440px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 1440px layout, mobile controls, internal contact destination",
+      "/geraina/android: 1440px layout, mobile controls, internal contact destination",
+      "/geraina: 1024px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 1024px layout, mobile controls, internal contact destination",
+      "/geraina/android: 1024px layout, mobile controls, internal contact destination",
+      "/geraina: 768px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 768px layout, mobile controls, internal contact destination",
+      "/geraina/android: 768px layout, mobile controls, internal contact destination",
+      "/geraina: 393px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 393px layout, mobile controls, internal contact destination",
+      "/geraina/android: 393px layout, mobile controls, internal contact destination",
+      "/geraina: 320px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 320px layout, mobile controls, internal contact destination",
+      "/geraina/android: 320px layout, mobile controls, internal contact destination",
+      "Main DagangOS navigation → Produk → Geraina opens the one unified destination at 1440px",
+      "Main DagangOS navigation → Produk → Geraina opens the one unified destination at 393px",
+      "Trailing slash redirects retain query and section",
+      "Original retail hero image loads in its responsive frame at all five widths",
+      "New navigation, buttons and small section labels meet 4.5:1 text contrast",
+      "Eight live animations restore camera motion, light sweep, particles, floating emblem and pulsing rings; rendered frames change",
+      "Hero pause and resume controls stop and restart actual motion",
+      "Hero motion pauses offscreen and resumes when visible",
+      "Reduced-motion preference disables every hero animation",
+      "Geraina contact opens the existing Geraina chat without sending a message",
+      "React login logo returns to the unified public home, not the old landing",
+      "React account link reaches unified pricing",
+      "Account header: valid session preserves account storage and usable navigation",
+      "Account header: expired session preserves account storage and usable navigation",
+      "Account header: unavailable session preserves account storage and usable navigation",
+      "Mobile navigation remains accessible without JavaScript"
+    ],
+    "contrast": [
+      {
+        "selector": ".geraina-nav-button",
+        "ratio": 4.954777304152637
+      },
+      {
+        "selector": ".hero .button",
+        "ratio": 4.954777304152637
+      },
+      {
+        "selector": ".geraina-feature-index",
+        "ratio": 5.2930939932110626
+      },
+      {
+        "selector": ".geraina-capabilities span",
+        "ratio": 5.634868642843074
+      },
+      {
+        "selector": ".geraina-workflow li>span",
+        "ratio": 5.430322413071255
+      },
+      {
+        "selector": ".geraina-device-label",
+        "ratio": 5.190837123949538
+      },
+      {
+        "selector": ".geraina-contact-detail>span",
+        "ratio": 5.277872979782264
+      },
+      {
+        "selector": ".geraina-hero-motion",
+        "ratio": 14.071078048993131
+      }
+    ],
+    "animationNames": [
+      "geraina-retail-camera",
+      "geraina-retail-particle",
+      "geraina-retail-sweep",
+      "geraina-sigil-float",
+      "geraina-sigil-pulse"
+    ],
+    "errors": [],
+    "mutations": [],
+    "scope": "Live public website browser verification; no invoice creation, emails or merchant changes"
+  },
+  "testSprite": {
+    "status": "passed",
+    "testId": "6aeabb04-2f07-46ac-ab0e-b5d7a715ae0c",
+    "name": "Official Geraina Android download matches its public checksum and metadata",
+    "runId": "448d55e0-b20a-4ccd-816d-359a2207bab0",
+    "finishedAt": "2026-10-27T17:24:11.029Z",
+    "url": "https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/6aeabb04-2f07-46ac-ab0e-b5d7a715ae0c",
+    "scope": "Published Android download regression; website interactions verified separately",
+    "apkVersion": "1.2.14",
+    "apkSha256": "d6ff4cebc6c56cac62e07633731beac88e12ef9ee3c80cb6bb494d21f7283ac5",
+    "merchantWrites": 0
+  },
+  "sourceRevision": "0571776bf399a4c56a7470f78077d2ff5f2b9432",
+  "liveHttpChecks": [
+    {
+      "path": "/geraina",
+      "method": "HEAD",
+      "status": 200
+    },
+    {
+      "path": "/geraina/",
+      "method": "HEAD",
+      "status": 308,
+      "location": "https://dagangos.com/geraina"
+    },
+    {
+      "path": "/geraina/index.html",
+      "method": "HEAD",
+      "status": 308,
+      "location": "https://dagangos.com/geraina"
+    },
+    {
+      "path": "/geraina/pricing/",
+      "method": "HEAD",
+      "status": 308,
+      "location": "https://dagangos.com/geraina/pricing"
+    },
+    {
+      "path": "/geraina/android/",
+      "method": "HEAD",
+      "status": 308,
+      "location": "https://dagangos.com/geraina/android"
+    }
+  ],
+  "deployment": {
+    "runId": 40549631388,
+    "url": "https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40549631388",
+    "deploy": "success",
+    "cloudflareZoneAudit": "success",
+    "publicAccessibility": "success",
+    "appRegression": "in_progress"
+  }
 }
