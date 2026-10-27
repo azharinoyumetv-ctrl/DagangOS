@@ -23,3 +23,15 @@ SSH confirmed the gateway is running and the selected provider is Nous. A filter
 The installed CLI's supported recovery is `hermes model --no-browser`, then choose the existing Nous provider and approve the browser device authorization. This reauthentication is pending the owner's approval. Do not publish device codes or tokens in this document. After authorization, retain the existing model and verify the read-only public API before reporting the login restored.
 
 The Website Master checkout/payment working-tree changes were inspected only for context and remain untouched. The public error boundary is deployed through the DagangOS repository.
+
+## Publication and live verification
+
+Published from `7a4b6a62715aaf3868709803bb2b9be585f4fef7`, [deployment 40562469162](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40562469162). Deployment, Cloudflare zone audit and public accessibility jobs passed; the broader existing app CI suite is still running.
+
+- **30 live browser checks passed**, with no page errors, after confirming the versioned protected chat script had reached production. The scenarios use intercepted API responses and create no real customer messages.
+- Real requests to all three public chat surfaces returned **503 `support_unavailable` with a safe message** while the provider was genuinely logged out. No provider name, internal command, credential detail or raw error appeared. Local Geraina and DapurOS feature guidance still returned 200 independently of Nous, including a question containing `produk`.
+- TestSprite **`e8c8bbdd-63d4-4197-ae73-43b27c686e60` — Checkout rejects invalid sessions through the backend instead of a Worker connection error — passed**, run `78649ead-3526-40e5-90ec-210fe8fc7f64`. This is adjacent pricing/session regression coverage; chat failure behavior is verified by the unit/browser/API checks above. [TestSprite result](https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/e8c8bbdd-63d4-4197-ae73-43b27c686e60).
+
+Evidence: `tmp/support-chat-errors-live/verification.json`, its screenshots, `tmp/support-chat-real-api-check.json` and `tmp/support-chat-testsprite.json`. Current committed summary: `docs/support-chat-error-verification.json`.
+
+**Login remains pending the owner's browser authorization.** Publishing the error boundary does not restore the provider login or prove model inference is working. The first device-authorization window timed out without approval. The owner must first sign in at `https://portal.nousresearch.com/login`; then generate a fresh authorization link in the prepared SSH session. Verify the final account state and actual read-only inference after approval. Reloading the website removes the old, in-memory warning transcript; messages are not persisted in browser storage.

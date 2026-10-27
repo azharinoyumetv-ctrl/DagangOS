@@ -1,0 +1,66 @@
+{
+  "status": "public_fix_published_login_pending",
+  "sourceRevision": "7a4b6a62715aaf3868709803bb2b9be585f4fef7",
+  "published": true,
+  "unitTestsPassed": 48,
+  "liveBrowserChecksPassed": 30,
+  "pageErrors": [],
+  "realProviderFailureChecks": [
+    {
+      "surface": "geraina",
+      "status": 503,
+      "code": "support_unavailable",
+      "safeResponse": true
+    },
+    {
+      "surface": "dapuros",
+      "status": 503,
+      "code": "support_unavailable",
+      "safeResponse": true
+    },
+    {
+      "surface": "dagangos",
+      "status": 503,
+      "code": "support_unavailable",
+      "safeResponse": true
+    }
+  ],
+  "liveLocalGuidance": [
+    {
+      "surface": "geraina",
+      "status": 200,
+      "localGuidanceAvailable": true
+    },
+    {
+      "surface": "dapuros",
+      "status": 200,
+      "localGuidanceAvailable": true
+    }
+  ],
+  "hermes": {
+    "provider": "nous",
+    "state": "awaiting_owner_portal_sign_in",
+    "previousFailure": "invalid_grant",
+    "model": "stepfun/step-3.7-flash:free",
+    "publicApiToolsets": [],
+    "credentialsPrinted": false,
+    "deviceCodeStoredInRepository": false,
+    "lastDeviceAuthorization": "timed_out_without_approval"
+  },
+  "testSprite": {
+    "testId": "e8c8bbdd-63d4-4197-ae73-43b27c686e60",
+    "name": "Checkout rejects invalid sessions through the backend instead of a Worker connection error",
+    "runId": "78649ead-3526-40e5-90ec-210fe8fc7f64",
+    "status": "passed",
+    "finishedAt": "2026-10-27T18:46:36.476Z",
+    "url": "https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/e8c8bbdd-63d4-4197-ae73-43b27c686e60",
+    "scope": "Adjacent pricing/account-check regression; chat behavior verified separately"
+  },
+  "deployment": {
+    "url": "https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40562469162",
+    "deploy": "success",
+    "zoneAudit": "success",
+    "publicAccessibility": "success",
+    "broaderAppRegression": "in_progress"
+  }
+}
