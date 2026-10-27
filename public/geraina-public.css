@@ -1,0 +1,27 @@
+body[data-geraina-public]{--brand:#2f7d64;--brand-deep:#1b5c45}
+.geraina-header,.geraina-footer{font-family:Manrope,Inter,system-ui,sans-serif;box-sizing:border-box;--g-ink:#173a2c;--g-brand:#2f7d64;--g-line:#e1e9e4}
+.geraina-header{position:sticky;top:0;z-index:30;background:#f7faf8f5;border-bottom:1px solid var(--g-line);backdrop-filter:blur(16px);color:var(--g-ink)}
+.geraina-header__inner{width:min(1160px,calc(100% - 48px));min-height:76px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:30px}
+.geraina-brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:inherit;font-size:16px;line-height:1.2;font-weight:800;letter-spacing:-.5px;white-space:nowrap}
+.geraina-brand img{object-fit:contain;flex:none}.geraina-brand__pos{font-weight:600}
+.geraina-navigation{display:flex;align-items:center;gap:23px}.geraina-navigation a{font-size:12px;font-weight:700;text-decoration:none;line-height:1.5;white-space:nowrap;color:inherit;padding-block:10px}
+.geraina-navigation>a:hover,.geraina-navigation>a[aria-current=page]{color:#277256}.geraina-navigation>a[aria-current=page]{text-decoration:underline;text-underline-offset:7px;text-decoration-thickness:2px}
+.geraina-navigation__account{display:flex;align-items:center;gap:19px;margin-left:8px;padding-left:25px;border-left:1px solid var(--g-line)}
+.geraina-navigation .geraina-nav-button{display:inline-flex;align-items:center;gap:17px;min-height:42px;padding:11px 16px;background:var(--g-brand);border-radius:9px;color:#fff;box-shadow:0 5px 15px #153f3010}
+.geraina-menu-toggle{display:none}.geraina-header [hidden]{display:none!important}
+.geraina-header a:focus-visible,.geraina-header button:focus-visible,.geraina-footer a:focus-visible{outline:3px solid #58a28a;outline-offset:4px}
+.geraina-footer{background:#102e23;color:#d4e2db;padding:33px 0}.geraina-footer__inner{width:min(1160px,calc(100% - 48px));margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.geraina-footer .geraina-brand{color:#fff;font-size:14px}.geraina-footer p{font-size:11px;line-height:1.7;margin:0;color:#b5c9bd}.geraina-footer nav{display:flex;gap:20px;flex-wrap:wrap}.geraina-footer nav a{font-size:11px;color:#d4e2db;text-decoration:none}
+html{scroll-padding-top:100px}
+@media(max-width:1000px){.geraina-header__inner{gap:15px}.geraina-navigation{gap:16px}.geraina-navigation__account{gap:13px;margin-left:0;padding-left:16px}}
+@media(max-width:820px){
+ .geraina-header__inner{width:calc(100% - 36px);min-height:70px;position:relative;flex-wrap:wrap;gap:0;padding-block:14px}
+ .geraina-menu-toggle{align-items:center;justify-content:center;gap:10px;min-width:76px;min-height:42px;border:1px solid #d8e4dd;border-radius:9px;background:transparent;color:#173a2c;font:700 12px Manrope,system-ui,sans-serif;cursor:pointer}
+ html[data-geraina-enhanced] .geraina-menu-toggle{display:inline-flex}
+ .geraina-menu-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6}
+ .geraina-navigation{display:flex;width:100%;flex-direction:column;align-items:stretch;gap:0;padding-top:15px}
+ html[data-geraina-enhanced] .geraina-navigation{display:none}html[data-geraina-enhanced] .geraina-navigation.is-open{display:flex}.geraina-navigation>a{display:block;min-height:45px;padding:13px 4px;border-bottom:1px solid #e9efeb;font-size:13px}
+ .geraina-navigation__account{border-left:0;margin:0;padding:18px 0 3px;justify-content:space-between;gap:20px}.geraina-navigation__account>a{font-size:13px}
+ .geraina-footer__inner{width:calc(100% - 36px);gap:22px}.geraina-footer p{order:3;width:100%}.geraina-footer nav{gap:16px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

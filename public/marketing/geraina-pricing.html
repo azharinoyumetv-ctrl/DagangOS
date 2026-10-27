@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/subscription-feedback.css?v=20261027b">
 </head>
 <body class="geraina-purchase">
-  <header class="topbar"><div class="shell topbar__inner"><a class="brand" href="/geraina"><img src="/assets/brand/geraina-icon.png" alt=""><span>Geraina POS</span></a><nav class="nav" aria-label="Navigasi Geraina"><a href="/geraina">Produk</a><a href="/geraina/login">Masuk</a><a class="button" href="/geraina/register" data-anonymous-trial>Mulai Gratis</a></nav></div></header>
+  <!-- geraina-header -->
   <main>
     <section class="hero"><div class="shell"><p class="eyebrow">Harga Geraina POS</p><h1>Paket retail yang mengikuti skala toko.</h1><p>Harga bulanan dan tahunan berikut berasal dari katalog paket resmi Geraina POS. Semua nilai dalam Rupiah.</p></div></section>
     <section class="section"><div class="shell"><div class="pricing-controls"><form class="billing-toggle" method="get" action="/geraina/pricing" aria-label="Periode langganan"><button type="submit" name="period" value="monthly" aria-pressed="{{MONTHLY_SELECTED}}">Bulanan</button><button type="submit" name="period" value="yearly" aria-pressed="{{YEARLY_SELECTED}}">Tahunan <span>Hemat 2 bulan</span></button></form><p>Pilih periode, lalu paket Anda untuk langsung ke pembayaran Xendit.</p></div>{{PAYMENT_NOTICE}}<div class="pricing-grid">
@@ -24,7 +24,7 @@
       <aside class="notice"><strong>Biaya pembayaran.</strong><br>Biaya kanal pembayaran langganan mengikuti checkout. Integrasi pembayaran pelanggan di kasir tetap memakai akun merchant toko sendiri. Lihat add-on aktif dan perpanjang masa berlakunya di <a href="/geraina/app/settings/billing">Langganan &amp; Tagihan</a>.</aside>
     </div></div></section>
   </main>
-  <footer class="footer"><div class="shell footer__inner"><span>© 2026 PT DagangOS Digital Indonesia</span><span><a href="mailto:contact@dagangos.com">contact@dagangos.com</a> · <a href="/sumber-daya">Kontak</a></span></div></footer>
+  <!-- geraina-footer -->
   <script src="/subscription-feedback.js?v=20261027b" defer></script>
   <script src="/subscription-pricing.js?v=20261027-addons" defer></script>
 </body>

@@ -1,5 +1,6 @@
 import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscription-checkout.js';
 import { portalInformationDocuments } from './portal-information.js';
+import { gerainaCanonicalPath, renderGerainaPublic, injectGerainaWebBoundary } from './geraina-public.js';
 
 function injectPublicSupport(body) {
   if (!body || body.includes('/support-chat.js')) return body;
@@ -95,7 +96,7 @@ async function serveHtmlAsset(env, request, assetPath, status = 200) {
     headers.set('Cache-Control', 'no-store');
     headers.set('Referrer-Policy', 'same-origin');
   }
-  const body = injectPublicSupport(html);
+  const body = injectPublicSupport(renderGerainaPublic(html, new URL(request.url).pathname));
   return new Response(body, { status, headers });
 }
 
@@ -104,6 +105,12 @@ export default {
     try {
       const url = new URL(request.url);
       const pathname = url.pathname;
+
+      const gerainaPath = gerainaCanonicalPath(pathname);
+      if (gerainaPath && gerainaPath !== pathname && ['GET', 'HEAD'].includes(request.method)) {
+        url.pathname = gerainaPath;
+        return Response.redirect(url.toString(), 308);
+      }
 
       const subscriptionResponse = await handleSubscriptionCheckout(request, env);
       if (subscriptionResponse) return request.method === 'HEAD'
@@ -528,7 +535,7 @@ export default {
         }));
         if (assetResponse.status >= 300 && assetResponse.status < 400) {
           const body = await assetResponse.text();
-          return new Response(injectPublicSupport(body || '<!-- redirect intercepted -->'), {
+          return new Response(injectPublicSupport(injectGerainaWebBoundary(body || '<!-- redirect intercepted -->')), {
             status: 200,
             headers: {
               'Content-Type': 'text/html; charset=utf-8',
@@ -541,7 +548,7 @@ export default {
         newHeaders.delete('Location');
 
         let body = await assetResponse.text();
-        body = injectPublicSupport(body);
+        body = injectPublicSupport(injectGerainaWebBoundary(body));
 
         return new Response(body, {
           status: 200,

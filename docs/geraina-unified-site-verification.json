@@ -1,0 +1,91 @@
+{
+  "status": "ready_for_publication",
+  "canonicalDestination": "https://dagangos.com/geraina",
+  "mainNavigationJourney": "DagangOS → Produk → Geraina",
+  "duplicateBehavior": "Old designs replaced; /geraina/ redirects to /geraina",
+  "unitTestsPassed": 38,
+  "localBrowserVerification": {
+    "status": "passed",
+    "base": "http://127.0.0.1:8792",
+    "checks": [
+      "/geraina: 1440px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 1440px layout, mobile controls, internal contact destination",
+      "/geraina/android: 1440px layout, mobile controls, internal contact destination",
+      "/geraina: 1024px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 1024px layout, mobile controls, internal contact destination",
+      "/geraina/android: 1024px layout, mobile controls, internal contact destination",
+      "/geraina: 768px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 768px layout, mobile controls, internal contact destination",
+      "/geraina/android: 768px layout, mobile controls, internal contact destination",
+      "/geraina: 393px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 393px layout, mobile controls, internal contact destination",
+      "/geraina/android: 393px layout, mobile controls, internal contact destination",
+      "/geraina: 320px layout, mobile controls, internal contact destination",
+      "/geraina/pricing: 320px layout, mobile controls, internal contact destination",
+      "/geraina/android: 320px layout, mobile controls, internal contact destination",
+      "Main DagangOS navigation → Produk → Geraina opens the one unified destination at 1440px",
+      "Main DagangOS navigation → Produk → Geraina opens the one unified destination at 393px",
+      "Trailing slash redirects retain query and section",
+      "Original retail hero image loads in its responsive frame at all five widths",
+      "New navigation, buttons and small section labels meet 4.5:1 text contrast",
+      "Eight live animations restore camera motion, light sweep, particles, floating emblem and pulsing rings; rendered frames change",
+      "Hero pause and resume controls stop and restart actual motion",
+      "Hero motion pauses offscreen and resumes when visible",
+      "Reduced-motion preference disables every hero animation",
+      "Geraina contact opens the existing Geraina chat without sending a message",
+      "React login logo returns to the unified public home, not the old landing",
+      "React account link reaches unified pricing",
+      "Account header: valid session preserves account storage and usable navigation",
+      "Account header: expired session preserves account storage and usable navigation",
+      "Account header: unavailable session preserves account storage and usable navigation",
+      "Mobile navigation remains accessible without JavaScript"
+    ],
+    "contrast": [
+      {
+        "selector": ".geraina-nav-button",
+        "ratio": 4.954777304152637
+      },
+      {
+        "selector": ".hero .button",
+        "ratio": 4.954777304152637
+      },
+      {
+        "selector": ".geraina-feature-index",
+        "ratio": 5.2930939932110626
+      },
+      {
+        "selector": ".geraina-capabilities span",
+        "ratio": 5.634868642843074
+      },
+      {
+        "selector": ".geraina-workflow li>span",
+        "ratio": 5.430322413071255
+      },
+      {
+        "selector": ".geraina-device-label",
+        "ratio": 5.190837123949538
+      },
+      {
+        "selector": ".geraina-contact-detail>span",
+        "ratio": 5.277872979782264
+      },
+      {
+        "selector": ".geraina-hero-motion",
+        "ratio": 14.071078048993131
+      }
+    ],
+    "animationNames": [
+      "geraina-retail-camera",
+      "geraina-retail-particle",
+      "geraina-retail-sweep",
+      "geraina-sigil-float",
+      "geraina-sigil-pulse"
+    ],
+    "errors": [],
+    "mutations": [],
+    "scope": "Local preview only; no publication, invoice creation, emails or merchant changes"
+  },
+  "published": false,
+  "publicVerification": "pending",
+  "testSprite": "pending"
+}
