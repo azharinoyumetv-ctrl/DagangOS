@@ -18,7 +18,7 @@ async function context(options={}){
 try{
  const ctx=await context(),page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));
  const paths=['/geraina','/geraina/pricing','/geraina/android'];
- for(const width of [1920,1440,1024,768,393,320]){
+ for(const width of [1920,1685,1440,1024,768,393,320]){
   for(const path of paths){
    await page.setViewportSize({width,height:1000});await page.goto(base+path);
    await page.locator('.geraina-header').waitFor();
@@ -63,7 +63,7 @@ try{
  await page.goto(base+'/geraina/?ref=preview#fitur');
  assert.equal(new URL(page.url()).pathname,'/geraina');assert.equal(new URL(page.url()).search,'?ref=preview');assert.equal(new URL(page.url()).hash,'#fitur');
  checks.push('Trailing slash redirects retain query and section');
- checks.push('Original retail hero image loads in its responsive frame at all six widths');
+ checks.push('Original retail hero image loads in its responsive frame at all seven widths');
  await page.goto(base+'/geraina');
  const contrast=await page.evaluate(()=>{
   const rgb=value=>value.match(/[\d.]+/g).slice(0,3).map(Number);
@@ -77,7 +77,7 @@ try{
  });
  for(const sample of contrast)assert.ok(sample.ratio>=4.5,`${sample.selector} text contrast ${sample.ratio.toFixed(2)}`);
  checks.push('New navigation, buttons and small section labels meet 4.5:1 text contrast');
- await page.setViewportSize({width:1440,height:1000});await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(base+'/geraina');
+ await page.setViewportSize({width:1685,height:1000});await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(base+'/geraina');
  const scene=page.locator('.geraina-hero-scene');await page.locator('[data-geraina-hero]').evaluate(image=>image.decode());
  await page.waitForFunction(()=>{
   const items=document.querySelector('.geraina-hero-scene').getAnimations({subtree:true});
@@ -92,8 +92,9 @@ try{
  assert.notDeepEqual(firstFrame,secondFrame,'Rendered frames change while original hero effects run');
  checks.push('Eight live animations restore camera motion, light sweep, particles, floating emblem and pulsing rings; rendered frames change');
  assert.equal(await page.locator('[data-hero-motion]').count(),0);
- const desktopFrame=await scene.boundingBox();assert.ok(desktopFrame.width>=690&&desktopFrame.height>=570,'Desktop retains the original large cinematic frame');
- checks.push('Original large desktop hero proportions are retained without visible animation controls');
+ const desktopFrame=await scene.boundingBox();assert.ok(desktopFrame.width>=1000&&desktopFrame.height>=560&&Math.abs(desktopFrame.width/desktopFrame.height-16/9)<.02,'Desktop matches the wide landscape reference instead of a square crop');
+ const heroLayout=await page.locator('.hero__grid').boundingBox();assert.ok(heroLayout.x<=45&&heroLayout.width>=1600,'Desktop hero uses the available page width');
+ checks.push('Wide landscape desktop hero matches the reference, fills the page width and has no visible controls');
  await page.locator('#kontak').scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>document.querySelector('.geraina-hero-scene').classList.contains('is-offscreen')&&document.querySelector('.geraina-hero-scene').getAnimations({subtree:true}).every(animation=>animation.playState==='paused'));
  await scene.scrollIntoViewIfNeeded();
@@ -132,7 +133,7 @@ try{
  await plain.goto(base+'/geraina');await plain.getByRole('link',{name:'Kontak',exact:true}).waitFor({state:'visible'});
  checks.push('Mobile navigation remains accessible without JavaScript');await nojs.close();
  assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
- const report={status:'passed',base,checks,contrast,animationNames,errors,mutations,scope:'Browser verification of the selected target; no invoice creation, emails or merchant changes'};
+ const report={status:'passed',base,checks,contrast,animationNames,desktopFrame,heroLayout,errors,mutations,scope:'Browser verification of the selected target; no invoice creation, emails or merchant changes'};
  writeFileSync(join(out,'verification.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
  await ctx.close();
 }finally{await browser.close();}

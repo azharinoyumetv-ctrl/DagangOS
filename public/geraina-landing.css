@@ -21,8 +21,8 @@
 @keyframes geraina-retail-particle{0%,100%{transform:translate3d(0,0,0);opacity:.35}35%{transform:translate3d(35px,-22px,0);opacity:1}70%{transform:translate3d(70px,18px,0);opacity:.55}}
 @media(prefers-reduced-motion:reduce){.geraina-hero-scene>img,.geraina-hero-sweep,.geraina-hero-emblem,.geraina-hero-emblem:before,.geraina-hero-emblem:after,.geraina-hero-particle{animation:none;will-change:auto}}
 
-/* Keep the original cinematic scale on desktop and a generous frame on smaller screens. */
-.hero__grid{width:min(1220px,calc(100% - 40px));grid-template-columns:.82fr 1.18fr;gap:30px}
-.geraina-hero-scene{height:570px;aspect-ratio:auto}
-@media(max-width:1050px){.hero__grid{grid-template-columns:1fr;gap:36px}.geraina-hero-scene{height:520px}}
+/* Use the landscape proportions from the approved narrow-window reference at desktop widths too. */
+.hero__grid{width:min(1920px,calc(100% - 80px));grid-template-columns:minmax(360px,.78fr) minmax(0,1.5fr);gap:48px}
+.geraina-hero-scene{height:auto;aspect-ratio:16/9}
+@media(max-width:1200px){.hero__grid{width:calc(100% - 40px);grid-template-columns:1fr;gap:36px}.geraina-hero-scene{height:520px;aspect-ratio:auto}}
 @media(max-width:640px){.geraina-hero-scene{height:430px}}
