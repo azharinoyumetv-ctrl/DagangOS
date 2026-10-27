@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 9,
+  "status": "passed",
+  "version": "1.2.13",
+  "versionCode": 18,
+  "applicationId": "com.dagangos.geraina",
+  "minimumSdk": 34,
+  "supportedAbis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "apkSha256": "a78bc7d8ff920c3352f6c0a30a679a03d7a48ff50b32d060174ecc4953d7a53e",
+  "bytes": 17231595,
+  "backendChanged": true,
+  "baseRelease": {
+    "version": "1.2.12",
+    "published": true
+  },
+  "publicationAuthorized": true,
+  "published": false,
+  "verifiedAt": "2026-10-27T07:34:43.784392+00:00",
+  "backend": {
+    "tests": 384,
+    "realMongoConcurrencyTests": 3,
+    "status": "passed"
+  },
+  "checkoutTests": 33,
+  "frontendAuthTests": 10,
+  "addonBrowser": {
+    "status": "passed",
+    "checks": [
+      "phone: eligible controls, explicit quote, unpaid resume, paid capacity, renewal without duplicated capacity, base plan preserved",
+      "phone: expiry blocks new capacity and preserves existing devices",
+      "xiaomi12: eligible controls, explicit quote, unpaid resume, paid capacity, renewal without duplicated capacity, base plan preserved",
+      "xiaomi12: expiry blocks new capacity and preserves existing devices",
+      "samsung146: eligible controls, explicit quote, unpaid resume, paid capacity, renewal without duplicated capacity, base plan preserved",
+      "samsung146: expiry blocks new capacity and preserves existing devices",
+      "Business outlet checkout unlocks an actual third branch and extra device capacity",
+      "Trial, Starter and expired plans cannot purchase add-ons"
+    ],
+    "providerRequests": 0,
+    "productionWrites": 0
+  },
+  "addonAndroid": {
+    "status": "passed",
+    "installed": {
+      "versionName": "1.2.13",
+      "versionCode": 18,
+      "subscriptionPurchases": true,
+      "androidVersion": "16",
+      "model": "unknown Android SDK built for x86_64"
+    },
+    "apkSha256": "a78bc7d8ff920c3352f6c0a30a679a03d7a48ff50b32d060174ecc4953d7a53e",
+    "checks": [
+      "Installed app opens a priced add-on confirmation without an invoice or capacity grant",
+      "Real Android Back from unpaid external checkout returns to signed-in billing; no spinner or extra capacity",
+      "Verified payment activates the extra device and retains the main Pro package"
+    ],
+    "providerRequests": 0,
+    "productionWrites": 0
+  },
+  "package": {
+    "unitTests": 26,
+    "lintErrors": 0,
+    "signatureVerified": true,
+    "signerSha256": "52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8",
+    "bundleManifestEntriesVerified": 18,
+    "bundleValidated": true,
+    "alignment16KbVerified": true,
+    "privateCredentialsExcluded": true
+  },
+  "backendDeployment": {
+    "status": "passed",
+    "sourceCommit": "8872eb646632228bb4132eec9284b820f867df28",
+    "providerStatus": "Vercel success",
+    "verifiedAt": "2026-10-27T07:35:42.254416+00:00",
+    "checks": [
+      {
+        "origin": "https://geraina-os.vercel.app",
+        "route": "addon invoice claim",
+        "status": 401,
+        "unauthenticatedWriteRejected": true
+      },
+      {
+        "origin": "https://dagangos.com",
+        "route": "addon invoice claim",
+        "status": 401,
+        "unauthenticatedWriteRejected": true
+      }
+    ]
+  },
+  "appSourceCommit": "8872eb646632228bb4132eec9284b820f867df28",
+  "limitations": [
+    "No real customer charge was made; paid fulfillment was verified with a loopback provider and real Mongo transactions.",
+    "A provider creation timeout is not automatically retried; the retained order reference supports status inspection and support recovery."
+  ]
+}

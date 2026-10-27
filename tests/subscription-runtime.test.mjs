@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Miniflare, createFetchMock } from 'miniflare';
-import { selection, signReceipt } from '../src/subscription-checkout.js';
+import { selection, addonSelection, signReceipt } from '../src/subscription-checkout.js';
 
 // Run the real checkout module in workerd. Node fetch mocks alone do not catch
 // unsupported Workers options (notably redirect: 'error'). No real network calls.
@@ -34,13 +34,29 @@ function cart(module) {
   return { ...selection(module, 'starter', 'monthly'), provider: 'xendit', orderId: `DG-${module}-${'a'.repeat(32)}`, expires: Date.now() + 3600000 };
 }
 
-async function submit(worker, choice) {
+async function submit(worker, choice, extra = {}) {
   return worker.dispatchFetch(`https://dagangos.com/${choice.module}/checkout`, {
     method: 'POST', redirect: 'manual',
     headers: { Origin: 'https://dagangos.com', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ cart: await signReceipt(choice, secret), access_token: 'runtime.test.token-not-a-real-account' }).toString(),
+    body: new URLSearchParams({ cart: await signReceipt(choice, secret), access_token: 'runtime.test.token-not-a-real-account', ...extra }).toString(),
   });
 }
+
+test('Workers runtime quotes add-ons before claiming a single invoice on confirmation', async t => {
+  const { mock, worker } = await runtime(t);
+  const choice = { ...cart('geraina'), ...addonSelection('geraina', 'extra_device') };
+  const backend = mock.get('https://geraina-runtime.test');
+  const prepared = { ...choice, order_id: choice.orderId, owner_id: ownerId, store_id: storeId, email: 'runtime@example.com' };
+  backend.intercept({ path: '/api/subscriptions/orders', method: 'POST' }).reply(200, prepared, mockHeaders).times(2);
+  backend.intercept({ path: `/api/subscriptions/orders/${choice.orderId}/reference`, method: 'POST' }).reply(200, { ok: true }, mockHeaders).times(2);
+  const quote = await submit(worker, choice);
+  assert.equal(quote.status, 200); assert.match(await quote.text(), /Konfirmasi pembelian add-on/);
+  backend.intercept({ path: `/api/subscriptions/orders/${choice.orderId}/invoice-claim`, method: 'POST' }).reply(200, { claimed: true }, mockHeaders);
+  mock.get('https://api.xendit.co').intercept({ path: '/v2/invoices', method: 'POST' }).reply(201, { external_id: choice.orderId, amount: 49000, currency: 'IDR', invoice_url: paymentUrl }, mockHeaders);
+  const result = await submit(worker, choice, { confirm_addon: 'yes' });
+  assert.equal(result.status, 303, await result.text()); assert.equal(result.headers.get('Location'), paymentUrl);
+  mock.assertNoPendingInterceptors();
+});
 
 test('Workers runtime sends expired sessions back to sign-in instead of a connection error', async t => {
   const { mock, worker } = await runtime(t);

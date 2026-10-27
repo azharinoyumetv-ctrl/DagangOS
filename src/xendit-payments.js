@@ -44,15 +44,16 @@ export function verifiedInvoiceStatus(invoice, cart) {
 
 export async function createPaymentLink(env, cart, email, receipt) {
   const finish = `https://dagangos.com/${cart.module}/order?receipt=${encodeURIComponent(receipt)}`;
+  const itemName = cart.kind === 'addon' ? `${cart.addonId === 'extra_device' ? 'Device kasir tambahan' : 'Outlet tambahan'} — 1 bulan` : `${cart.module} ${cart.tier}`;
   const result = await xenditRequest(env, '/v2/invoices', {
     external_id: cart.orderId, amount: cart.amount, currency: 'IDR',
-    description: `${cart.module === 'geraina' ? 'Geraina POS' : 'DapurOS'} ${cart.tier} — ${cart.period === 'yearly' ? '12 bulan' : '1 bulan'}`,
+    description: cart.kind === 'addon' ? `Geraina POS ${itemName}` : `${cart.module === 'geraina' ? 'Geraina POS' : 'DapurOS'} ${cart.tier} — ${cart.period === 'yearly' ? '12 bulan' : '1 bulan'}`,
     invoice_duration: 86400, should_send_email: false,
     ...(email ? { payer_email: email } : {}),
     success_redirect_url: finish, failure_redirect_url: finish,
     // Let Xendit show the merchant's activated channels. Hard-coded filtering can
     // hide the only approved channel and leave customers unable to pay.
-    items: [{ name: `${cart.module} ${cart.tier}`, quantity: 1, price: cart.amount }],
+    items: [{ name: itemName, quantity: 1, price: cart.amount }],
   });
   const url = invoiceUrl(result.invoice_url);
   if (!url || result.external_id !== cart.orderId || Number(result.amount) !== cart.amount || result.currency !== 'IDR') throw new Error('Invalid Xendit payment link');

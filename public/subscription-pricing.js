@@ -11,7 +11,7 @@ const purchaseEnabled = [...document.querySelectorAll('.plan-purchase button')].
 function updateCurrentPlan() {
   if (window.GerainaCheckoutFeedback?.busy) return;
   if (module !== 'geraina' || !purchaseEnabled || !currentSubscription?.active) return;
-  document.querySelectorAll('.plan-purchase button').forEach(button => {
+  document.querySelectorAll('.price-card .plan-purchase button').forEach(button => {
     const tier = button.closest('.price-card').id.replace('plan-', '');
     const same = tier === currentSubscription.tier && currentPeriod() === currentSubscription.period;
     button.disabled = same;
@@ -42,13 +42,14 @@ billingToggle?.addEventListener('submit', event => {
 
 document.querySelectorAll('.plan-purchase').forEach(form => {
   form.addEventListener('submit', event => {
-    const tier = form.closest('.price-card').id.replace('plan-', '');
-    const period = currentPeriod();
-    if (!resuming) sessionStorage.setItem(intentKey, JSON.stringify({ tier, period, expires: Date.now() + 1800000 }));
+    const addonId = form.dataset.addonId;
+    const url = new URL(location.href);
+    const choice = addonId ? {kind:'addon',addonId,period:'monthly',...(url.searchParams.get('addon')===addonId&&url.searchParams.get('renewal')?{renewalId:url.searchParams.get('renewal')}:{})} : {tier:form.closest('.price-card').id.replace('plan-',''),period:currentPeriod()};
+    if (!resuming) sessionStorage.setItem(intentKey, JSON.stringify({ ...choice, expires: Date.now() + 1800000 }));
     const token = readToken();
     if (!token) {
       event.preventDefault();
-      const next = `/${module}/pricing?period=${period}&plan=${tier}&checkout=1`;
+      const next = addonId ? `/${module}/pricing?period=monthly&addon=${addonId}&checkout=1${choice.renewalId?`&renewal=${encodeURIComponent(choice.renewalId)}`:''}` : `/${module}/pricing?period=${choice.period}&plan=${choice.tier}&checkout=1`;
       location.assign(`/${module}/login?next=${encodeURIComponent(next)}`);
       return;
     }
@@ -70,8 +71,16 @@ function resumeCheckout() {
   try { intent = JSON.parse(sessionStorage.getItem(intentKey) || 'null'); } catch { return false; }
   // A URL alone never authorizes an invoice. Only resume a choice actually
   // made in this tab; the checkout backend still validates the current plan.
-  if (url.searchParams.get('checkout') !== '1' || !intent || !['starter', 'pro', 'business'].includes(intent.tier) || !Number.isFinite(intent.expires) || intent.expires < Date.now() || intent.tier !== url.searchParams.get('plan') || intent.period !== currentPeriod()) return false;
-  const form = document.querySelector(`#plan-${intent.tier} .plan-purchase`);
+  if (url.searchParams.get('checkout') !== '1' || !intent || !Number.isFinite(intent.expires) || intent.expires < Date.now()) return false;
+  let form;
+  if (intent.kind === 'addon') {
+    if (module!=='geraina'||!['extra_device','extra_outlet'].includes(intent.addonId)||intent.period!=='monthly'||intent.addonId!==url.searchParams.get('addon')||(intent.renewalId||null)!==url.searchParams.get('renewal')||intent.renewalId&&!/^(DG-geraina-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(intent.renewalId)||!purchaseEnabled) return false;
+    form=document.querySelector(`form[data-addon-id="${intent.addonId}"]`);
+    if(form)form.querySelector('button').disabled=false; // backend verifies eligibility before quoting
+  } else {
+    if(intent.kind!==undefined||!['starter','pro','business'].includes(intent.tier)||intent.tier!==url.searchParams.get('plan')||intent.period!==currentPeriod())return false;
+    form=document.querySelector(`#plan-${intent.tier} .plan-purchase`);
+  }
   if (!form || form.querySelector('button').disabled) return false;
   url.searchParams.delete('checkout');
   history.replaceState(null, '', url);
@@ -82,11 +91,22 @@ function resumeCheckout() {
 
 async function showSubscription() {
   const token = readToken();
-  if (!token) return;
+  if (!token) {
+    document.querySelectorAll('form[data-addon-id]').forEach(form=>{form.querySelector('button').disabled=!purchaseEnabled;form.querySelector('button').textContent='Masuk untuk membeli';form.parentElement.querySelector('[data-addon-reason]').textContent='Memerlukan paket Pro atau Business yang sesuai.';});
+    return;
+  }
   try {
     const response = await fetch('/api/subscriptions/current', { headers: { Authorization: `Bearer ${token}`, 'X-DagangOS-Module': module }, cache: 'no-store' });
+    if (!response.ok) throw new Error('Account status unavailable');
     if (response.ok) {
-      const { subscription } = await response.json();
+      const data = await response.json(), { subscription } = data;
+      if (!window.GerainaCheckoutFeedback?.busy) document.querySelectorAll('form[data-addon-id]').forEach(form=>{
+        const offer=data.addons?.offers?.find(o=>o.id===form.dataset.addonId),button=form.querySelector('button'),card=form.parentElement;
+        button.disabled=!purchaseEnabled||!data.can_manage||!offer?.eligible;
+        button.textContent='Beli add-on';card.querySelector('[data-addon-reason]').textContent=!data.can_manage?'Akun Owner diperlukan.':offer?.reason||'Satu bulan, tanpa perpanjangan otomatis.';
+        card.querySelector('[data-addon-pending]')?.remove();
+        if(offer?.pending_receipt){const link=document.createElement('a');link.dataset.addonPending='1';link.className='button button--quiet';link.href='/geraina/order?receipt='+encodeURIComponent(offer.pending_receipt);link.textContent='Periksa atau lanjutkan pembayaran';card.append(link);}
+      });
       if (subscription?.active && !window.GerainaCheckoutFeedback?.busy) {
         currentSubscription = subscription;
         const button = document.querySelector(`#plan-${subscription.tier} .plan-purchase button`);
@@ -106,7 +126,9 @@ async function showSubscription() {
         }
       }
     }
-  } catch { /* Checkout verifies the account again on the server. */ }
+  } catch {
+    document.querySelectorAll('[data-addon-reason]').forEach(p=>{p.textContent='Informasi add-on belum dapat dimuat. Muat ulang halaman untuk mencoba lagi.';});
+  }
   resumeCheckout();
 }
 // Geraina no longer waits for a redundant status request before continuing a
