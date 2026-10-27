@@ -1,6 +1,8 @@
 # DapurOS unified public website
 
-Prepared on 28 October 2026 at the owner's request to apply the Geraina landing-page cleanup to DapurOS. Publication and live verification are pending.
+Published on 28 October 2026 from revision `0432aa37e90fd055d63461baab0350962e59dd14` at the owner's request to apply the Geraina landing-page cleanup to DapurOS. Live DapurOS and Geraina website verification passed.
+
+Entry: https://dagangos.com/ → Produk → DapurOS. Canonical destination: https://dagangos.com/dapuros.
 
 ## Confirmed problem
 
@@ -30,4 +32,10 @@ Evidence: `tmp/dapuros-unified-preview/verification.json`, `tmp/dapuros-geraina-
 
 ## Publication verification
 
-After deployment serves the new DapurOS document, run the DapurOS browser suite against `https://dagangos.com`. Run existing TestSprite checkout test `e8c8bbdd-63d4-4197-ae73-43b27c686e60` to verify signed DapurOS/Geraina pricing and rejection of invalid sessions without creating invoices. Record the actual verdict and deployment revision in `docs/dapuros-unified-site-verification.json`.
+- Deployment [40553669313](https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40553669313) published the tested source. Deployment, Cloudflare zone audit and public accessibility checks passed. The broader existing app regression job is still preparing its browser environment; it is not included in the passed website totals.
+- The live-page probe confirmed the new document/version on both products and absence of the removed animation controls before running hosted verification.
+- **28 DapurOS and 34 Geraina live browser checks passed**, zero page errors and zero API mutations. All six viewport widths, original large hero dimensions, real animation frames, offscreen/reduced-motion behavior, product-local navigation and account states were checked. The live DapurOS desktop screenshot was visually inspected.
+- Live HEAD checks confirm `/dapuros` returns 200; `/dapuros/` and `/dapuros/index.html` return 308 to `/dapuros`. `/dapuros/pricing/` redirects to canonical pricing, and Geraina's existing slash redirect is preserved.
+- TestSprite **`e8c8bbdd-63d4-4197-ae73-43b27c686e60` — Checkout rejects invalid sessions through the backend instead of a Worker connection error — passed**, run `984bd625-56c0-4379-bbfe-0b49dd365625`, completed `2026-10-27T17:49:28.194Z`. It checked both products' signed yearly Starter choices, preserved package selection through sign-in, and rejected invalid sessions without creating a payment. [TestSprite result](https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/e8c8bbdd-63d4-4197-ae73-43b27c686e60).
+
+Live evidence: `tmp/dapuros-unified-live/verification.json`, `tmp/dapuros-geraina-live-regression/verification.json`, `tmp/dapuros-unified-testsprite.json`, and viewport screenshots. Committed record: `docs/dapuros-unified-site-verification.json`.

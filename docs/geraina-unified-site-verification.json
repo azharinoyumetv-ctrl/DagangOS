@@ -220,8 +220,8 @@
     "appRegression": "success"
   },
   "heroFollowUp": {
-    "status": "ready_for_publication",
-    "published": false,
+    "status": "passed",
+    "published": true,
     "visibleAnimationControls": false,
     "desktopVisualHeight": 570,
     "localBrowserVerification": {
@@ -304,6 +304,105 @@
       "mutations": [],
       "scope": "Browser verification of the selected target; no invoice creation, emails or merchant changes"
     },
-    "unitTestsPassed": 44
+    "unitTestsPassed": 44,
+    "sourceRevision": "0432aa37e90fd055d63461baab0350962e59dd14",
+    "publicVerification": {
+      "status": "passed",
+      "base": "https://dagangos.com",
+      "checks": [
+        "/geraina: 1920px layout, mobile controls, internal contact destination",
+        "/geraina/pricing: 1920px layout, mobile controls, internal contact destination",
+        "/geraina/android: 1920px layout, mobile controls, internal contact destination",
+        "/geraina: 1440px layout, mobile controls, internal contact destination",
+        "/geraina/pricing: 1440px layout, mobile controls, internal contact destination",
+        "/geraina/android: 1440px layout, mobile controls, internal contact destination",
+        "/geraina: 1024px layout, mobile controls, internal contact destination",
+        "/geraina/pricing: 1024px layout, mobile controls, internal contact destination",
+        "/geraina/android: 1024px layout, mobile controls, internal contact destination",
+        "/geraina: 768px layout, mobile controls, internal contact destination",
+        "/geraina/pricing: 768px layout, mobile controls, internal contact destination",
+        "/geraina/android: 768px layout, mobile controls, internal contact destination",
+        "/geraina: 393px layout, mobile controls, internal contact destination",
+        "/geraina/pricing: 393px layout, mobile controls, internal contact destination",
+        "/geraina/android: 393px layout, mobile controls, internal contact destination",
+        "/geraina: 320px layout, mobile controls, internal contact destination",
+        "/geraina/pricing: 320px layout, mobile controls, internal contact destination",
+        "/geraina/android: 320px layout, mobile controls, internal contact destination",
+        "Main DagangOS navigation → Produk → Geraina opens the one unified destination at 1440px",
+        "Main DagangOS navigation → Produk → Geraina opens the one unified destination at 393px",
+        "Trailing slash redirects retain query and section",
+        "Original retail hero image loads in its responsive frame at all six widths",
+        "New navigation, buttons and small section labels meet 4.5:1 text contrast",
+        "Eight live animations restore camera motion, light sweep, particles, floating emblem and pulsing rings; rendered frames change",
+        "Original large desktop hero proportions are retained without visible animation controls",
+        "Hero motion pauses offscreen and resumes when visible",
+        "Reduced-motion preference disables every hero animation",
+        "Geraina contact opens the existing Geraina chat without sending a message",
+        "React login logo returns to the unified public home, not the old landing",
+        "React account link reaches unified pricing",
+        "Account header: valid session preserves account storage and usable navigation",
+        "Account header: expired session preserves account storage and usable navigation",
+        "Account header: unavailable session preserves account storage and usable navigation",
+        "Mobile navigation remains accessible without JavaScript"
+      ],
+      "contrast": [
+        {
+          "selector": ".geraina-nav-button",
+          "ratio": 4.954777304152637
+        },
+        {
+          "selector": ".hero .button",
+          "ratio": 4.954777304152637
+        },
+        {
+          "selector": ".geraina-feature-index",
+          "ratio": 5.2930939932110626
+        },
+        {
+          "selector": ".geraina-capabilities span",
+          "ratio": 5.634868642843074
+        },
+        {
+          "selector": ".geraina-workflow li>span",
+          "ratio": 5.430322413071255
+        },
+        {
+          "selector": ".geraina-device-label",
+          "ratio": 5.190837123949538
+        },
+        {
+          "selector": ".geraina-contact-detail>span",
+          "ratio": 5.277872979782264
+        }
+      ],
+      "animationNames": [
+        "geraina-retail-camera",
+        "geraina-retail-particle",
+        "geraina-retail-sweep",
+        "geraina-sigil-float",
+        "geraina-sigil-pulse"
+      ],
+      "errors": [],
+      "mutations": [],
+      "scope": "Browser verification of the selected target; no invoice creation, emails or merchant changes"
+    },
+    "testSpriteCheckoutRegression": {
+      "status": "passed",
+      "testId": "e8c8bbdd-63d4-4197-ae73-43b27c686e60",
+      "name": "Checkout rejects invalid sessions through the backend instead of a Worker connection error",
+      "runId": "984bd625-56c0-4379-bbfe-0b49dd365625",
+      "finishedAt": "2026-10-27T17:49:28.194Z",
+      "url": "https://www.testsprite.com/dashboard/tests/1466ba50-a196-4dc9-a160-f14658033239/test/e8c8bbdd-63d4-4197-ae73-43b27c686e60",
+      "apiOutput": "geraina: backend session rejection reached; selected package preserved; no payment created\ndapuros: backend session rejection reached; selected package preserved; no payment created\n",
+      "scope": "Signed DapurOS and Geraina pricing; invalid session rejection; no invoice creation"
+    },
+    "deployment": {
+      "runId": 40553669313,
+      "url": "https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40553669313",
+      "deploy": "success",
+      "cloudflareZoneAudit": "success",
+      "publicAccessibility": "success",
+      "appRegression": "in_progress"
+    }
   }
 }
