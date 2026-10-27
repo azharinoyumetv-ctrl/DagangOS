@@ -34,6 +34,9 @@
     },
   };
   const config = surfaces[surface];
+  const helpUrl = `https://dagangos.com/${surface === 'dagangos' ? 'kontak' : `${surface}#kontak`}`;
+  const unavailableMessage = `Asisten otomatis sedang tidak tersedia. Silakan coba lagi atau hubungi tim melalui ${helpUrl}`;
+  const internalDiagnostic = /provider\s+(?:authentication|authorization|request|connection)\s+(?:failed|error)|nous\s+(?:portal|research)|hermes\s+(?:model|auth|login|gateway)|(?:no|missing|invalid|expired|revoked).{0,45}(?:access[ _-]?token|refresh[ _-]?token|api[ _-]?key|credentials?)|(?:access[ _-]?token|refresh[ _-]?token|api[ _-]?key|credentials?).{0,45}(?:not found|missing|invalid|expired|revoked|required)|(?:authentication|authorization)\s+(?:failed|error)|re-authenticat(?:e|ion)|traceback \(most recent call last\)|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|HTTPError|AuthenticationError|RateLimitError|sk-[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._-]{20,}/i;
 
   const host = document.createElement("aside");
   host.className = `dagangos-support dagangos-support--${surface}`;
@@ -132,15 +135,21 @@
           surface,
           page: location.pathname,
         }),
+        signal: AbortSignal.timeout(40_000),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Support chat sedang tidak tersedia.");
+      if (!response.ok || payload.error || payload.success === false || payload.available === false || typeof payload.reply !== 'string' || !payload.reply.trim() || /^\s*(?:⚠\uFE0F?|❌)\s*/.test(payload.reply) || internalDiagnostic.test(payload.reply)) {
+        pending.remove();
+        addMessage("assistant", response.status === 429 ? "Pesan terlalu cepat. Silakan tunggu sebentar lalu coba lagi." : unavailableMessage, true);
+        return;
+      }
       pending.remove();
-      const reply = payload.reply || "Informasi tersebut belum tersedia di pusat bantuan produk ini.";
+      const reply = payload.reply;
       addMessage("assistant", reply);
       history.push({ role: "assistant", content: reply });
     } catch (error) {
-      pending.textContent = error?.message || "Support chat sedang tidak tersedia. Silakan coba kembali.";
+      pending.remove();
+      addMessage("assistant", unavailableMessage, true);
     } finally {
       send.disabled = false;
       input.focus();

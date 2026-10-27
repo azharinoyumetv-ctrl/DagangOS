@@ -2,11 +2,12 @@ import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscri
 import { portalInformationDocuments } from './portal-information.js';
 import { gerainaCanonicalPath, renderGerainaPublic, injectGerainaWebBoundary } from './geraina-public.js';
 import { dapurosCanonicalPath, renderDapurosPublic, injectDapurosWebBoundary } from './dapuros-public.js';
+import { readPublicSupportReply, supportUnavailableMessage } from './support-chat-response.js';
 
 function injectPublicSupport(body) {
   if (!body || body.includes('/support-chat.js')) return body;
   const headAssets = '<link rel="stylesheet" href="/support-chat.css?v=20260727b">';
-  const bodyAssets = '<script src="/support-chat.js?v=20260727b" defer></script>';
+  const bodyAssets = '<script src="/support-chat.js?v=20261028-safe" defer></script>';
   const withHead = body.includes('</head>')
     ? body.replace('</head>', `${headAssets}</head>`)
     : body;
@@ -208,6 +209,19 @@ export default {
           } catch {}
         }
         const scope = scopeDefinitions[scopeId];
+        const unavailable = (rateLimited = false) => new Response(JSON.stringify({
+          error: rateLimited ? 'Pesan terlalu cepat. Silakan tunggu sebentar lalu coba lagi.' : supportUnavailableMessage(scopeId),
+          code: rateLimited ? 'support_rate_limited' : 'support_unavailable',
+          scope: scopeId,
+        }), {
+          status: rateLimited ? 429 : 503,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+            'X-DagangOS-Scope': scopeId,
+            'Retry-After': '30',
+          },
+        });
         const safeHistory = Array.isArray(incoming?.messages)
           ? incoming.messages
             .filter((entry) => entry && ['user', 'assistant'].includes(entry.role) && typeof entry.content === 'string')
@@ -249,7 +263,7 @@ export default {
         } else if (scopeId === 'geraina') {
           if (/(dapuros|restoran|kds|laundryos|autocareos|salonos|dagangos web|wmp)/i.test(message)) {
             localReply = `Chat ini khusus Geraina POS. Untuk produk DagangOS lainnya, buka ${officialLinks.dagangos.products}`;
-          } else if (/(harga|paket|biaya|langganan|starter|pro|business|trial)/i.test(message)) {
+          } else if (/(harga|paket|biaya|langganan|\b(?:starter|pro|business|trial)\b)/i.test(message)) {
             localReply = `Paket Geraina POS yang aktif dan rinciannya tersedia di ${officialLinks.geraina.pricing}`;
           } else if (/(fitur|fungsi|bisa apa|kegunaan|kemampuan)/i.test(message)) {
             localReply = `Geraina POS mencakup POS dan kasir, inventori, pembelian dan supplier, laporan, multi-outlet, serta kontrol akses staf. Lihat detailnya di ${officialLinks.geraina.home}`;
@@ -261,7 +275,7 @@ export default {
         } else if (scopeId === 'dapuros') {
           if (/(geraina|retail|minimarket|laundryos|autocareos|salonos|dagangos web|wmp)/i.test(message)) {
             localReply = `Chat ini khusus DapurOS. Untuk produk DagangOS lainnya, buka ${officialLinks.dagangos.products}`;
-          } else if (/(harga|paket|biaya|langganan|starter|pro|business|trial)/i.test(message)) {
+          } else if (/(harga|paket|biaya|langganan|\b(?:starter|pro|business|trial)\b)/i.test(message)) {
             localReply = `Paket DapurOS yang aktif dan rinciannya tersedia di ${officialLinks.dapuros.pricing}`;
           } else if (/(fitur|fungsi|bisa apa|kegunaan|kemampuan)/i.test(message)) {
             localReply = `DapurOS mencakup POS restoran, Kitchen Display System, QR self-ordering, manajemen meja, resep dan inventori bahan, serta laporan operasional. Lihat detailnya di ${officialLinks.dapuros.home}`;
@@ -323,28 +337,15 @@ export default {
             headers: supportHeaders,
             body: JSON.stringify(upstreamBody),
             redirect: 'manual',
+            signal: AbortSignal.timeout(35_000),
           });
           const upstreamPayload = await supportResponse.json().catch(() => ({}));
           if (!supportResponse.ok) {
-            return new Response(JSON.stringify({
-              error: typeof upstreamPayload?.error === 'string'
-                ? upstreamPayload.error
-                : 'Support chat sedang tidak tersedia. Silakan coba kembali.',
-            }), {
-              status: supportResponse.status,
-              headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Cache-Control': 'no-store',
-                'X-DagangOS-Scope': scopeId,
-              },
-            });
+            return unavailable(supportResponse.status === 429);
           }
 
-          let reply = typeof upstreamPayload?.reply === 'string'
-            ? upstreamPayload.reply
-            : typeof upstreamPayload?.result === 'string'
-              ? upstreamPayload.result
-              : '';
+          let reply = readPublicSupportReply(upstreamPayload);
+          if (!reply) return unavailable();
           const fallbackReplies = {
             geraina: `Saya dapat membantu tentang fitur, paket, login, dan pendaftaran Geraina POS. Mulai dari ${officialLinks.geraina.home}`,
             dapuros: `Saya dapat membantu tentang fitur, paket, login, dan pendaftaran DapurOS. Mulai dari ${officialLinks.dapuros.home}`,
@@ -379,12 +380,7 @@ export default {
             },
           });
         } catch (err) {
-          return new Response(JSON.stringify({
-            error: 'Support chat sedang tidak tersedia. Silakan coba kembali.',
-          }), {
-            status: 502,
-            headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-          });
+          return unavailable();
         }
       }
 
