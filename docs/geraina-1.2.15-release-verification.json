@@ -17,7 +17,7 @@
   },
   "backendChanged": true,
   "publicationAuthorized": true,
-  "published": false,
+  "published": true,
   "verifiedAt": "2026-10-28T12:08:40.023Z",
   "changes": [
     "Unknown subscription values show an explicit warning consistently across billing, tier notice and About.",
@@ -165,7 +165,47 @@
     "No physical printer, real camera capture or live payment settlement is certified by this release check.",
     "A prior broader emulator theme test encountered an x86 System WebView crash; this report certifies the focused startup and subscription checks listed above."
   ],
-  "sourceCommit": "f26bc4a",
+  "sourceCommit": "f26bc4aea375f74a2c0cffc1e42821638cda5860",
   "authorization": "User explicitly approved publishing 1.2.15 after the earlier hold",
-  "portalTests": 48
+  "portalTests": 48,
+  "publishedVerifiedAt": "2026-10-28T12:42:05.032Z",
+  "backendDeployment": {
+    "status": "passed",
+    "provider": "Vercel",
+    "url": "https://vercel.com/azharinoyume/geraina-os/FfBwU6puiGRLYn533g4EniCndVHt"
+  },
+  "portalDeployment": {
+    "status": "passed",
+    "commit": "9fd3911733ebfe4307a0b5d6a413113879449b90",
+    "runId": 40687402412,
+    "jobs": [
+      "cloudflare-zone-audit",
+      "deploy",
+      "e2e-geraina",
+      "public-accessibility"
+    ],
+    "note": "The public check initially timed out on the separate WMP pricing page; its targeted retry passed. The standalone Geraina Cloudflare Pages check was already failing at the prior commit; the official site uses this successful portal Worker deployment."
+  },
+  "publicWebsite": {
+    "status": "passed",
+    "base": "https://dagangos.com",
+    "version": "1.2.15",
+    "checks": [
+      "Listing, images and verified download links fit 1440px",
+      "Listing, images and verified download links fit 768px",
+      "Listing, images and verified download links fit 393px",
+      "Listing, images and verified download links fit 320px",
+      "Clicking Download saves the exact verified APK bytes",
+      "Unavailable release metadata leaves download buttons safely disabled"
+    ]
+  },
+  "publicDownload": {
+    "status": "passed",
+    "version": "1.2.15",
+    "sha256": "6269ab17db619d48cf6cd9ab759c362c63f588f561524cb9e96f807d65b908d0",
+    "bytes": 17318583,
+    "merchantWrites": 0,
+    "testSpriteRunId": "cedc8ff4-dd8a-4e71-b896-bd54ba90515c",
+    "verifiedAt": "2026-10-28T12:33:16.793Z"
+  }
 }
