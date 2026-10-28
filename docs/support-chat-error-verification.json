@@ -1,5 +1,5 @@
 {
-  "status": "public_fix_published_login_pending",
+  "status": "public_fix_published_subscription_connected",
   "sourceRevision": "7a4b6a62715aaf3868709803bb2b9be585f4fef7",
   "published": true,
   "unitTestsPassed": 48,
@@ -38,14 +38,29 @@
     }
   ],
   "hermes": {
-    "provider": "nous",
-    "state": "awaiting_owner_portal_sign_in",
-    "previousFailure": "invalid_grant",
-    "model": "stepfun/step-3.7-flash:free",
+    "provider": "openai-codex",
+    "state": "connected_verified_inference",
+    "authentication": "existing_chatgpt_subscription",
+    "model": "gpt-6-luna",
+    "previousConnection": {
+      "provider": "nous",
+      "failure": "invalid_grant",
+      "deviceAuthorization": "expired_not_needed_for_codex"
+    },
+    "telegramOverridePreserved": true,
     "publicApiToolsets": [],
+    "publicApiToolsetEntries": 28,
+    "enabledPublicApiToolsets": 0,
+    "localInference": {
+      "status": 200,
+      "expectedAnswerReceived": true,
+      "seconds": 4.69,
+      "persistedModel": "gpt-6-luna"
+    },
     "credentialsPrinted": false,
     "deviceCodeStoredInRepository": false,
-    "lastDeviceAuthorization": "timed_out_without_approval"
+    "providerApiKeyCreated": false,
+    "creditsPurchased": false
   },
   "testSprite": {
     "testId": "e8c8bbdd-63d4-4197-ae73-43b27c686e60",
@@ -61,6 +76,36 @@
     "deploy": "success",
     "zoneAudit": "success",
     "publicAccessibility": "success",
-    "broaderAppRegression": "in_progress"
-  }
+    "broaderAppRegression": "success"
+  },
+  "subscriptionVerifiedAt": "2026-10-28T04:30:59.897Z",
+  "publicSubscriptionInferenceChecks": [
+    {
+      "surface": "geraina",
+      "status": 200,
+      "seconds": 4.06,
+      "replyPresent": true,
+      "scope": "geraina",
+      "providerDiagnosticVisible": false,
+      "localGuidance": false
+    },
+    {
+      "surface": "dapuros",
+      "status": 200,
+      "seconds": 3.38,
+      "replyPresent": true,
+      "scope": "dapuros",
+      "providerDiagnosticVisible": false,
+      "localGuidance": false
+    },
+    {
+      "surface": "dagangos",
+      "status": 200,
+      "seconds": 4.78,
+      "replyPresent": true,
+      "scope": "dagangos",
+      "providerDiagnosticVisible": false,
+      "localGuidance": false
+    }
+  ]
 }
