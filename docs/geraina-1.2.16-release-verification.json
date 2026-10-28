@@ -19,7 +19,7 @@
   "backendChanged": false,
   "publicationAuthorized": true,
   "authorization": "Owner explicitly requested running the 1.2.16 publication pipeline on 29 October 2026 JST",
-  "published": false,
+  "published": true,
   "verifiedAt": "2026-10-28T15:41:56.760463+00:00",
   "sourceCommit": "0e325020665052b8a6915ca1d9a6e4148ac47275",
   "browser": {
@@ -290,8 +290,7 @@
     "Native checks are AOSP emulator profiles; camera scanning on physical phone/tablet was owner-confirmed.",
     "Printer commands and payment/webhook behavior are bench-tested; real printer paper output and bank/provider settlement are not certified.",
     "Account-deletion request intake passes; an approved erasure/retention operating procedure remains separate.",
-    "No Google Play upload, account verification or approval; website APK publication only.",
-    "In-place update retention passed; official 1.2.16 download/update-feed checks follow publication."
+    "No Google Play upload, account verification or approval; website APK publication only."
   ],
   "changes": [
     "Recover failed secondary screens with in-place retry while retaining navigation/session",
@@ -300,5 +299,89 @@
     "Correct dashboard store-timezone labels",
     "Prevent rebuilding/staging a published version under the same version code",
     "Align privacy/deletion instructions with the authenticated support form"
-  ]
+  ],
+  "publishedVerifiedAt": "2026-10-28T16:49:15.159812+00:00",
+  "portalTests": 48,
+  "portalDeployment": {
+    "status": "passed",
+    "commit": "19a590e9d96a1b97f483fd45a0c4be3f65f71597",
+    "runId": 40718805979,
+    "url": "https://github.com/azharinoyumetv-ctrl/DagangOS/actions/runs/40718805979",
+    "jobs": [
+      "deploy",
+      "cloudflare-zone-audit",
+      "e2e-geraina",
+      "public-accessibility"
+    ]
+  },
+  "backendDeployment": {
+    "status": "passed",
+    "provider": "Vercel",
+    "url": "https://vercel.com/azharinoyume/geraina-os/56bQy7zNG5BMaSFmzB9pogGWHcMK",
+    "backendCodeChanged": false
+  },
+  "publicWebsite": {
+    "status": "passed",
+    "base": "https://dagangos.com",
+    "version": "1.2.16",
+    "checks": [
+      "Listing, images and verified download links fit 1440px",
+      "Listing, images and verified download links fit 768px",
+      "Listing, images and verified download links fit 393px",
+      "Listing, images and verified download links fit 320px",
+      "Clicking Download saves the exact verified APK bytes",
+      "Unavailable release metadata leaves download buttons safely disabled"
+    ]
+  },
+  "publicDownload": {
+    "status": "passed",
+    "version": "1.2.16",
+    "sha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+    "merchantWrites": 0
+  },
+  "officialUpdate": {
+    "status": "passed",
+    "fromVersion": "1.2.15",
+    "version": "1.2.16",
+    "versionCode": 21,
+    "profile": "phone",
+    "checks": [
+      {
+        "name": "Published 1.2.15 checks for a newer official update without forcing installation",
+        "status": "passed"
+      },
+      {
+        "name": "Postponing the update leaves the installed version unchanged",
+        "status": "passed"
+      },
+      {
+        "name": "Official APK downloads and is verified before requesting installation permission",
+        "status": "passed"
+      },
+      {
+        "name": "Denying installation permission leaves the current app usable",
+        "status": "passed"
+      },
+      {
+        "name": "Permission settings return to the standard Android update confirmation",
+        "status": "passed"
+      },
+      {
+        "name": "Android installs the newer package over the existing app",
+        "status": "passed"
+      },
+      {
+        "name": "The update preserves stored preferences and the pending offline-sale record",
+        "status": "passed"
+      }
+    ],
+    "installedApkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+    "merchantWrites": 0,
+    "scope": "Real public HTTPS feed/APK, Android installer/permission flow and persisted offline data on AOSP emulator"
+  },
+  "supportIdentityBench": {
+    "status": "passed",
+    "backendTests": 23,
+    "scope": "Captured delivery and authenticated request identity; actual erasure is not performed"
+  }
 }
