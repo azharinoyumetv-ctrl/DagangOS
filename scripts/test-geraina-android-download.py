@@ -43,7 +43,12 @@ def test_android_download_is_the_advertised_signed_package():
         bundle = json.loads(package.read("assets/frontend/bundle-manifest.json"))
         main_scripts = [row["path"] for row in bundle["files"] if re.fullmatch(r"static/js/main\.[^/]+\.js", row["path"])]
         assert len(main_scripts) == 1
-        javascript = package.read("assets/frontend/" + main_scripts[0]).decode("utf-8")
+        for row in bundle["files"]:
+            contents = package.read("assets/frontend/" + row["path"])
+            assert hashlib.sha256(contents).hexdigest() == row["sha256"], "Bundled asset hash mismatch: " + row["path"]
+        # Secondary routes are separate chunks from 1.2.15 onward. Check the
+        # entire verified bundle, including the deferred About/settings screens.
+        javascript = "\n".join(package.read("assets/frontend/" + row["path"]).decode("utf-8") for row in bundle["files"] if row["path"].endswith(".js"))
         assert "https://api.dagangos.com/api/webhooks/xendit" not in javascript
         for feature in ("about-version", "about-check-updates", "bank-qris-settings", "bank-qris-upload", "bank-qris-confirm", "confirm-bank-qris", "bank-qris-resume", "pf-scan-barcode", "login-password-toggle", "register-password-toggle", "GerainaRouter", "account-switch-confirm", "password-setup-page", "attendance-own-status", "pos-products-next"):
             assert feature in javascript, "Missing Android quality fix: " + feature

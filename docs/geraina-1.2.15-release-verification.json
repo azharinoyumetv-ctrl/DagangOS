@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 11,
+  "status": "passed",
+  "version": "1.2.15",
+  "versionCode": 20,
+  "applicationId": "com.dagangos.geraina",
+  "minimumSdk": 34,
+  "supportedAbis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "apkSha256": "6269ab17db619d48cf6cd9ab759c362c63f588f561524cb9e96f807d65b908d0",
+  "bytes": 17318583,
+  "baseRelease": {
+    "version": "1.2.14",
+    "published": true
+  },
+  "backendChanged": true,
+  "publicationAuthorized": true,
+  "published": false,
+  "verifiedAt": "2026-10-28T12:08:40.023Z",
+  "changes": [
+    "Unknown subscription values show an explicit warning consistently across billing, tier notice and About.",
+    "Trial dates are never advertised as paid package expiry.",
+    "Secondary screens load separately while the authenticated app layout stays mounted.",
+    "Whole-screen operational route animation removed.",
+    "Six independent store-scoped dashboard reads execute concurrently."
+  ],
+  "backend": {
+    "status": "passed",
+    "tests": 411,
+    "environment": "Disposable local databases, including a loopback replica for transactions",
+    "excludedLegacyHarness": "backend_test.py targets a retired external preview URL; its 15 setup errors and 3 failures were not application regressions. The first full discovery log is retained locally."
+  },
+  "browser": {
+    "subscriptions": {
+      "startTime": "2026-10-28T10:13:24.264Z",
+      "duration": 39313.672,
+      "expected": 24,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "routes": {
+      "initialPassed": 222,
+      "initialTransactionFailures": 12,
+      "reason": "Initial audit host used a mock database without transaction support; all 12 affected checks rerun with the local replica.",
+      "transactionRerun": {
+        "startTime": "2026-10-28T12:05:18.714Z",
+        "duration": 18909.48,
+        "expected": 12,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "startupNavigation": {
+      "startTime": "2026-10-28T12:10:50.458Z",
+      "duration": 33197.165,
+      "expected": 21,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "subscriptionAndroid": {
+    "phone": {
+      "status": "passed",
+      "version": "1.2.15",
+      "profile": "phone",
+      "apkSha256": "6269ab17db619d48cf6cd9ab759c362c63f588f561524cb9e96f807d65b908d0",
+      "checks": [
+        "Malformed plan stays unknown across billing, tier notice and About without false paid expiry",
+        "Business grant through 2099 agrees across screens and enables the Business outlet add-on",
+        "Expired paid access remains expired"
+      ],
+      "finishedAt": "2026-10-28T11:43:13.167Z",
+      "scope": "Installed signed APK and packaged frontend; disposable local API; no customer records or gateway requests"
+    },
+    "tablet146": {
+      "status": "passed",
+      "version": "1.2.15",
+      "profile": "tablet146",
+      "apkSha256": "6269ab17db619d48cf6cd9ab759c362c63f588f561524cb9e96f807d65b908d0",
+      "checks": [
+        "Malformed plan stays unknown across billing, tier notice and About without false paid expiry",
+        "Business grant through 2099 agrees across screens and enables the Business outlet add-on",
+        "Expired paid access remains expired"
+      ],
+      "finishedAt": "2026-10-28T11:47:06.947Z",
+      "scope": "Installed signed APK and packaged frontend; disposable local API; no customer records or gateway requests"
+    }
+  },
+  "startupAndroid": {
+    "status": "passed",
+    "version": "1.2.15",
+    "apkSha256": "6269ab17db619d48cf6cd9ab759c362c63f588f561524cb9e96f807d65b908d0",
+    "checks": [
+      "Installed login readable",
+      "Seven menus retain the authenticated document and have no transition animation",
+      "Cold activity restart retains the test-store session"
+    ],
+    "menus": [
+      {
+        "route": "products",
+        "shellMs": 819
+      },
+      {
+        "route": "products/categories",
+        "shellMs": 122
+      },
+      {
+        "route": "reports/sales",
+        "shellMs": 475
+      },
+      {
+        "route": "settings/general",
+        "shellMs": 121
+      },
+      {
+        "route": "about",
+        "shellMs": 456
+      },
+      {
+        "route": "pos",
+        "shellMs": 206
+      },
+      {
+        "route": "dashboard",
+        "shellMs": 154
+      }
+    ],
+    "finishedAt": "2026-10-28T11:59:03.978Z",
+    "scope": "Installed signed APK on Android emulator; real test-store reads; merchant writes blocked; no physical-device performance claim"
+  },
+  "testSprite": {
+    "status": "passed",
+    "testId": "b6b5de6b-0ddb-40b3-80bb-5eda8fca7aef",
+    "runId": "98129062-89a8-46ab-9039-d895045a98d3",
+    "finishedAt": "2026-10-28T10:23:35.235Z",
+    "steps": {
+      "total": 8,
+      "completed": 8,
+      "passedCount": 8,
+      "failedCount": 0
+    },
+    "environment": "Disposable isolated preview; no customer data or provider requests"
+  },
+  "package": {
+    "status": "passed",
+    "apkSha256": "6269ab17db619d48cf6cd9ab759c362c63f588f561524cb9e96f807d65b908d0",
+    "bytes": 17318583,
+    "bundleManifestEntriesVerified": 81,
+    "javascriptEntriesVerified": 41,
+    "subscriptionFixIncluded": true,
+    "unitTests": 26,
+    "lintErrors": 0,
+    "signatureVerified": true,
+    "privateCredentialScan": "passed",
+    "pageAlignment": "16 KB",
+    "signerSha256": "52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8"
+  },
+  "limits": [
+    "Android checks use emulator profiles, not physical Xiaomi or Samsung devices.",
+    "No physical printer, real camera capture or live payment settlement is certified by this release check.",
+    "A prior broader emulator theme test encountered an x86 System WebView crash; this report certifies the focused startup and subscription checks listed above."
+  ],
+  "sourceCommit": "f26bc4a",
+  "authorization": "User explicitly approved publishing 1.2.15 after the earlier hold",
+  "portalTests": 48
+}
