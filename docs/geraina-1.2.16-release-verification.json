@@ -383,5 +383,31 @@
     "status": "passed",
     "backendTests": 23,
     "scope": "Captured delivery and authenticated request identity; actual erasure is not performed"
+  },
+  "externalVerificationReview": {
+    "checkedAt": "2026-10-28T17:25:12.248Z",
+    "status": "reviewed-external-dependencies-and-erasure-gap-open",
+    "report": "GerainaOS/docs/EXTERNAL-VERIFICATION-1.2.16.json",
+    "printer": "not-verified-no-accessible-hardware",
+    "settlement": "not-verified-test-merchant-unconfigured",
+    "erasure": "backends-live-website-instructions-pending",
+    "play": "not-submitted-duns-application-pending-completion"
+  },
+  "accountErasureCandidate": {
+    "status": "backends-live-website-instructions-pending",
+    "backendTests": 467,
+    "dapurBackendTests": 27,
+    "realReplicaGroups": 14,
+    "browserChecks": 6,
+    "liveChecks": 8,
+    "published": true,
+    "websiteInstructionsPublished": false,
+    "backendCommits": {
+      "geraina": "4050b06",
+      "dapuros": "b5059b4"
+    },
+    "sharedFenceSha256": "b24297360d8862948a165252c0a18fa3726df8ef26a81245001b67524700d8e1",
+    "evidence": "GerainaOS/docs/ACCOUNT-ERASURE-VERIFICATION.json",
+    "liveEvidence": "GerainaOS/docs/ACCOUNT-ERASURE-LIVE-VERIFICATION.json"
   }
 }
