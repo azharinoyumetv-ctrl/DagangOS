@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 12,
+  "status": "passed",
+  "version": "1.2.16",
+  "versionCode": 21,
+  "applicationId": "com.dagangos.geraina",
+  "distribution": "website",
+  "minimumSdk": 34,
+  "supportedAbis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+  "bytes": 17319151,
+  "baseRelease": {
+    "version": "1.2.15",
+    "published": true
+  },
+  "backendChanged": false,
+  "publicationAuthorized": true,
+  "authorization": "Owner explicitly requested running the 1.2.16 publication pipeline on 29 October 2026 JST",
+  "published": false,
+  "verifiedAt": "2026-10-28T15:41:56.760463+00:00",
+  "sourceCommit": "0e325020665052b8a6915ca1d9a6e4148ac47275",
+  "browser": {
+    "gapClosure": {
+      "startTime": "2026-10-28T13:49:46.963Z",
+      "duration": 79409.83799999999,
+      "expected": 57,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "remaining": {
+      "startTime": "2026-10-28T15:07:05.231Z",
+      "duration": 124704.23000000001,
+      "expected": 42,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "navigationVerification": {
+    "status": "passed",
+    "tool": "Playwright",
+    "replaces": "External TestSprite navigation verification",
+    "browserUiLoginJourneys": 3,
+    "details": "Login rejection/recovery, real form login, deferred menu clicks, Back/Forward and session retention passed on phone and two tablet layouts."
+  },
+  "supportBrowser": {
+    "status": "passed",
+    "checks": [
+      "phone: authenticated account, internal form, spinner/repeat guard, correct customer reply address and reload recovery",
+      "phone: lost SMTP response does not claim success or send twice",
+      "phone: unavailable mail configuration disables submission honestly",
+      "phone: expired customer can request support",
+      "phone: employee uses their own account email",
+      "samsung-tablet: authenticated account, internal form, spinner/repeat guard, correct customer reply address and reload recovery",
+      "samsung-tablet: lost SMTP response does not claim success or send twice",
+      "samsung-tablet: unavailable mail configuration disables submission honestly",
+      "samsung-tablet: expired customer can request support",
+      "samsung-tablet: employee uses their own account email"
+    ],
+    "reportPath": "android-app/app/build/reports/support/1.2.16/browser-2026-10-28T15-07-13-103Z/verification.json",
+    "realEmailsSent": 0
+  },
+  "installedFollowUp": [
+    {
+      "profile": "phone",
+      "kind": "startup/navigation/cold restart",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "checks": [
+        "Installed login readable",
+        "Seven menus retain the authenticated document and have no transition animation",
+        "Cold activity restart retains the test-store session"
+      ],
+      "menuSamplesMs": [
+        {
+          "route": "products",
+          "shellMs": 156
+        },
+        {
+          "route": "products/categories",
+          "shellMs": 77
+        },
+        {
+          "route": "reports/sales",
+          "shellMs": 406
+        },
+        {
+          "route": "settings/general",
+          "shellMs": 75
+        },
+        {
+          "route": "about",
+          "shellMs": 392
+        },
+        {
+          "route": "pos",
+          "shellMs": 111
+        },
+        {
+          "route": "dashboard",
+          "shellMs": 102
+        }
+      ],
+      "reportPath": "android-app/app/build/reports/startup-android/2026-10-28T15-10-26-701Z/verification.json",
+      "scope": "Installed signed APK on Android emulator; real test-store reads; merchant writes blocked; no physical-device performance claim"
+    },
+    {
+      "profile": "phone",
+      "kind": "support/deletion intake/native permissions",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "checks": [
+        "installed-tablet: authenticated account, internal form, spinner/repeat guard, correct customer reply address and reload recovery",
+        "installed-tablet: lost SMTP response does not claim success or send twice",
+        "installed-tablet: unavailable mail configuration disables submission honestly",
+        "installed-tablet: expired customer can request support",
+        "installed-tablet: employee uses their own account email",
+        "Native Help menu repeatedly opens support without launching email or sending a message",
+        "Account-deletion request opens a customer-identified draft only after confirmation; cancellation sends nothing",
+        "First-use camera permission prompt appears; denial returns safely to cashier",
+        "Granting camera permission starts the real emulator camera preview",
+        "First-use Nearby devices permission is requested by the real Bluetooth printer control and denial does not crash"
+      ],
+      "reportPath": "android-app/app/build/reports/support/1.2.16/android-phone-2026-10-28T15-10-39-730Z/verification.json",
+      "realEmailsSent": 0,
+      "scope": "Installed signed APK; real permission dialogs/camera preview; disposable Mongo/captured SMTP; no account erasure"
+    },
+    {
+      "profile": "phone",
+      "kind": "offline sale/in-place update retention/reconnect",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "fromVersion": "1.2.15",
+      "checks": [
+        "Actual installed-app cash sale persists once and decrements real stock once",
+        "With device networking off, cash is saved locally without a server order",
+        "Offline app reload retains the signed-in customer and cached catalogue",
+        "In-place 1.2.15 to 1.2.16 upgrade preserves login, preference, complete catalogue and actual pending cash sale while offline",
+        "Reconnect synchronizes the pending sale once; reload does not duplicate revenue or stock changes",
+        "Both sales appear in the installed app sales history"
+      ],
+      "reportPath": "android-app/app/build/reports/native-sales/1.2.16/phone-2026-10-28T15-13-04-797Z/verification.json",
+      "scope": "Android in-place APK installation (adb), not the unpublished update-feed delivery",
+      "productionWrites": 0,
+      "providerRequests": 0
+    },
+    {
+      "profile": "tablet146",
+      "kind": "startup/navigation/cold restart",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "checks": [
+        "Installed login readable",
+        "Seven menus retain the authenticated document and have no transition animation",
+        "Cold activity restart retains the test-store session"
+      ],
+      "menuSamplesMs": [
+        {
+          "route": "products",
+          "shellMs": 1452
+        },
+        {
+          "route": "products/categories",
+          "shellMs": 1019
+        },
+        {
+          "route": "reports/sales",
+          "shellMs": 1554
+        },
+        {
+          "route": "settings/general",
+          "shellMs": 1060
+        },
+        {
+          "route": "about",
+          "shellMs": 838
+        },
+        {
+          "route": "pos",
+          "shellMs": 905
+        },
+        {
+          "route": "dashboard",
+          "shellMs": 523
+        }
+      ],
+      "reportPath": "android-app/app/build/reports/startup-android/2026-10-28T15-13-59-387Z/verification.json",
+      "scope": "Installed signed APK on Android emulator; real test-store reads; merchant writes blocked; no physical-device performance claim"
+    },
+    {
+      "profile": "tablet146",
+      "kind": "support/deletion intake/native permissions",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "checks": [
+        "installed-tablet: authenticated account, internal form, spinner/repeat guard, correct customer reply address and reload recovery",
+        "installed-tablet: lost SMTP response does not claim success or send twice",
+        "installed-tablet: unavailable mail configuration disables submission honestly",
+        "installed-tablet: expired customer can request support",
+        "installed-tablet: employee uses their own account email",
+        "Native Help menu repeatedly opens support without launching email or sending a message",
+        "Account-deletion request opens a customer-identified draft only after confirmation; cancellation sends nothing",
+        "First-use camera permission prompt appears; denial returns safely to cashier",
+        "Granting camera permission starts the real emulator camera preview",
+        "First-use Nearby devices permission is requested by the real Bluetooth printer control and denial does not crash"
+      ],
+      "reportPath": "android-app/app/build/reports/support/1.2.16/android-tablet146-2026-10-28T15-14-19-174Z/verification.json",
+      "realEmailsSent": 0,
+      "scope": "Installed signed APK; real permission dialogs/camera preview; disposable Mongo/captured SMTP; no account erasure"
+    },
+    {
+      "profile": "tablet146",
+      "kind": "offline sale/in-place update retention/reconnect",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "fromVersion": "1.2.15",
+      "checks": [
+        "Actual installed-app cash sale persists once and decrements real stock once",
+        "With device networking off, cash is saved locally without a server order",
+        "Offline app reload retains the signed-in customer and cached catalogue",
+        "In-place 1.2.15 to 1.2.16 upgrade preserves login, preference, complete catalogue and actual pending cash sale while offline",
+        "Reconnect synchronizes the pending sale once; reload does not duplicate revenue or stock changes",
+        "Both sales appear in the installed app sales history"
+      ],
+      "reportPath": "android-app/app/build/reports/native-sales/1.2.16/tablet146-2026-10-28T15-15-39-290Z/verification.json",
+      "scope": "Android in-place APK installation (adb), not the unpublished update-feed delivery",
+      "productionWrites": 0,
+      "providerRequests": 0
+    }
+  ],
+  "subscriptionAndroid": {
+    "phone": {
+      "profile": "phone",
+      "distribution": "website",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "finishedAt": "2026-10-28T13:58:19.556Z",
+      "checks": [
+        "Malformed plan stays unknown across billing, tier notice and About without false paid expiry",
+        "Business through 2099 agrees across screens; purchase and update controls match website distribution",
+        "Expired paid access remains expired"
+      ],
+      "reportPath": "android-app/app/build/reports/subscription-android/phone-2026-10-28T13-58-12-396Z/verification.json"
+    },
+    "tablet146": {
+      "profile": "tablet146",
+      "distribution": "website",
+      "status": "passed",
+      "apkSha256": "33273cea7288c06acdcf0ef183ec8893a59f34be46864888f9391355064722e7",
+      "finishedAt": "2026-10-28T13:59:23.546Z",
+      "checks": [
+        "Malformed plan stays unknown across billing, tier notice and About without false paid expiry",
+        "Business through 2099 agrees across screens; purchase and update controls match website distribution",
+        "Expired paid access remains expired"
+      ],
+      "reportPath": "android-app/app/build/reports/subscription-android/tablet146-2026-10-28T13-59-12-503Z/verification.json"
+    }
+  },
+  "package": {
+    "unitTests": 26,
+    "unitEvidence": "Full candidate-build unit verification; unchanged app bytes",
+    "lintErrors": 0,
+    "lintWarnings": 66,
+    "signatureVerified": true,
+    "privateCredentialScan": "passed",
+    "bundleManifestEntriesVerified": 81,
+    "distributionManifestAndCode": "passed",
+    "pageAlignment": "16 KB",
+    "signerSha256": "52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8"
+  },
+  "printerBench": {
+    "status": "passed",
+    "commandTests": 7,
+    "paperWidthsMm": [
+      58,
+      80
+    ],
+    "scope": "ESC/POS command generation/amounts/escaping/pending-payment labels; physical paper output not tested"
+  },
+  "paymentBench": {
+    "status": "passed",
+    "backendTests": 113,
+    "scope": "Disposable provider fixtures, callback/configuration/payment-state contracts; no live charges or settlement"
+  },
+  "limits": [
+    "Native checks are AOSP emulator profiles; camera scanning on physical phone/tablet was owner-confirmed.",
+    "Printer commands and payment/webhook behavior are bench-tested; real printer paper output and bank/provider settlement are not certified.",
+    "Account-deletion request intake passes; an approved erasure/retention operating procedure remains separate.",
+    "No Google Play upload, account verification or approval; website APK publication only.",
+    "In-place update retention passed; official 1.2.16 download/update-feed checks follow publication."
+  ],
+  "changes": [
+    "Recover failed secondary screens with in-place retry while retaining navigation/session",
+    "Separate Play and website update implementations and installer permissions",
+    "Keep Play SaaS consumption-only while retaining website package/add-on purchases",
+    "Correct dashboard store-timezone labels",
+    "Prevent rebuilding/staging a published version under the same version code",
+    "Align privacy/deletion instructions with the authenticated support form"
+  ]
+}
