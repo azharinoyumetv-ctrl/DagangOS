@@ -16,7 +16,7 @@ try{
     await page.setViewportSize({width,height:1000});await page.goto(`${base}/dapuros`)
     const android=page.locator('.dapuros-platforms a[href="/dapuros/android"]');await android.scrollIntoViewIfNeeded();await android.click()
     assert.equal(new URL(page.url()).pathname,'/dapuros/android')
-    await page.waitForFunction(()=>document.querySelector('[data-download-link]').getAttribute('aria-disabled')!=='true')
+    await page.waitForFunction(()=>{const link=document.querySelector('[data-download-link]');return link&&link.getAttribute('aria-disabled')!=='true';})
     for(const img of await page.locator('main img').all()){await img.scrollIntoViewIfNeeded();await img.evaluate(image=>image.decode())}
     await page.evaluate(()=>scrollTo(0,0))
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Android listing fits ${width}px`)
