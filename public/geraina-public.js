@@ -55,7 +55,7 @@
   // waits for session validation and marketing cannot clear a user's session.
   async function showAccount() {
     let token;
-    try { token = ['geraina_token', 'dagangos_token', 'dapuros_token'].map(key => localStorage.getItem(key)).find(value => value && value !== 'mock_master_token'); } catch { return; }
+    try { token = (localStorage.getItem('geraina_signed_out') ? ['geraina_token'] : ['geraina_token', 'dagangos_token', 'dapuros_token']).map(key => localStorage.getItem(key)).find(value => value && value !== 'mock_master_token'); } catch { return; }
     if (!token) return;
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 4500);
     try {

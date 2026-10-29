@@ -1,7 +1,7 @@
 const billingToggle = document.querySelector('.billing-toggle');
 const module = location.pathname.split('/')[1];
 const intentKey = `dagangos_checkout_${module}`;
-const readToken = () => [`${module}_token`, 'dagangos_token', module === 'geraina' ? 'dapuros_token' : 'geraina_token']
+const readToken = () => (localStorage.getItem(`${module}_signed_out`) ? [`${module}_token`] : [`${module}_token`, 'dagangos_token', module === 'geraina' ? 'dapuros_token' : 'geraina_token'])
   .map(key => localStorage.getItem(key)).find(value => value && value !== 'mock_master_token');
 if (['geraina','dapuros'].includes(module) && readToken()) document.querySelector('[data-anonymous-trial]')?.remove();
 const currentPeriod = () => new URL(location.href).searchParams.get('period') === 'yearly' ? 'yearly' : 'monthly';

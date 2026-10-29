@@ -7,7 +7,33 @@ const verification=JSON.parse(readFileSync(process.argv[2]?resolve(process.argv[
 assert.match(verification.version,/^\d+\.\d+\.\d+$/)
 assert.equal(verification.applicationId,'com.dagangos.geraina')
 assert.equal(verification.minimumSdk,34)
-if(verification.schemaVersion===12){
+if(verification.schemaVersion===13){
+  assert.equal(verification.status,'passed')
+  assert.equal(verification.publicationAuthorized,true)
+  assert.equal(verification.backend.productIsolationPassed,22)
+  assert.equal(verification.browser.companionPassed,16)
+  assert.equal(verification.browser.offlinePassed,6)
+  assert.equal(verification.browser.failed,0)
+  assert.equal(verification.package.unitTests,27)
+  assert.equal(verification.package.lintErrors,0)
+  assert.equal(verification.package.signatureVerified,true)
+  assert.equal(verification.package.privateCredentialScan,'passed')
+  assert.equal(verification.package.bundleManifestEntriesVerified,81)
+  assert.equal(verification.package.signerSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8')
+  assert.equal(verification.missingCompanion.status,'passed')
+  assert.equal(verification.startupRecovery.status,'passed')
+  assert.equal(verification.startupRecovery.tokenRetained,true)
+  assert.equal(verification.startupRecovery.installedApkSha256,verification.apkSha256)
+  for(const profile of ['phone','xiaomi-landscape','samsung-landscape']){
+    const row=verification.companionSwitching.find(row=>row.profile===profile)
+    assert.equal(row?.status,'passed')
+    assert.equal(row.apkSha256,verification.apkSha256)
+    assert.equal(row.installedApkSha256,verification.apkSha256)
+    assert.equal(row.sessionRetained,true)
+    assert.equal(row.documentRetained,true)
+    assert.equal(row.targetPackage,'com.dagangos.dapuros')
+  }
+}else if(verification.schemaVersion===12){
   assert.equal(verification.status,'passed')
   assert.equal(verification.distribution,'website')
   assert.equal(verification.baseRelease.version,'1.2.15')
@@ -341,12 +367,12 @@ const filename=`Geraina-POS-${verification.version}.apk`,source=join(releases,fi
 const hash=createHash('sha256').update(bytes).digest('hex')
 assert.ok(bytes.length<=25*1024*1024,'The APK exceeds the website hosting asset limit')
 assert.equal(hash,verification.apkSha256,'Only the verified signed APK can be staged')
-if(![2,3,4,5,6,7,8,9,10,11,12].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
+if(![2,3,4,5,6,7,8,9,10,11,12,13].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
 const destination=join(root,'public/downloads/geraina'),images=join(root,'public/assets/geraina-android')
 mkdirSync(destination,{recursive:true});mkdirSync(images,{recursive:true})
 if(existsSync(join(destination,filename)))assert.equal(createHash('sha256').update(readFileSync(join(destination,filename))).digest('hex'),hash,'Published APK URLs are immutable; increment the release version')
 copyFileSync(source,join(destination,filename))
-if(![2,3,4,5,6,7,8,9,10,11,12].includes(verification.schemaVersion)){
+if(![2,3,4,5,6,7,8,9,10,11,12,13].includes(verification.schemaVersion)){
  copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
  copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))
 }

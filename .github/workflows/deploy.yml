@@ -144,8 +144,8 @@ jobs:
 
   e2e-geraina:
     needs: deploy
-    # DapurOS-only releases keep verification local and avoid unrelated live Geraina writes.
-    if: ${{ !contains(github.event.head_commit.message, '[dapuros-only]') }}
+    # Explicit local verification avoids launching write-capable live Geraina tests.
+    if: ${{ !contains(github.event.head_commit.message, '[dapuros-only]') && !contains(github.event.head_commit.message, '[local-verified]') }}
     runs-on: ubuntu-latest
     # Non-blocking: this runs AFTER deploy already succeeded, against the live site.
     # A failure here should be visible (Actions tab, badge) but must not roll back or

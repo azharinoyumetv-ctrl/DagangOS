@@ -10,11 +10,12 @@ mkdirSync(join(out,'downloads'),{recursive:true})
 const expected=JSON.parse(readFileSync('public/downloads/geraina/latest.json','utf8')),checks=[],errors=[]
 const browser=await chromium.launch({channel:'chrome',headless:true,downloadsPath:join(out,'downloads')})
 try{
-  const page=await browser.newPage({viewport:{width:1440,height:1000},acceptDownloads:true})
+  const page=await browser.newPage({viewport:{width:1440,height:1000},acceptDownloads:true,reducedMotion:'reduce'})
+  await page.route('**/*',route=>new URL(route.request().url()).origin===new URL(base).origin?route.continue():route.abort())
   page.on('pageerror',error=>errors.push(error.message))
   for(const width of [1440,768,393,320]){
-    await page.setViewportSize({width,height:1000});await page.goto(`${base}/geraina/android`)
-    await page.waitForFunction(()=>document.querySelector('[data-download-link]').getAttribute('aria-disabled')!=='true')
+    await page.setViewportSize({width,height:1000});await page.goto(`${base}/geraina/android`,{waitUntil:'domcontentloaded'})
+    await page.waitForFunction(()=>{const link=document.querySelector('[data-download-link]');return link&&link.getAttribute('aria-disabled')!=='true'})
     for(const img of await page.locator('main img').all()){await img.scrollIntoViewIfNeeded();await img.evaluate(image=>image.decode())}
     await page.evaluate(()=>scrollTo(0,0))
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Android listing fits ${width}px`)
@@ -30,7 +31,7 @@ try{
   assert.equal(createHash('sha256').update(bytes).digest('hex'),expected.sha256)
   checks.push('Clicking Download saves the exact verified APK bytes')
   await page.route('**/downloads/geraina/latest.json',route=>route.fulfill({status:503,body:'Unavailable'}))
-  await page.reload();await page.locator('[data-download-status].error').waitFor()
+  await page.reload({waitUntil:'domcontentloaded'});await page.locator('[data-download-status].error').waitFor()
   assert.equal(await page.locator('[data-download-link][aria-disabled="true"]').count(),2)
   checks.push('Unavailable release metadata leaves download buttons safely disabled')
   assert.deepEqual(errors,[])
