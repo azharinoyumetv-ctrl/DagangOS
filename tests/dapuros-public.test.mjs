@@ -68,5 +68,7 @@ test('DapurOS pricing retains the three paid purchase forms and billing controls
   assert.equal((body.match(/class="plan-purchase" method="post" action="\/dapuros\/checkout"/g)||[]).length,3);
   assert.match(body,/aria-label="Periode langganan"/);
   for(const tier of ['starter','pro','business'])assert.match(body,new RegExp('id="plan-'+tier+'"'));
+  assert.doesNotMatch(body,/<h2>Free Trial<\/h2>|>Mulai Trial<\/a>/);
+  assert.match(body,/class="dapuros dapuros-purchase"/);
   assert.match(body,/\/subscription-pricing\.js/);
 });

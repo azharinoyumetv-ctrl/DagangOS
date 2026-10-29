@@ -3,10 +3,12 @@ import {readFileSync,writeFileSync,copyFileSync,mkdirSync,existsSync} from 'node
 import {resolve,join} from 'node:path';
 import {createHash} from 'node:crypto';
 const root=resolve(import.meta.dirname,'..');
-const app=join(root,'DapurOS'),release=JSON.parse(readFileSync(join(app,'docs/ANDROID-RELEASE-VERIFICATION.json'),'utf8'));
-assert.equal(release.status,'passed-candidate');
+const version=process.argv[2]||'1.0.0';assert.match(version,/^\d+\.\d+\.\d+$/);
+const app=join(root,'DapurOS'),report=version==='1.0.0'?'ANDROID-RELEASE-VERIFICATION.json':`ANDROID-${version}-VERIFICATION.json`;
+const release=JSON.parse(readFileSync(join(app,'docs',report),'utf8'));
+assert.ok(['passed-candidate','passed-published'].includes(release.status));
 assert.equal(release.package.applicationId,'com.dagangos.dapuros');
-assert.equal(release.package.version,'1.0.0');
+assert.equal(release.package.version,version);
 assert.equal(release.package.minimumSdk,34);
 assert.notEqual(release.package.signingCertificateSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8');
 assert.equal(release.browser.failed,0);assert.ok(release.browser.passed>=24);
@@ -28,6 +30,6 @@ for(const [profile,name,output] of [
 ['phone','Cash-takeaway-saved-durably-before-receipt-with-tax.png','phone-checkout.png'],
 ['xiaomi-landscape','Cash-takeaway-saved-durably-before-receipt-with-tax.png','tablet-checkout.png'],
 ['samsung-landscape','Installed-identity-subscription-expiry-and-support-entry-agree.png','tablet-about.png']]){
- copyFileSync(join(app,'android-app/app/build/reports/final-native',profile,'screenshots',name),join(images,output));
+ copyFileSync(join(app,'android-app/app/build/reports',release.nativeEvidenceDirectory||'final-native',profile,'screenshots',name),join(images,output));
 }
 console.log(`Staged DapurOS ${metadata.version}: ${bytes.length} bytes, SHA-256 ${sha256}. Publication remains a separate action.`);

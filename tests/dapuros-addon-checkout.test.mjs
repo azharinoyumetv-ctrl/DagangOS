@@ -54,7 +54,7 @@ test('anonymous add-on checkout preserves only validated selection through sign-
  const invoices=gateway(t),result=await submit(choice(),{access_token:''});assert.equal(result.status,303);
  const next=new URL(result.headers.get('Location'),'https://dagangos.com').searchParams.get('next');assert.equal(next,'/dapuros/pricing?period=monthly&addon=extra_device&checkout=1');assert.equal(invoices.length,0);
 });
-test('pricing renders two signed add-on forms and keeps the restaurant trial and three paid package cards',async()=>{
+test('pricing renders two signed add-on forms and only three paid package cards',async()=>{
  const html=await renderSubscriptionPricing(await readFile('public/marketing/dapuros-pricing.html','utf8'),'dapuros',new Request('https://dagangos.com/dapuros/pricing'),env);
- assert.doesNotMatch(html,/\{\{[A-Z_]+\}\}/);assert.equal((html.match(/data-addon-id=/g)||[]).length,2);assert.equal((html.match(/class="price-card/g)||[]).length,4);
+ assert.doesNotMatch(html,/\{\{[A-Z_]+\}\}/);assert.equal((html.match(/data-addon-id=/g)||[]).length,2);assert.equal((html.match(/class="price-card/g)||[]).length,3);
 });

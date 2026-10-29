@@ -32,7 +32,7 @@ test('published-path candidate bytes and identity match the DapurOS manifest',as
 test('APK HEAD requests retain download headers without returning a body',async()=>{
   const release=JSON.parse(await readFile(new URL('../public/downloads/dapuros/latest.json',import.meta.url),'utf8'));
   const response=await get(release.downloadUrl,'HEAD');assert.equal(response.status,200);assert.equal((await response.arrayBuffer()).byteLength,0);
-  assert.match(response.headers.get('Content-Disposition'),/DapurOS-POS-1\.0\.0\.apk/);assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');
+  assert.ok(response.headers.get('Content-Disposition').includes(release.downloadUrl.split('/').pop()));assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');
 });
 
 test('DapurOS binary routes reject unsupported names writes and missing files',async()=>{
