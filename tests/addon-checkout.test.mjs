@@ -26,7 +26,7 @@ function gateway(t,options={}){
 }
 test('both add-ons have signed monthly selections with the required tier and fixed price',async()=>{
  assert.equal(addonSelection('geraina','extra_device').amount,49000);assert.equal(addonSelection('geraina','extra_outlet').amount,149000);
- assert.equal(addonSelection('dapuros','extra_device'),null);assert.equal(addonSelection('geraina','extra_device','yearly'),null);
+ assert.equal(addonSelection('unknown','extra_device'),null);assert.equal(addonSelection('geraina','extra_device','yearly'),null);
  for(const id of ['extra_device','extra_outlet']){
   const cart=choice(id);assert.deepEqual(await readReceipt(await signReceipt(cart,env.SUBSCRIPTION_SIGNING_KEY),env.SUBSCRIPTION_SIGNING_KEY),cart);
   const invalid={...cart,amount:1};assert.equal(await readReceipt(await signReceipt(invalid,env.SUBSCRIPTION_SIGNING_KEY),env.SUBSCRIPTION_SIGNING_KEY),null);

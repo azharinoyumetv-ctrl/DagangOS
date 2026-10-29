@@ -1,16 +1,16 @@
 const billingToggle = document.querySelector('.billing-toggle');
 const module = location.pathname.split('/')[1];
 const intentKey = `dagangos_checkout_${module}`;
-const readToken = () => [`${module}_token`, 'dagangos_token', module === 'geraina' ? 'dapuros_token' : 'geraina_token']
+const readToken = () => [`${module}_token`, 'dagangos_token', ['geraina','dapuros'].includes(module) ? 'dapuros_token' : 'geraina_token']
   .map(key => localStorage.getItem(key)).find(value => value && value !== 'mock_master_token');
-if (module === 'geraina' && readToken()) document.querySelector('[data-anonymous-trial]')?.remove();
+if (['geraina','dapuros'].includes(module) && readToken()) document.querySelector('[data-anonymous-trial]')?.remove();
 const currentPeriod = () => new URL(location.href).searchParams.get('period') === 'yearly' ? 'yearly' : 'monthly';
 let resuming = false;
 let currentSubscription;
 const purchaseEnabled = [...document.querySelectorAll('.plan-purchase button')].some(button => !button.disabled);
 function updateCurrentPlan() {
   if (window.GerainaCheckoutFeedback?.busy) return;
-  if (module !== 'geraina' || !purchaseEnabled || !currentSubscription?.active) return;
+  if (!['geraina','dapuros'].includes(module) || !purchaseEnabled || !currentSubscription?.active) return;
   document.querySelectorAll('.price-card .plan-purchase button').forEach(button => {
     const tier = button.closest('.price-card').id.replace('plan-', '');
     const same = tier === currentSubscription.tier && currentPeriod() === currentSubscription.period;
@@ -74,7 +74,7 @@ function resumeCheckout() {
   if (url.searchParams.get('checkout') !== '1' || !intent || !Number.isFinite(intent.expires) || intent.expires < Date.now()) return false;
   let form;
   if (intent.kind === 'addon') {
-    if (module!=='geraina'||!['extra_device','extra_outlet'].includes(intent.addonId)||intent.period!=='monthly'||intent.addonId!==url.searchParams.get('addon')||(intent.renewalId||null)!==url.searchParams.get('renewal')||intent.renewalId&&!/^(DG-geraina-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(intent.renewalId)||!purchaseEnabled) return false;
+    if (!['geraina','dapuros'].includes(module)||!['extra_device','extra_outlet'].includes(intent.addonId)||intent.period!=='monthly'||intent.addonId!==url.searchParams.get('addon')||(intent.renewalId||null)!==url.searchParams.get('renewal')||intent.renewalId&&!/^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(intent.renewalId)||!purchaseEnabled) return false;
     form=document.querySelector(`form[data-addon-id="${intent.addonId}"]`);
     if(form)form.querySelector('button').disabled=false; // backend verifies eligibility before quoting
   } else {
@@ -105,7 +105,7 @@ async function showSubscription() {
         button.disabled=!purchaseEnabled||!data.can_manage||!offer?.eligible;
         button.textContent='Beli add-on';card.querySelector('[data-addon-reason]').textContent=!data.can_manage?'Akun Owner diperlukan.':offer?.reason||'Satu bulan, tanpa perpanjangan otomatis.';
         card.querySelector('[data-addon-pending]')?.remove();
-        if(offer?.pending_receipt){const link=document.createElement('a');link.dataset.addonPending='1';link.className='button button--quiet';link.href='/geraina/order?receipt='+encodeURIComponent(offer.pending_receipt);link.textContent='Periksa atau lanjutkan pembayaran';card.append(link);}
+        if(offer?.pending_receipt){const link=document.createElement('a');link.dataset.addonPending='1';link.className='button button--quiet';link.href=`/${module}/order?receipt=`+encodeURIComponent(offer.pending_receipt);link.textContent='Periksa atau lanjutkan pembayaran';card.append(link);}
       });
       if (subscription?.active && !window.GerainaCheckoutFeedback?.busy) {
         currentSubscription = subscription;
@@ -116,9 +116,9 @@ async function showSubscription() {
         notice.setAttribute('role', 'status');
         notice.textContent = `Paket ${subscription.tier} Anda aktif hingga ${new Date(subscription.expires_at).toLocaleDateString('id-ID')}.`;
         document.querySelector('.pricing-controls')?.append(notice);
-        if (module === 'geraina') {
+        if (['geraina','dapuros'].includes(module)) {
           const manage = document.createElement('a');
-          manage.href = '/geraina/app/settings/billing';
+          manage.href = `/${module}/app/settings/billing`;
           manage.className = 'button button--quiet';
           manage.textContent = 'Kelola langganan';
           notice.append(document.createElement('br'), manage);
@@ -133,4 +133,4 @@ async function showSubscription() {
 }
 // Geraina no longer waits for a redundant status request before continuing a
 // saved purchase. The server makes the authoritative duplicate/plan check.
-if (module !== 'geraina' || !resumeCheckout()) showSubscription();
+if (!['geraina','dapuros'].includes(module) || !resumeCheckout()) showSubscription();

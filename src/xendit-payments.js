@@ -47,7 +47,7 @@ export async function createPaymentLink(env, cart, email, receipt) {
   const itemName = cart.kind === 'addon' ? `${cart.addonId === 'extra_device' ? 'Device kasir tambahan' : 'Outlet tambahan'} — 1 bulan` : `${cart.module} ${cart.tier}`;
   const result = await xenditRequest(env, '/v2/invoices', {
     external_id: cart.orderId, amount: cart.amount, currency: 'IDR',
-    description: cart.kind === 'addon' ? `Geraina POS ${itemName}` : `${cart.module === 'geraina' ? 'Geraina POS' : 'DapurOS'} ${cart.tier} — ${cart.period === 'yearly' ? '12 bulan' : '1 bulan'}`,
+    description: cart.kind === 'addon' ? `${cart.module === 'dapuros' ? 'DapurOS' : 'Geraina POS'} ${itemName}` : `${cart.module === 'geraina' ? 'Geraina POS' : 'DapurOS'} ${cart.tier} — ${cart.period === 'yearly' ? '12 bulan' : '1 bulan'}`,
     invoice_duration: 86400, should_send_email: false,
     ...(email ? { payer_email: email } : {}),
     success_redirect_url: finish, failure_redirect_url: finish,

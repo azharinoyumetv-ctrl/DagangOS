@@ -2,9 +2,9 @@ dist/
 node_modules/
 .wrangler/
 gerainaos/
-dapuros/
+/dapuros/
 # Sub-repo ekosistem (repo git terpisah — case-sensitive di CI Linux)
-DapurOS/
+/DapurOS/
 GerainaOS/
 # Jangan pernah commit kredensial
 .env

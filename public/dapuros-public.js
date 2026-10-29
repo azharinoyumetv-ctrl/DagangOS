@@ -1,5 +1,5 @@
 (() => {
-  const publicPaths = new Set(['/dapuros', '/dapuros/pricing']);
+  const publicPaths = new Set(['/dapuros', '/dapuros/pricing', '/dapuros/android']);
   const publicDestination = value => {
     const url = new URL(value, location.href);
     return url.origin === location.origin && publicPaths.has(url.pathname.replace(/\/+$/, '')) ? url : null;

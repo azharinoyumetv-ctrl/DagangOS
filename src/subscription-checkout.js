@@ -10,8 +10,8 @@ export const ADDONS = {
   extra_outlet: { name: 'Outlet tambahan', tier: 'business', amount: 149000 },
 };
 export function addonSelection(module, addonId, period = 'monthly') {
-  const addon = ADDONS[addonId];
-  return module === 'geraina' && Object.hasOwn(ADDONS, addonId) && period === 'monthly'
+  const addon = module === 'dapuros' && addonId === 'extra_outlet' ? { ...ADDONS[addonId], amount: 199000 } : ADDONS[addonId];
+  return Object.hasOwn(CATALOG, module) && Object.hasOwn(ADDONS, addonId) && period === 'monthly'
     ? { module, kind: 'addon', addonId, tier: addon.tier, period, amount: addon.amount } : null;
 }
 const receiptSecret = env => env.SUBSCRIPTION_SIGNING_KEY || env.MIDTRANS_SERVER_KEY || env.XENDIT_SECRET_KEY;
@@ -28,7 +28,7 @@ const securityHeaders = {
 };
 function page(module, title, body, status = 200, refresh = false) {
   const product = CATALOG[module];
-  const feedback = module === 'geraina' ? '<link rel="stylesheet" href="/subscription-feedback.css?v=20261027b"><script src="/subscription-feedback.js?v=20261027b" defer></script>' : '';
+  const feedback = Object.hasOwn(CATALOG, module) ? '<link rel="stylesheet" href="/subscription-feedback.css?v=20261027b"><script src="/subscription-feedback.js?v=20261027b" defer></script>' : '';
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="10">' : ''}<title>${escape(title)} — ${product.name}</title><link rel="icon" href="/assets/brand/${module}-icon.png"><link rel="stylesheet" href="/product-public.css?v=theme-20261024"><link rel="stylesheet" href="/subscription-checkout.css?v=theme-20261024">${feedback}</head><body class="checkout ${module}"><header class="topbar"><div class="shell topbar__inner"><a class="brand" href="/${module}"><img src="/assets/brand/${module}-icon.png" alt="">${product.name}</a><nav class="nav"><a href="/${module}/pricing">Kembali ke paket</a></nav></div></header><main class="checkout-shell"><p class="eyebrow">LANGGANAN DAGANGOS</p><h1>${escape(title)}</h1>${body}</main><footer class="footer"><div class="shell footer__inner"><span>PT DagangOS Digital Indonesia</span><a href="mailto:contact@dagangos.com">contact@dagangos.com</a></div></footer></body></html>`, { status, headers: securityHeaders });
 }
 export function selection(module, tier, period) {
@@ -62,13 +62,13 @@ export async function renderSubscriptionPricing(html, module, request, env) {
       replacements[`${tier.toUpperCase()}_${field}`] = replacements[`${tier}_${period}_${field}`.toUpperCase()];
     }
   }
-  if (module === 'geraina') {
+  if (Object.hasOwn(CATALOG, module)) {
     const url = new URL(request.url), renewal = url.searchParams.get('renewal');
     for (const [id, addon] of Object.entries(ADDONS)) {
-      const cart = { ...addonSelection(module, id), provider: 'xendit', orderId: `DG-geraina-${crypto.randomUUID().replace(/-/g, '')}`, expires };
-      if (renewal && url.searchParams.get('addon') === id && /^(DG-geraina-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(renewal)) cart.renewalId = renewal;
+      const cart = { ...addonSelection(module, id), provider: 'xendit', orderId: `DG-${module}-${crypto.randomUUID().replace(/-/g, '')}`, expires };
+      if (renewal && url.searchParams.get('addon') === id && /^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(renewal)) cart.renewalId = renewal;
       replacements[`${id.toUpperCase()}_CART`] = secret ? await signReceipt(cart, secret) : '';
-      replacements[`${id.toUpperCase()}_PRICE`] = money(addon.amount);
+      replacements[`${id.toUpperCase()}_PRICE`] = money(addonSelection(module,id).amount);
     }
   }
   return html.replace(/\{\{([A-Z_]+)\}\}/g, (placeholder, key) => replacements[key] ?? placeholder);
@@ -97,8 +97,8 @@ export async function readReceipt(token, secret) {
     const data = JSON.parse(new TextDecoder().decode(unbase64(payload)));
     if (data.kind !== undefined && data.kind !== 'addon') return null;
     const cart = data.kind === 'addon' ? addonSelection(data.module, data.addonId, data.period) : selection(data.module, data.tier, data.period);
-    if (!cart || data.amount !== cart.amount || !/^DG-(geraina|dapuros)-[a-f0-9]{32}$/.test(data.orderId)) return null;
-    if (data.kind === 'addon' && (data.tier !== cart.tier || data.renewalId !== undefined && !/^(DG-geraina-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(data.renewalId))) return null;
+    if (!cart || data.amount !== cart.amount || !/^DG-(geraina|dapuros)-[a-f0-9]{32}$/.test(data.orderId) || !data.orderId.startsWith(`DG-${data.module}-`)) return null;
+    if (data.kind === 'addon' && (data.tier !== cart.tier || data.renewalId !== undefined && !/^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(data.renewalId))) return null;
     if ((data.ownerId !== undefined || data.storeId !== undefined) && ![data.ownerId, data.storeId].every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id))) return null;
     return data;
   } catch { return null; }
@@ -231,30 +231,30 @@ export async function handleSubscriptionCheckout(request, env) {
       if (prepared.response.status === 409 && prepared.data.detail === 'no_store_for_module') return signIn(module, cart, 'activate');
       if (prepared.response.status === 409 && prepared.data.detail?.code === 'subscription_active') return page(module, 'Paket Anda sudah aktif', `<p>Akun Anda sudah memiliki paket ${escape(label(cart.tier))} aktif. Tidak ada pembayaran baru yang dibuat.</p><a class="button" href="/${module}/app/dashboard">Buka aplikasi</a>`);
       if (prepared.response.status === 403) return page(module, 'Akun pemilik diperlukan', '<p>Masuk dengan akun pemilik untuk membeli atau mengubah langganan.</p>', 403);
-      if (cart.kind === 'addon' && prepared.response.status === 400) return page(module, 'Add-on belum dapat dibeli', `<p>${escape(typeof prepared.data.detail === 'string' ? prepared.data.detail : 'Periksa paket yang diperlukan.')}</p><a class="button" href="/geraina/app/settings/billing">Kembali ke langganan</a>`,400);
+      if (cart.kind === 'addon' && prepared.response.status === 400) return page(module, 'Add-on belum dapat dibeli', `<p>${escape(typeof prepared.data.detail === 'string' ? prepared.data.detail : 'Periksa paket yang diperlukan.')}</p><a class="button" href="/${module}/app/settings/billing">Kembali ke langganan</a>`,400);
       if (cart.kind === 'addon' && prepared.response.status === 409) {
         const receipt = prepared.data.detail?.receipt;
-        return page(module, 'Periksa pesanan add-on', `<p>${escape(prepared.data.detail?.message || 'Pesanan sudah diproses atau berubah. Periksa pesanan sebelum membeli lagi.')}</p>${receipt ? `<a class="button" href="/geraina/order?receipt=${encodeURIComponent(receipt)}">Periksa atau lanjutkan pembayaran</a>` : ''}<a class="button button--quiet" href="/geraina/app/settings/billing">Kembali ke langganan</a>`);
+        return page(module, 'Periksa pesanan add-on', `<p>${escape(prepared.data.detail?.message || 'Pesanan sudah diproses atau berubah. Periksa pesanan sebelum membeli lagi.')}</p>${receipt ? `<a class="button" href="/${module}/order?receipt=${encodeURIComponent(receipt)}">Periksa atau lanjutkan pembayaran</a>` : ''}<a class="button button--quiet" href="/${module}/app/settings/billing">Kembali ke langganan</a>`);
       }
       if (!prepared.response.ok || prepared.data.amount !== cart.amount || prepared.data.order_id !== cart.orderId || ![prepared.data.owner_id, prepared.data.store_id].every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id))) return page(module, 'Pesanan belum dapat disiapkan', '<p>Pesanan belum dibuat dan tidak ada pembayaran yang ditarik. Silakan kembali ke halaman paket dan coba lagi.</p>', 502);
       if (cart.kind === 'addon' && (prepared.data.kind !== 'addon' || prepared.data.addonId !== cart.addonId || prepared.data.tier !== cart.tier || (prepared.data.renewalId || null) !== (cart.renewalId || null))) return page(module,'Pesanan tidak cocok','<p>Referensi add-on tidak cocok. Pembayaran belum dibuat.</p>',502);
-      if (module === 'geraina' && prepared.data.active_subscription && form.get('confirm_change') !== 'yes') {
+      if (Object.hasOwn(CATALOG,module) && prepared.data.active_subscription && form.get('confirm_change') !== 'yes') {
         const active = prepared.data.active_subscription;
-        return page(module, 'Konfirmasi perubahan paket', `<section class="card"><p>Paket ${escape(label(active.tier))} Anda masih berlaku hingga ${escape(new Date(active.expires_at).toLocaleDateString('id-ID'))}.</p>${summary(cart)}<p class="notice">Paket baru dikenakan harga penuh dan mulai berlaku setelah pembayaran terverifikasi. Paket ini menggantikan paket saat ini; sisa waktu paket lama tidak dikreditkan atau dikembalikan. Jika ingin memakai sisa masa aktif, kembali dan beli setelah paket berakhir.</p><form method="post" action="/geraina/checkout" data-subscription-submit><input type="hidden" name="cart" value="${escape(form.get('cart'))}"><input type="hidden" name="access_token" value="${escape(accessToken)}"><input type="hidden" name="confirm_change" value="yes"><button class="button" type="submit">Saya setuju, lanjut ke pembayaran</button></form><a class="button button--quiet" href="/geraina/app/settings/billing">Kembali tanpa membeli</a></section>`);
+        return page(module, 'Konfirmasi perubahan paket', `<section class="card"><p>Paket ${escape(label(active.tier))} Anda masih berlaku hingga ${escape(new Date(active.expires_at).toLocaleDateString('id-ID'))}.</p>${summary(cart)}<p class="notice">Paket baru dikenakan harga penuh dan mulai berlaku setelah pembayaran terverifikasi. Paket ini menggantikan paket saat ini; sisa waktu paket lama tidak dikreditkan atau dikembalikan. Jika ingin memakai sisa masa aktif, kembali dan beli setelah paket berakhir.</p><form method="post" action="/${module}/checkout" data-subscription-submit><input type="hidden" name="cart" value="${escape(form.get('cart'))}"><input type="hidden" name="access_token" value="${escape(accessToken)}"><input type="hidden" name="confirm_change" value="yes"><button class="button" type="submit">Saya setuju, lanjut ke pembayaran</button></form><a class="button button--quiet" href="/${module}/app/settings/billing">Kembali tanpa membeli</a></section>`);
       }
       const boundCart = { ...cart, ownerId: prepared.data.owner_id, storeId: prepared.data.store_id };
       const receipt = await signReceipt(boundCart, secret);
       const attached = await backend(module, env, `/orders/${cart.orderId}/reference`, { token: accessToken, body: { receipt } });
       if (!attached.response.ok) return page(module, 'Pesanan belum dapat disiapkan', '<p>Referensi akun belum tersimpan. Pembayaran belum dimulai; silakan coba lagi dari halaman paket.</p>', 502);
       if (cart.kind === 'addon') {
-        if (form.get('confirm_addon') !== 'yes') return page(module, 'Konfirmasi pembelian add-on', `<section class="card">${summary(cart)}${prepared.data.base_expires_at ? `<p class="notice">Paket utama berakhir pada ${escape(new Date(prepared.data.base_expires_at).toLocaleDateString('id-ID'))}. Paket utama perlu tetap aktif agar kapasitas add-on dapat digunakan.</p>` : ''}<form method="post" action="/geraina/checkout" data-subscription-submit><input type="hidden" name="cart" value="${escape(form.get('cart'))}"><input type="hidden" name="access_token" value="${escape(accessToken)}"><input type="hidden" name="confirm_addon" value="yes"><button class="button" type="submit">Setuju, bayar add-on</button></form><a class="button button--quiet" href="/geraina/app/settings/billing">Kembali tanpa membeli</a></section>`);
+        if (form.get('confirm_addon') !== 'yes') return page(module, 'Konfirmasi pembelian add-on', `<section class="card">${summary(cart)}${prepared.data.base_expires_at ? `<p class="notice">Paket utama berakhir pada ${escape(new Date(prepared.data.base_expires_at).toLocaleDateString('id-ID'))}. Paket utama perlu tetap aktif agar kapasitas add-on dapat digunakan.</p>` : ''}<form method="post" action="/${module}/checkout" data-subscription-submit><input type="hidden" name="cart" value="${escape(form.get('cart'))}"><input type="hidden" name="access_token" value="${escape(accessToken)}"><input type="hidden" name="confirm_addon" value="yes"><button class="button" type="submit">Setuju, bayar add-on</button></form><a class="button button--quiet" href="/${module}/app/settings/billing">Kembali tanpa membeli</a></section>`);
         const claim = await backend(module, env, `/orders/${cart.orderId}/invoice-claim`, {token:accessToken,body:{}});
-        if (!claim.response.ok || !claim.data.claimed) return new Response(null,{status:303,headers:{Location:`/geraina/order?receipt=${encodeURIComponent(receipt)}`,'Cache-Control':'no-store'}});
+        if (!claim.response.ok || !claim.data.claimed) return new Response(null,{status:303,headers:{Location:`/${module}/order?receipt=${encodeURIComponent(receipt)}`,'Cache-Control':'no-store'}});
       }
       const paymentUrl = await createPaymentLink(env, boundCart, prepared.data.email, receipt);
       return new Response(null, { status: 303, headers: { Location: paymentUrl, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
     } catch {
-      return page(module, 'Koneksi pembayaran terputus', `<p>Status pembuatan pesanan belum dapat dipastikan. Hubungi contact@dagangos.com sebelum mencoba lagi.</p><p>Nomor pesanan: ${escape(cart.orderId)}</p><a class="button" href="/geraina/app/settings/billing">Periksa langganan dan pesanan</a>`, 502);
+      return page(module, 'Koneksi pembayaran terputus', `<p>Status pembuatan pesanan belum dapat dipastikan. Hubungi contact@dagangos.com sebelum mencoba lagi.</p><p>Nomor pesanan: ${escape(cart.orderId)}</p><a class="button" href="/${module}/app/settings/billing">Periksa langganan dan pesanan</a>`, 502);
     }
   }
   const cart = selection(module, url.searchParams.get('plan') || 'starter', url.searchParams.get('period') || 'monthly');

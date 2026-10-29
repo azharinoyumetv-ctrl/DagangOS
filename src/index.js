@@ -91,6 +91,9 @@ async function serveHtmlAsset(env, request, assetPath, status = 200) {
   headers.delete('Location');
   headers.delete('ETag');
   headers.delete('Last-Modified');
+  // Header/footer injection changes the decoded HTML bytes.
+  headers.delete('Content-Length');
+  headers.delete('Content-Encoding');
   let html = await assetResponse.text();
   const pricing = new URL(request.url).pathname.match(/^\/(geraina|dapuros)\/pricing$/);
   if (pricing) {
@@ -431,10 +434,10 @@ export default {
       }
 
       // Android downloads are binary assets; they must never fall through to a SPA.
-      if (pathname.startsWith('/downloads/geraina/')) {
+      if (pathname.startsWith('/downloads/geraina/') || pathname.startsWith('/downloads/dapuros/')) {
         if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
-        const isApk = /^\/downloads\/geraina\/Geraina-POS-\d+\.\d+\.\d+\.apk$/.test(pathname);
-        if (!isApk && !['/downloads/geraina/latest.json', '/downloads/geraina/SHA256SUMS.txt'].includes(pathname)) return new Response('Not Found', { status: 404 });
+        const isApk = /^\/downloads\/(?:geraina\/Geraina|dapuros\/DapurOS)-POS-\d+\.\d+\.\d+\.apk$/.test(pathname);
+        if (!isApk && !['/downloads/geraina/latest.json', '/downloads/geraina/SHA256SUMS.txt', '/downloads/dapuros/latest.json', '/downloads/dapuros/SHA256SUMS.txt'].includes(pathname)) return new Response('Not Found', { status: 404 });
         const asset = await env.ASSETS.fetch(request);
         if (!asset.ok && asset.status !== 304) return new Response('Not Found', { status: 404 });
         const headers = new Headers(asset.headers);
@@ -480,6 +483,7 @@ export default {
         '/geraina': '/marketing/geraina.html',
         '/geraina/pricing': '/marketing/geraina-pricing.html',
         '/geraina/android': '/marketing/geraina-android.html',
+        '/dapuros/android': '/marketing/dapuros-android.html',
         '/geraina/privacy': '/marketing/geraina-privacy.html',
         '/geraina/delete-account': '/marketing/geraina-delete-account.html',
         '/dapuros': '/marketing/dapuros.html',

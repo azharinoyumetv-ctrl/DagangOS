@@ -33,7 +33,7 @@ test('DapurOS public aliases redirect without altering app or payment routes',as
 
 test('DapurOS home and pricing share product-local navigation and contact',async()=>{
   let header;
-  for(const path of ['/dapuros','/dapuros/pricing']){
+  for(const path of ['/dapuros','/dapuros/pricing','/dapuros/android']){
     const body=await(await get(path)).text(),current=body.match(/<header class="dapuros-header">[\s\S]*?<\/header>/)?.[0];
     assert.ok(current);assert.match(current,/href="\/dapuros#kontak"/);
     assert.doesNotMatch(current,/href="\/"|sumber-daya|https:\/\/dagangos\.com/);
