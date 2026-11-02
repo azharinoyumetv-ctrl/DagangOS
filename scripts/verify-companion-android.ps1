@@ -1,4 +1,4 @@
-param([string]$Serial='emulator-5570',[switch]$FallbackOnly,[string]$DapurVersion='1.0.2')
+param([string]$Serial='emulator-5570',[switch]$FallbackOnly,[string]$DapurVersion='1.0.4')
 $ErrorActionPreference='Stop'
 if ($Serial -ne 'emulator-5570') { throw 'This fixture suite only targets the isolated Android 14 emulator.' }
 if ($DapurVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a valid DapurOS release version.' }
@@ -10,9 +10,14 @@ function AdbRun([string[]]$Arguments) {
     & $adb -s $Serial @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Android operation failed: $($Arguments[0])" }
 }
+$peer=Get-Content -Raw -LiteralPath (Join-Path $root 'public/downloads/geraina/latest.json') | ConvertFrom-Json
+if ($peer.applicationId -ne 'com.dagangos.geraina' -or $peer.version -notmatch '^\d+\.\d+\.\d+$' -or $peer.downloadUrl -ne "/downloads/geraina/Geraina-POS-$($peer.version).apk") { throw 'Invalid published Geraina identity.' }
+$peerFile="Geraina-POS-$($peer.version).apk"
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $root "GerainaOS/android-app/releases/$peerFile")).Hash.ToLower() -ne $peer.sha256) { throw 'Geraina APK differs from the published peer.' }
+$peer | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'peer-release.json')
 $apps=@(
     @{Module='dapuros';Repo='DapurOS';Version=$DapurVersion;File="DapurOS-POS-$DapurVersion.apk";Namespace='dapurospos'},
-    @{Module='geraina';Repo='GerainaOS';Version='1.2.17';File='Geraina-POS-1.2.17.apk';Namespace='gerainapos'}
+    @{Module='geraina';Repo='GerainaOS';Version=$peer.version;File=$peerFile;Namespace='gerainapos'}
 )
 function Instrument($app,[string]$method,[string]$profile) {
     $log=Join-Path $evidence "$($app.Module)-$profile-$method.txt"
