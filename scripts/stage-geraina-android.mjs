@@ -7,7 +7,42 @@ const verification=JSON.parse(readFileSync(process.argv[2]?resolve(process.argv[
 assert.match(verification.version,/^\d+\.\d+\.\d+$/)
 assert.equal(verification.applicationId,'com.dagangos.geraina')
 assert.equal(verification.minimumSdk,34)
-if(verification.schemaVersion===15){
+if(verification.schemaVersion===16){
+  assert.equal(verification.status,'passed')
+  assert.equal(verification.publicationAuthorized,true)
+  assert.equal(verification.backendChanged,false)
+  assert.equal(verification.baseRelease.version,'1.2.19')
+  assert.equal(verification.baseRelease.published,true)
+  assert.equal(verification.browser.unitsPassed,15)
+  assert.equal(verification.browser.categoriesPassed,18)
+  assert.equal(verification.browser.photosPassed,9)
+  assert.equal(verification.browser.failed,0)
+  assert.equal(verification.browser.skipped,0)
+  assert.equal(verification.package.unitTests,32)
+  assert.equal(verification.package.lintErrors,0)
+  assert.equal(verification.package.signatureVerified,true)
+  assert.equal(verification.package.privateCredentialScan,'passed')
+  assert.ok(verification.package.bundleManifestEntriesVerified>=81)
+  assert.equal(verification.package.distributionManifestAndCode,'passed')
+  assert.equal(verification.package.signerSha256,'52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8')
+  const native=verification.android
+  assert.equal(native.status,'passed')
+  assert.equal(native.version,verification.version)
+  assert.equal(native.versionCode,verification.versionCode)
+  assert.equal(native.apkSha256,verification.apkSha256)
+  assert.equal(native.installedApkSha256,verification.apkSha256)
+  assert.equal(native.upgrade.status,'passed')
+  assert.equal(native.upgrade.fromVersion,verification.baseRelease.version)
+  assert.equal(native.upgrade.tokenRetained,true)
+  assert.equal(native.upgrade.preferenceRetained,true)
+  for(const name of ['phone','large-tablet-window']){
+    const row=native.profiles.find(profile=>profile.name===name)
+    assert.equal(row?.status,'passed')
+    assert.equal(row.apkSha256,verification.apkSha256)
+    for(const check of ['create-unit','select-saved-unit','save-product-symbol','edit-retains-selection','category-and-photo-actions-retained'])assert.ok(row.checks.includes(check))
+    assert.equal(row.selection,name==='phone'?'native-popup-open-and-tap':'real-WebView-selectOption')
+  }
+}else if(verification.schemaVersion===15){
   assert.equal(verification.status,'passed')
   assert.equal(verification.publicationAuthorized,true)
   assert.equal(verification.backendChanged,false)
@@ -428,12 +463,12 @@ const filename=`Geraina-POS-${verification.version}.apk`,source=join(releases,fi
 const hash=createHash('sha256').update(bytes).digest('hex')
 assert.ok(bytes.length<=25*1024*1024,'The APK exceeds the website hosting asset limit')
 assert.equal(hash,verification.apkSha256,'Only the verified signed APK can be staged')
-if(![2,3,4,5,6,7,8,9,10,11,12,13,14,15].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
+if(![2,3,4,5,6,7,8,9,10,11,12,13,14,15,16].includes(verification.schemaVersion))assert.ok(verification.androidUsability.profiles.every(row=>row.apkSha256===hash),'Device checks must cover these exact APK bytes')
 const destination=join(root,'public/downloads/geraina'),images=join(root,'public/assets/geraina-android')
 mkdirSync(destination,{recursive:true});mkdirSync(images,{recursive:true})
 if(existsSync(join(destination,filename)))assert.equal(createHash('sha256').update(readFileSync(join(destination,filename))).digest('hex'),hash,'Published APK URLs are immutable; increment the release version')
 copyFileSync(source,join(destination,filename))
-if(![2,3,4,5,6,7,8,9,10,11,12,13,14,15].includes(verification.schemaVersion)){
+if(![2,3,4,5,6,7,8,9,10,11,12,13,14,15,16].includes(verification.schemaVersion)){
  copyFileSync(join(releases,'android-usability-report/android17/dashboard-visible.png'),join(images,'phone-dashboard.png'))
  copyFileSync(join(releases,'android-usability-report/xiaomi12/landscape-cashier-navigation.png'),join(images,'tablet-landscape.png'))
 }

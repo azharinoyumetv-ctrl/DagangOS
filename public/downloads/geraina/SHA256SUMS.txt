@@ -1,1 +1,1 @@
-bd106fb998274962477ebcfd6bafff944eed64a1b75b2daa302445176309a7b0  Geraina-POS-1.2.19.apk
+b6fcece07b4ab7b3b23a6bb3c8fe0b68bb1aa3818da185aaf432cb460ca31e0f  Geraina-POS-1.2.20.apk
