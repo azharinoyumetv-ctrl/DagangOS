@@ -478,6 +478,19 @@ export default {
       }
 
       // === SPA Routing for non-asset paths ===
+      // Guest table capabilities must not be sent to analytics or operator widgets.
+      if (/^\/dapuros\/qr-order\/?$/.test(pathname)) {
+        const asset = await env.ASSETS.fetch(new Request(new URL('/dapuros/index.html', request.url), { method: 'GET' }));
+        if (!asset.ok) return new Response('Menu belum dapat dimuat. Silakan coba lagi.', { status: 503, headers: { 'Cache-Control': 'no-store' } });
+        let body = await asset.text();
+        body = body.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, script => /posthog|google-analytics|googletag|support-chat|dapuros-public/.test(script) ? '' : script);
+        return new Response(body, { headers: {
+          'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+          'X-Robots-Tag': 'noindex, nofollow',
+          'Content-Security-Policy': "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self' https: data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+        } });
+      }
+
       // DapurOS: ALL /dapuros/* paths → serve /dapuros/index.html content
       const publicProductPages = {
         '/geraina': '/marketing/geraina.html',

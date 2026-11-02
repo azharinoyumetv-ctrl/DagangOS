@@ -1,6 +1,7 @@
-param([string]$Serial='emulator-5570',[switch]$FallbackOnly)
+param([string]$Serial='emulator-5570',[switch]$FallbackOnly,[string]$DapurVersion='1.0.2')
 $ErrorActionPreference='Stop'
 if ($Serial -ne 'emulator-5570') { throw 'This fixture suite only targets the isolated Android 14 emulator.' }
+if ($DapurVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a valid DapurOS release version.' }
 $root=Split-Path -Parent $PSScriptRoot
 $adb=Join-Path $env:USERPROFILE 'AppData/Local/Android/Sdk/platform-tools/adb.exe'
 $evidence=Join-Path $root 'tmp/companion-native'
@@ -10,7 +11,7 @@ function AdbRun([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "Android operation failed: $($Arguments[0])" }
 }
 $apps=@(
-    @{Module='dapuros';Repo='DapurOS';Version='1.0.2';File='DapurOS-POS-1.0.2.apk';Namespace='dapurospos'},
+    @{Module='dapuros';Repo='DapurOS';Version=$DapurVersion;File="DapurOS-POS-$DapurVersion.apk";Namespace='dapurospos'},
     @{Module='geraina';Repo='GerainaOS';Version='1.2.17';File='Geraina-POS-1.2.17.apk';Namespace='gerainapos'}
 )
 function Instrument($app,[string]$method,[string]$profile) {

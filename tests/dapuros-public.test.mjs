@@ -72,3 +72,16 @@ test('DapurOS pricing retains the three paid purchase forms and billing controls
   assert.match(body,/class="dapuros dapuros-purchase"/);
   assert.match(body,/\/subscription-pricing\.js/);
 });
+
+test('guest QR opens the app directly and keeps table tokens out of analytics and operator widgets',async()=>{
+  const guestEnv={ASSETS:{async fetch(request){
+    assert.equal(new URL(request.url).pathname,'/dapuros/index.html');
+    return new Response('<!doctype html><html><head><script>posthog.capture(location.href)</script><script src="/dapuros/static/js/main.js" defer></script></head><body><div id="root"></div><script src="/support-chat.js"></script></body></html>');
+  }}};
+  const response=await worker.fetch(new Request('https://dagangos.com/dapuros/qr-order?token='+ 'a'.repeat(64)),guestEnv,{});
+  assert.equal(response.status,200);assert.equal(response.headers.get('Location'),null);
+  assert.equal(response.headers.get('Cache-Control'),'no-store');assert.equal(response.headers.get('Referrer-Policy'),'no-referrer');
+  assert.equal(response.headers.get('X-Robots-Tag'),'noindex, nofollow');
+  const body=await response.text();assert.match(body,/static\/js\/main.js/);assert.match(body,/<div id="root">/);
+  assert.doesNotMatch(body,/posthog|support-chat|dapuros-public\.js|data-dapuros-web-app/);
+});
