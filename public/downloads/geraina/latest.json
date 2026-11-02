@@ -1,16 +1,16 @@
 {
-  "version": "1.2.17",
-  "versionCode": 22,
+  "version": "1.2.18",
+  "versionCode": 23,
   "applicationId": "com.dagangos.geraina",
-  "downloadUrl": "/downloads/geraina/Geraina-POS-1.2.17.apk",
-  "bytes": 19157435,
-  "sha256": "9b7cc539b842556feab5c19f1647855d06c95301b5b31a5b369a2791e931f602",
+  "downloadUrl": "/downloads/geraina/Geraina-POS-1.2.18.apk",
+  "bytes": 19158055,
+  "sha256": "a4b7130467db7930d2efbc3d4a99a600f41f42e0e2f66a54284c95dee39f6400",
   "minimumAndroid": "14.0",
   "minimumSdk": 34,
   "supportedAbis": [
     "arm64-v8a",
     "x86_64"
   ],
-  "verifiedAt": "2026-10-29T14:19:40.952Z",
+  "verifiedAt": "2026-11-02T10:49:32.463005+00:00",
   "signingCertificateSha256": "52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8"
 }
