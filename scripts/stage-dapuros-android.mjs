@@ -14,6 +14,18 @@ assert.notEqual(release.package.signingCertificateSha256,'52e14a39a7da4f5f528838
 assert.equal(release.browser.failed,0);assert.ok(release.browser.passed>=24);
 assert.equal(release.backend.failed,0);assert.ok(release.backend.contractsPassed>=215);assert.ok(release.backend.realTransactionPassed>=12);
 assert.equal(release.package.lintErrors,0);assert.equal(release.package.privateCredentialScan,'passed');
+if(release.package.versionCode>=7){
+ assert.ok(release.browser.editorBrowserPassed>=54,'DapurOS product-editor browser verification is required');
+ assert.ok(release.package.unitTests>=33);
+ const editor=release.editorNative;
+ assert.equal(editor?.status,'passed');assert.equal(editor.version,version);
+ assert.equal(editor.apkSha256,release.package.apkSha256);assert.equal(editor.installedApkSha256,release.package.apkSha256);
+ assert.deepEqual(editor.runtimeErrors,[]);assert.equal(editor.productionWrites,0);
+ for(const check of ['camera-denial-retains-draft','real-emulated-camera-capture-and-preview','captured-photo-saved-and-reopened','temporary-camera-files-released','CSV-Excel-retains-document-picker'])assert.ok(editor.checks.includes(check),check);
+ assert.deepEqual(editor.profiles.map(row=>row.name).sort(),['phone','samsung-landscape','xiaomi-landscape']);
+ for(const row of editor.profiles){assert.equal(row.status,'passed');assert.ok(row.checks.length>=5);}
+ assert.equal(editor.upgrade.status,'passed');assert.equal(editor.upgrade.tokenRetained,true);assert.equal(editor.upgrade.preferenceRetained,true);
+}
 for(const profile of ['phone','xiaomi-landscape','samsung-landscape']){
   const row=release.installed.find(row=>row.profile===profile);assert.equal(row?.status,'passed');assert.equal(row.apkSha256,release.package.apkSha256);assert.equal(row.checks.length,7);
 }
