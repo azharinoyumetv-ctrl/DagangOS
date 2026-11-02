@@ -36,6 +36,12 @@ try {
    await page.getByTestId('reservation-name').fill('Reservation verification');
    assert.equal(await page.getByTestId('reservation-save').isEnabled(),true);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true);
+   assert.equal(await page.evaluate(()=>{
+    const modal=document.querySelector('[data-testid=reservation-modal]').getBoundingClientRect();
+    const heading=document.getElementById('reservation-heading').getBoundingClientRect();
+    const save=document.querySelector('[data-testid=reservation-save]').getBoundingClientRect();
+    return Math.abs(modal.top)<=1&&Math.abs(modal.bottom-innerHeight)<=1&&heading.top>=0&&heading.bottom<=innerHeight&&save.top>=0&&save.bottom<=innerHeight;
+   }),true,'Reservation title and actions must stay inside the viewport after selecting a table');
    await page.screenshot({path:`${out}/business-${width}.png`,fullPage:true});
    await page.getByTestId('reservation-modal').getByRole('button',{name:'Batal',exact:true}).click();
   } else {assert.equal(await open.isDisabled(),true);assert.match(await open.textContent(),/Business/);}
