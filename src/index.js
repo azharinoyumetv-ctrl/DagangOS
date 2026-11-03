@@ -451,7 +451,7 @@ export default {
       }
 
       // Check if path is a static asset by extension
-      const isStaticAsset = /\.(js|css|png|jpg|jpeg|gif|ico|svg|json|woff|woff2|ttf|eot|map|webp|avif|txt|xml|webmanifest)$/i.test(pathname);
+      const isStaticAsset = /\.(js|css|png|jpg|jpeg|gif|ico|svg|json|woff|woff2|ttf|eot|map|webp|avif|txt|xml|webmanifest|mp4|vtt)$/i.test(pathname);
 
       if (isStaticAsset) {
         // Let Cloudflare serve static assets directly.
