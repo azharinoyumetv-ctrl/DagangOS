@@ -1,7 +1,8 @@
 (() => {
   'use strict';
-  const section = document.querySelector('[data-geraina-showcase]');
+  const section = document.querySelector('[data-geraina-showcase], [data-dapuros-showcase]');
   if (!section) return;
+  const product = section.hasAttribute('data-dapuros-showcase') ? 'dapuros' : 'geraina';
   const deck = section.querySelector('[data-showcase-deck]');
   const stage = section.querySelector('[data-showcase-stage]');
   const deviceTabs = [...section.querySelectorAll('[data-showcase-device]')];
@@ -14,11 +15,14 @@
   const next = section.querySelector('[data-slide-next]');
   const status = section.querySelector('[data-showcase-status]');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const features = ['pos','products','inventory','reports'];
-  let entries = [], device = 'phone', feature = 'pos', scene = null, renderId = 0;
+  const features = featureTabs.map(tab => tab.dataset.showcaseFeature);
+  const variants = section.querySelector('[data-showcase-variants]');
+  const variantButtons = [...section.querySelectorAll('[data-showcase-variant]')];
+  const badge = section.querySelector('[data-slide-badge]');
+  let entries = [], device = 'phone', feature = features[0], variant = '', scene = null, renderId = 0;
   let active = 0, opener = null, oldOverflow = '', viewerItems = [], viewerId = 0;
   const announce = text => { status.textContent = text; };
-  const listFor = selected => features.map(id => entries.find(item => item.device === selected && item.featureId === id));
+  const itemsFor = (selected, id) => entries.filter(item => item.device === selected && item.featureId === id);
   const element = (tag,className) => {const node=document.createElement(tag);if(className)node.className=className;return node;};
   const icon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 8l-5-5m13 5 5-5M8 16l-5 5m13-5 5 5"/></svg>';
 
@@ -56,7 +60,14 @@
   }
   async function render(direction=1,animate=true) {
     if(!entries.length)return;
-    const request=++renderId,list=listFor(device),index=features.indexOf(feature),item=list[index];
+    const request = ++renderId;
+    const items = itemsFor(device, feature);
+    const item = items.find(entry => (entry.variant || '') === variant) || items[0];
+    const list = features.flatMap(id => itemsFor(device, id));
+    const index = features.indexOf(feature);
+    if (variants) variants.hidden = items.length < 2;
+    for (const button of variantButtons) button.setAttribute('aria-pressed', String(button.dataset.showcaseVariant === (item.variant || '')));
+    if (badge) { badge.textContent = item.badge || ''; badge.hidden = !item.badge; }
     updateControls();deck.setAttribute('aria-busy','true');
     const image=screenshot(item);
     try{await image.decode();}catch{
@@ -69,7 +80,7 @@
     incoming.dataset.feature=item.featureId;incoming.dataset.device=item.device;
     button.type='button';button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-label',`Perbesar: ${item.headline} — ${item.deviceLabel}`);
     const enlarge=element('span','gshow-scene-enlarge');enlarge.setAttribute('aria-hidden','true');enlarge.innerHTML=icon+' Perbesar tampilan';
-    button.append(framedImage(item,image),enlarge);button.addEventListener('click',()=>openViewer(index,button,list));incoming.append(button);
+    button.append(framedImage(item,image),enlarge);button.addEventListener('click',()=>openViewer(list.indexOf(item),button,list));incoming.append(button);
     const outgoing=scene;
     if(outgoing)outgoing.getAnimations().forEach(animation=>animation.cancel());
     scene=incoming;stage.replaceChildren(...(outgoing?[outgoing]:[]),incoming);
@@ -77,7 +88,7 @@
     section.querySelector('[data-slide-title]').textContent=item.headline;
     section.querySelector('[data-slide-description]').textContent=item.description;
     section.querySelector('[data-slide-label]').textContent=`${item.deviceLabel} / ${featureTabs[index].textContent.trim().replace(/^\d+\s*/,'')}`;
-    const counter=section.querySelector('[data-slide-count]');counter.textContent=`0${index+1} / 04`;counter.setAttribute('aria-label',`Gambar ${index+1} dari 4`);
+    const counter=section.querySelector('[data-slide-count]');counter.textContent=`0${index+1} / ${String(features.length).padStart(2,'0')}`;counter.setAttribute('aria-label',`Gambar ${index+1} dari ${features.length}`);
     if(outgoing && animate && !reduced.matches){
       const settings={duration:380,easing:'cubic-bezier(.2,.7,.2,1)'};
       const enter=incoming.animate([{opacity:0,transform:`translateX(${direction*35}px)`},{opacity:1,transform:'translateX(0)'}],settings);
@@ -86,10 +97,10 @@
     }
     if(request!==renderId)return;
     if(outgoing)outgoing.remove();
-    deck.setAttribute('aria-busy','false');announce(`${item.deviceLabel}: ${item.headline}. Gambar ${index+1} dari 4.`);
+    deck.setAttribute('aria-busy','false');announce(`${item.deviceLabel}: ${item.headline}. Gambar ${index+1} dari ${features.length}.`);
   }
   function selectDevice(tab,focus=false) {device=tab.dataset.showcaseDevice;render(1);if(focus)tab.focus();}
-  function selectFeature(tab,focus=false) {const old=features.indexOf(feature);feature=tab.dataset.showcaseFeature;render(features.indexOf(feature)>=old?1:-1);if(focus)tab.focus();}
+  function selectFeature(tab,focus=false) {const old=features.indexOf(feature);feature=tab.dataset.showcaseFeature;if(features.indexOf(feature)!==old)variant='';render(features.indexOf(feature)>=old?1:-1);if(focus)tab.focus();}
   function tabNavigation(tabs,select) {
     for(const tab of tabs){tab.addEventListener('click',()=>select(tab));tab.addEventListener('keydown',event=>{
       const index=tabs.indexOf(tab),target=event.key==='Home'?0:event.key==='End'?tabs.length-1:event.key==='ArrowRight'?(index+1)%tabs.length:event.key==='ArrowLeft'?(index-1+tabs.length)%tabs.length:-1;
@@ -97,7 +108,12 @@
     });}
   }
   tabNavigation(deviceTabs,selectDevice);tabNavigation(featureTabs,selectFeature);
-  function step(direction) {feature=features[(features.indexOf(feature)+direction+features.length)%features.length];render(direction);}
+  function step(direction) {feature=features[(features.indexOf(feature)+direction+features.length)%features.length];variant='';render(direction);}
+  for (const button of variantButtons) button.addEventListener('click', () => {
+    const direction = variantButtons.indexOf(button) >= variantButtons.findIndex(item => item.dataset.showcaseVariant === variant) ? 1 : -1;
+    variant = button.dataset.showcaseVariant;
+    render(direction);
+  });
   previous.addEventListener('click',()=>step(-1));next.addEventListener('click',()=>step(1));
   deck.addEventListener('keydown',event=>{if(event.target!==deck)return;if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();step(event.key==='ArrowRight'?1:-1);}});
   let touch=null;
@@ -110,14 +126,17 @@
   dialog.addEventListener('keydown',event=>{if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();showViewer(active+(event.key==='ArrowRight'?1:-1));}});
   dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
   dialog.addEventListener('close',()=>{viewerId++;dialogImage.getAnimations().forEach(animation=>animation.cancel());dialogImage.removeAttribute('src');document.body.style.overflow=oldOverflow;opener?.focus({preventScroll:true});});
-  const featureButtons=[...document.querySelectorAll('[data-geraina-feature-image]')];
-  const featureItems=featureButtons.map(button=>({src:button.dataset.featureSrc,headline:button.dataset.featureTitle,alt:button.querySelector('img').alt,device:'feature',deviceLabel:'Geraina'}));
+  const featureButtons=[...document.querySelectorAll('[data-geraina-feature-image], [data-dapuros-feature-image]')];
+  const featureItems=featureButtons.map(button=>({src:button.dataset.featureSrc,headline:button.dataset.featureTitle,alt:button.querySelector('img').alt,device:'feature',deviceLabel:product === 'dapuros' ? 'DapurOS' : 'Geraina'}));
   featureButtons.forEach((button,index)=>button.addEventListener('click',()=>openViewer(index,button,featureItems)));
-  fetch('/product-media/geraina-showcase.json').then(response=>{if(!response.ok)throw Error('Media unavailable');return response.json();}).then(manifest=>{
-    if(!Array.isArray(manifest)||manifest.length!==12)throw Error('Invalid showcase');
+  fetch(`/product-media/${product}-showcase.json`).then(response=>{if(!response.ok)throw Error('Media unavailable');return response.json();}).then(manifest=>{
+    const expected = deviceTabs.length * (features.length + Math.max(0, variantButtons.length - 1));
+    if(!Array.isArray(manifest)||manifest.length!==expected)throw Error('Invalid showcase');
     for(const name of ['phone','tablet','desktop'])for(const id of features){
       const matches=manifest.filter(item=>item.device===name&&item.featureId===id);
-      if(matches.length!==1||!matches[0].screenSrc?.startsWith('/product-media/geraina/screens/'))throw Error('Incomplete showcase');
+      const allowed = id === 'reservasi' && variants ? variantButtons.map(button => button.dataset.showcaseVariant) : [''];
+      if(matches.length!==allowed.length || allowed.some(value => matches.filter(item => (item.variant || '') === value).length !== 1) ||
+        matches.some(item => !item.screenSrc?.startsWith(`/product-media/${product}/screens/`))) throw Error('Incomplete showcase');
     }
     entries=manifest;previous.disabled=next.disabled=false;render(1,false);
   }).catch(()=>{

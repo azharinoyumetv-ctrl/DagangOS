@@ -11,20 +11,96 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="/product-public.css?v=theme-20261024">
   <link rel="stylesheet" href="/dapuros-landing.css?v=20261029a">
+  <link rel="stylesheet" href="/product-media/geraina-showcase.css?v=20261103">
+  <link rel="stylesheet" href="/product-media/geraina-explorer.css?v=20261103">
+  <link rel="stylesheet" href="/product-media/geraina-videos.css?v=20261103">
+  <link rel="stylesheet" href="/product-media/dapuros-showcase.css?v=20261105">
+  <script src="/product-media/geraina-showcase.js?v=20261105" defer></script>
+  <script src="/product-media/geraina-videos.js?v=20261105" defer></script>
 </head>
 <body class="dapuros">
   <!-- dapuros-header -->
   <main>
     <section class="hero"><div class="shell hero__grid"><div><p class="eyebrow">Restaurant operating system</p><h1>Dari pesanan meja sampai dapur dan stok bahan.</h1><p>DapurOS menyatukan POS restoran, peta meja, Kitchen Display System, QR self-ordering, resep dan inventori bahan, serta laporan operasional dalam satu sistem milik PT DagangOS Digital Indonesia.</p><div class="actions"><a class="button" href="/dapuros/register">Mulai trial 14 hari</a><a class="button button--quiet" href="/dapuros/pricing">Lihat harga</a></div></div><figure class="dapuros-hero-scene"><img data-dapuros-hero src="/dapuros/assets/scenes/dapuros-kitchen.png" alt="Ilustrasi operasional restoran dengan layar dapur, kasir, printer struk, dan pemesanan digital" width="1823" height="863" fetchpriority="high"><span class="dapuros-hero-sweep" aria-hidden="true"></span><i class="dapuros-hero-particle particle-one" aria-hidden="true"></i><i class="dapuros-hero-particle particle-two" aria-hidden="true"></i><i class="dapuros-hero-particle particle-three" aria-hidden="true"></i><span class="dapuros-hero-emblem" aria-hidden="true"><img src="/assets/brand/dapuros-icon.png" alt="" width="48" height="48"></span></figure></div></section>
-    <div class="dapuros-capabilities"><div class="shell"><span>POS restoran</span><span>Kitchen Display System</span><span>QR order</span><span>Meja & bahan</span><span>Laporan</span></div></div>
-    <section class="section" id="fitur"><div class="shell"><div class="section__head"><p class="eyebrow">Kemampuan utama</p><h2>Pelayanan di depan.<br>Terhubung ke dapur.</h2><p>Kelola pelayanan, produksi, dan data operasional restoran dalam alur yang sama. Ketersediaan fitur mengikuti paket Anda.</p></div><div class="grid dapuros-feature-grid">
-      <article class="card"><span class="dapuros-feature-index">01 / TRANSAKSI</span><h3>POS Restoran</h3><p>Kelola menu, pesanan dine-in dan takeaway, modifier, diskon, pajak, split bill, pembayaran, dan struk thermal.</p></article>
-      <article class="card"><span class="dapuros-feature-index">02 / PRODUKSI</span><h3>Kitchen Display System</h3><p>Teruskan pesanan ke layar dapur agar tim dapat melihat antrean, stasiun, status, dan proses penyajian.</p></article>
-      <article class="card"><span class="dapuros-feature-index">03 / PEMESANAN</span><h3>QR Self Ordering</h3><p>Sediakan pemesanan mandiri melalui menu digital dan kode QR meja, terhubung dengan alur pesanan restoran.</p></article>
-      <article class="card"><span class="dapuros-feature-index">04 / AREA</span><h3>Manajemen Meja</h3><p>Atur peta meja, area, status penggunaan, dan perpindahan pesanan sesuai operasional restoran.</p></article>
-      <article class="card"><span class="dapuros-feature-index">05 / PERSEDIAAN</span><h3>Resep & Inventori Bahan</h3><p>Hubungkan menu dengan resep/BOM, pemakaian stok bahan, purchase order, dan food cost.</p></article>
-      <article class="card"><span class="dapuros-feature-index">06 / RINGKASAN</span><h3>Laporan Operasional</h3><p>Tinjau transaksi, menu, aktivitas dapur, inventori, pajak, laba rugi, dan konsolidasi outlet dari sistem yang sama.</p></article>
-    </div></div></section>
+    <div class="dapuros-capabilities"><div class="shell"><span>POS restoran</span><span>Kitchen Display System</span><span>QR ordering</span><span>Meja & bahan</span><span>Laporan</span></div></div>
+    <section class="gshow dapuros-showcase" id="galeri-dapuros" data-dapuros-showcase aria-labelledby="dapuros-showcase-heading">
+      <div class="gshow-shell">
+        <div class="gshow-gallery-head">
+          <div>
+            <p class="gshow-kicker dapuros-showcase-kicker"><img src="/assets/brand/dapuros-icon.png" alt="" width="28" height="28"> Alur restoran DapurOS</p>
+            <h2 id="dapuros-showcase-heading">Dari meja, langsung ke dapur.</h2>
+            <p>Pilih perangkat dan lihat alur pesanan di DapurOS. Ketuk layar untuk memperbesar.</p>
+            <a class="dapuros-showcase-watch" href="#video-dapuros"><span aria-hidden="true">▶</span> Tonton video 25 detik</a>
+          </div>
+          <div class="gshow-device-tabs" role="tablist" aria-label="Pilih ukuran layar">
+            <button type="button" role="tab" id="gshow-tab-phone" aria-controls="gshow-panel" aria-selected="true" data-showcase-device="phone"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></svg>Ponsel</button>
+            <button type="button" role="tab" id="gshow-tab-tablet" aria-controls="gshow-panel" aria-selected="false" tabindex="-1" data-showcase-device="tablet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M18 10v4"/></svg>Tablet</button>
+            <button type="button" role="tab" id="gshow-tab-desktop" aria-controls="gshow-panel" aria-selected="false" tabindex="-1" data-showcase-device="desktop"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M9 22h6m-3-5v5"/></svg>Desktop</button>
+          </div>
+        </div>
+        <div class="gshow-explorer">
+          <div class="gshow-feature-tabs" role="tablist" aria-label="Pilih fitur DapurOS">
+            <button type="button" role="tab" id="gshow-feature-qr" aria-controls="gshow-panel" aria-selected="true" data-showcase-feature="qr"><span aria-hidden="true">01</span> QR ordering</button>
+            <button type="button" role="tab" id="gshow-feature-kasir" aria-controls="gshow-panel" aria-selected="false" tabindex="-1" data-showcase-feature="kasir"><span aria-hidden="true">02</span> Kasir</button>
+            <button type="button" role="tab" id="gshow-feature-dapur" aria-controls="gshow-panel" aria-selected="false" tabindex="-1" data-showcase-feature="dapur"><span aria-hidden="true">03</span> Layar dapur</button>
+            <button type="button" role="tab" id="gshow-feature-reservasi" aria-controls="gshow-panel" aria-selected="false" tabindex="-1" data-showcase-feature="reservasi"><span aria-hidden="true">04</span> Reservasi</button>
+          </div>
+          <div class="dapuros-showcase-steps" data-showcase-variants role="group" aria-label="Langkah reservasi Business" hidden>
+            <span class="dapuros-showcase-badge">Paket Business</span>
+            <button type="button" data-showcase-variant="" aria-pressed="true">Isi reservasi</button>
+            <button type="button" data-showcase-variant="held" aria-pressed="false">Meja direservasi</button>
+            <button type="button" data-showcase-variant="seated" aria-pressed="false">Tamu duduk</button>
+          </div>
+          <div class="gshow-deck" data-showcase-deck data-device="phone" id="gshow-panel" role="tabpanel" tabindex="0" aria-labelledby="gshow-tab-phone gshow-feature-qr">
+            <div class="gshow-slide-stage" data-showcase-stage><p class="gshow-load-error" role="status">Memuat tampilan DapurOS…</p></div>
+            <div class="gshow-arrows gshow-side-controls"><button type="button" data-slide-previous aria-label="Tampilan sebelumnya" disabled>←</button><button type="button" data-slide-next aria-label="Tampilan berikutnya" disabled>→</button></div>
+          </div>
+          <div class="gshow-slide-footer">
+            <div class="gshow-slide-copy"><p class="gshow-slide-label" data-slide-label>Ponsel / QR ordering</p><span class="dapuros-showcase-badge" data-slide-badge hidden></span><h4 data-slide-title>Tamu pilih menu dari meja</h4><p data-slide-description>Pindai QR meja untuk membuka menu restoran di ponsel.</p></div>
+            <div class="gshow-slide-navigation"><span data-slide-count aria-label="Gambar 1 dari 4">01 / 04</span></div>
+          </div>
+        </div>
+        <div class="gshow-gallery-footer"><p>Tangkapan layar DapurOS dengan data contoh. QR ordering tersedia di paket Pro dan Business. Reservasi meja tersedia di paket Business.</p><a href="/dapuros/pricing">Lihat paket</a></div>
+        <span class="gshow-status" data-showcase-status role="status" aria-live="polite"></span>
+        <noscript><p>Aktifkan JavaScript untuk memilih tampilan dan memperbesar gambar.</p></noscript>
+        <dialog class="gshow-dialog" aria-labelledby="gshow-viewer-title">
+          <div class="gshow-dialog-head"><h3 id="gshow-viewer-title">Tampilan DapurOS</h3><div class="gshow-dialog-tools"><button type="button" data-viewer-previous aria-label="Gambar sebelumnya">←</button><button type="button" data-viewer-next aria-label="Gambar berikutnya">→</button><button type="button" data-viewer-close aria-label="Tutup gambar">×</button></div></div>
+          <div class="gshow-dialog-device"><div class="gshow-viewer-screen"><img class="gshow-dialog-image" alt=""></div><div class="gshow-laptop-base gshow-viewer-laptop-base" aria-hidden="true"></div></div>
+          <p class="gshow-dialog-note">Tampilan browser DapurOS dengan data contoh.</p>
+        </dialog>
+      </div>
+    </section>
+    <section class="gvideos dapuros-showcase-video" id="video-dapuros" data-dapuros-videos aria-labelledby="dapuros-video-heading">
+      <div class="gvideos-shell">
+        <div class="gvideos-copy">
+          <p class="gshow-kicker">Video singkat DapurOS</p>
+          <h2 id="dapuros-video-heading">Satu pesanan, dari QR hingga siap disajikan.</h2>
+          <p id="dapuros-video-description">Staf membuka meja. Tamu memesan lewat QR, lalu kasir melihat tagihannya dan dapur mengikuti status pesanan di KDS.</p>
+          <ol class="dapuros-video-benefits"><li><strong>Tamu pilih sendiri.</strong> Catatan pesanan ikut terkirim.</li><li><strong>Kasir cek tagihan meja.</strong> Pesanan sudah tercatat.</li><li><strong>Dapur lihat antrean.</strong> Tim menandai pesanan yang siap disajikan.</li></ol>
+        </div>
+        <div class="gvideos-player">
+          <div class="gvideos-player-head"><span>DAPUROS / ALUR PESANAN</span><span>0:25</span></div>
+          <div class="gvideos-screen">
+            <video id="dapuros-promo-video" controls playsinline preload="none" poster="/product-media/dapuros/videos/qr-ke-dapur-poster.webp" aria-label="Dari QR ke dapur, video DapurOS" aria-describedby="dapuros-video-description" src="/product-media/dapuros/videos/qr-ke-dapur.mp4">
+              <track kind="captions" src="/product-media/dapuros/videos/qr-ke-dapur-id.vtt" srclang="id" label="Bahasa Indonesia">
+              <p><a href="/product-media/dapuros/videos/qr-ke-dapur.mp4">Buka video DapurOS</a></p>
+            </video>
+            <button type="button" class="gvideos-play" data-video-play aria-controls="dapuros-promo-video" aria-label="Putar video DapurOS" hidden><span aria-hidden="true">▶</span> Putar video</button>
+          </div>
+          <div class="gvideos-player-footer"><span>QR ordering ke KDS</span><a href="/product-media/dapuros/videos/qr-ke-dapur.mp4">Buka video ↗</a></div>
+          <p class="gvideos-error" data-video-error role="alert" hidden>Video belum dapat diputar. Coba lagi atau pilih Buka video.</p>
+          <span class="gvideos-status" data-video-status role="status" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+    <section class="section dapuros-visual-features" id="fitur"><div class="shell"><div class="section__head"><p class="eyebrow">Kemampuan utama</p><h2>Pelayanan di depan.<br>Terhubung ke dapur.</h2><p>Kelola pelayanan, produksi, dan data operasional restoran dalam alur yang sama. Ketersediaan fitur mengikuti paket Anda.</p></div><div class="grid dapuros-feature-grid">
+      <article class="card gf-card"><button type="button" class="gf-picture" data-dapuros-feature-image data-feature-src="/product-media/dapuros/screens/desktop-kasir.webp" data-feature-title="POS Restoran" aria-label="Perbesar tampilan POS Restoran"><span class="gf-browser-bar" aria-hidden="true"><i></i><i></i><i></i><b>DAPUROS / KASIR</b></span><span class="gf-screen"><img src="/product-media/dapuros/screens/desktop-kasir.webp" alt="Tampilan POS Restoran DapurOS dengan data contoh" width="1440" height="900" loading="lazy" decoding="async"></span><span class="gf-enlarge" aria-hidden="true">Lihat tampilan ↗</span></button><div class="gf-copy"><span class="dapuros-feature-index">01 / TRANSAKSI</span><h3>POS Restoran</h3><p>Kelola menu, pesanan dine-in dan takeaway, modifier, diskon, pajak, split bill, pembayaran, dan struk thermal.</p></div></article>
+      <article class="card gf-card"><button type="button" class="gf-picture" data-dapuros-feature-image data-feature-src="/product-media/dapuros/screens/desktop-dapur.webp" data-feature-title="Kitchen Display System" aria-label="Perbesar tampilan Kitchen Display System"><span class="gf-browser-bar" aria-hidden="true"><i></i><i></i><i></i><b>DAPUROS / DAPUR</b></span><span class="gf-screen"><img src="/product-media/dapuros/screens/desktop-dapur.webp" alt="Tampilan Kitchen Display System DapurOS dengan data contoh" width="1440" height="900" loading="lazy" decoding="async"></span><span class="gf-enlarge" aria-hidden="true">Lihat tampilan ↗</span></button><div class="gf-copy"><span class="dapuros-feature-index">02 / PRODUKSI</span><h3>Kitchen Display System</h3><p>Teruskan pesanan ke layar dapur agar tim dapat melihat antrean, stasiun, status, dan proses penyajian.</p></div></article>
+      <article class="card gf-card"><button type="button" class="gf-picture" data-dapuros-feature-image data-feature-src="/product-media/dapuros/screens/desktop-qr.webp" data-feature-title="QR ordering" aria-label="Perbesar tampilan QR ordering"><span class="gf-browser-bar" aria-hidden="true"><i></i><i></i><i></i><b>DAPUROS / QR ORDERING</b></span><span class="gf-screen"><img src="/product-media/dapuros/screens/desktop-qr.webp" alt="Tampilan QR ordering DapurOS dengan data contoh" width="1440" height="900" loading="lazy" decoding="async"></span><span class="gf-enlarge" aria-hidden="true">Lihat tampilan ↗</span></button><div class="gf-copy"><span class="dapuros-feature-index">03 / PEMESANAN</span><h3>QR ordering</h3><p>Sediakan pemesanan mandiri melalui menu digital dan kode QR meja, terhubung dengan alur pesanan restoran.</p></div></article>
+      <article class="card gf-card"><button type="button" class="gf-picture" data-dapuros-feature-image data-feature-src="/product-media/dapuros/screens/desktop-reservasi-held.webp" data-feature-title="Manajemen Meja" aria-label="Perbesar tampilan Manajemen Meja"><span class="gf-browser-bar" aria-hidden="true"><i></i><i></i><i></i><b>DAPUROS / MEJA</b></span><span class="gf-screen"><img src="/product-media/dapuros/screens/desktop-reservasi-held.webp" alt="Tampilan Manajemen Meja DapurOS dengan data contoh" width="1440" height="900" loading="lazy" decoding="async"></span><span class="gf-enlarge" aria-hidden="true">Lihat tampilan ↗</span></button><div class="gf-copy"><span class="dapuros-feature-index">04 / AREA</span><span class="dapuros-feature-business">Reservasi · Paket Business</span><h3>Manajemen Meja</h3><p>Atur peta meja, area, status penggunaan, dan perpindahan pesanan sesuai operasional restoran.</p></div></article>
+      <article class="card gf-card"><button type="button" class="gf-picture" data-dapuros-feature-image data-feature-src="/product-media/dapuros/screens/desktop-ingredients.webp" data-feature-title="Resep &amp; Inventori Bahan" aria-label="Perbesar tampilan Resep &amp; Inventori Bahan"><span class="gf-browser-bar" aria-hidden="true"><i></i><i></i><i></i><b>DAPUROS / BAHAN BAKU</b></span><span class="gf-screen"><img src="/product-media/dapuros/screens/desktop-ingredients.webp" alt="Tampilan Resep &amp; Inventori Bahan DapurOS dengan data contoh" width="1440" height="900" loading="lazy" decoding="async"></span><span class="gf-enlarge" aria-hidden="true">Lihat tampilan ↗</span></button><div class="gf-copy"><span class="dapuros-feature-index">05 / PERSEDIAAN</span><h3>Resep & Inventori Bahan</h3><p>Hubungkan menu dengan resep/BOM, pemakaian stok bahan, purchase order, dan food cost.</p></div></article>
+      <article class="card gf-card"><button type="button" class="gf-picture" data-dapuros-feature-image data-feature-src="/product-media/dapuros/screens/desktop-reports.webp" data-feature-title="Laporan Operasional" aria-label="Perbesar tampilan Laporan Operasional"><span class="gf-browser-bar" aria-hidden="true"><i></i><i></i><i></i><b>DAPUROS / LAPORAN</b></span><span class="gf-screen"><img src="/product-media/dapuros/screens/desktop-reports.webp" alt="Tampilan Laporan Operasional DapurOS dengan data contoh" width="1440" height="900" loading="lazy" decoding="async"></span><span class="gf-enlarge" aria-hidden="true">Lihat tampilan ↗</span></button><div class="gf-copy"><span class="dapuros-feature-index">06 / RINGKASAN</span><h3>Laporan Operasional</h3><p>Tinjau transaksi, menu, aktivitas dapur, inventori, pajak, laba rugi, dan konsolidasi outlet dari sistem yang sama.</p></div></article>
+    </div><p class="gf-note">Tampilan aplikasi DapurOS dengan data contoh. Klik gambar untuk memperbesar.</p></div></section>
     <section class="section section--white" id="solusi"><div class="shell"><div class="section__head"><p class="eyebrow">Alur operasional</p><h2>Dari pesanan masuk.<br>Sampai laporan tersusun.</h2><p>DapurOS menghubungkan pelayanan dan dapur agar pesanan, status, bahan, dan transaksi dapat dikelola dalam satu sistem.</p></div><ol class="dapuros-workflow"><li><span>01</span><h3>Pesanan</h3><p>Order masuk melalui kasir atau alur QR meja.</p></li><li><span>02</span><h3>Routing</h3><p>Pesanan diteruskan ke layar operasional dapur.</p></li><li><span>03</span><h3>Dapur</h3><p>Tim memperbarui status dan proses penyajian.</p></li><li><span>04</span><h3>Selesai</h3><p>Transaksi, pemakaian bahan, dan laporan tercatat.</p></li></ol></div></section>
     <section class="section"><div class="shell dapuros-platforms"><div><p class="eyebrow">DapurOS untuk Android</p><h2>Akun yang sama.<br>Lebih banyak ruang kerja.</h2><p>Buka DapurOS di browser, ponsel, atau tablet Android. Gunakan akun restoran yang sama, dengan tampilan yang menyesuaikan layar perangkat Anda.</p><div class="actions"><a class="button" href="/dapuros/android">Lihat aplikasi & unduh APK <span aria-hidden="true">↗</span></a><a class="button button--quiet" href="/dapuros/login">Masuk di browser</a></div></div><div class="dapuros-device-card"><span class="dapuros-device-label">PONSEL & TABLET</span><img src="/screenshots/dapuros/phone-checkout.png" alt="Struk takeaway DapurOS pada aplikasi Android" width="1080" height="2400" loading="lazy"><span class="dapuros-device-caption">Satu restoran. Tetap terhubung.</span></div></div></section>
     <section class="section"><div class="shell dapuros-pricing-intro"><div><p class="eyebrow">Harga transparan</p><h2>Mulai sesuai kebutuhan restoran.</h2><p>Coba DapurOS gratis selama 14 hari. Paket Starter, Pro, dan Business tersedia mulai Rp 249.000 per bulan.</p></div><a class="button" href="/dapuros/pricing">Bandingkan paket <span aria-hidden="true">↗</span></a></div></section>

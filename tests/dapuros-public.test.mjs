@@ -48,7 +48,7 @@ test('DapurOS home and pricing share product-local navigation and contact',async
 test('DapurOS retains its six restaurant modules, workflow and original hero',async()=>{
   const body=await(await get('/dapuros')).text();
   for(const id of ['fitur','solusi','kontak'])assert.match(body,new RegExp('id="'+id+'"'));
-  for(const title of ['POS Restoran','Kitchen Display System','QR Self Ordering','Manajemen Meja','Resep & Inventori Bahan','Laporan Operasional'])assert.ok(body.includes(title));
+  for(const title of ['POS Restoran','Kitchen Display System','QR ordering','Manajemen Meja','Resep & Inventori Bahan','Laporan Operasional'])assert.ok(body.includes(title));
   assert.match(body,/data-dapuros-chat/);assert.match(body,/mailto:support@dagangos.com/);
   assert.match(body,/<img data-dapuros-hero src="\/dapuros\/assets\/scenes\/dapuros-kitchen\.png"/);
   assert.doesNotMatch(body,/<aside class="hero-card">/);

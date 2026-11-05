@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const section = document.querySelector('[data-geraina-videos]');
+  const section = document.querySelector('[data-geraina-videos], [data-dapuros-videos]');
   if (!section) return;
   const video = section.querySelector('video');
   const status = section.querySelector('[data-video-status]');

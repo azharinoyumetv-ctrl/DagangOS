@@ -5,16 +5,23 @@ import {resolve,sep,extname} from 'node:path';
 import {Readable} from 'node:stream';
 import worker from '../src/index.js';
 const root=resolve(import.meta.dirname,'../public');
-const appPublic=resolve(import.meta.dirname,'../GerainaOS/frontend/public');
+const dapuros = process.argv.includes('--dapuros');
+const port = dapuros ? 8795 : 8794;
+const origin = `http://127.0.0.1:${port}`;
+const appPublic = {
+ geraina: resolve(import.meta.dirname, '../GerainaOS/frontend/public'),
+ dapuros: resolve(import.meta.dirname, '../DapurOS/frontend/public'),
+};
 const types={'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.webp':'image/webp','.ico':'image/x-icon','.svg':'image/svg+xml','.txt':'text/plain','.mp4':'video/mp4','.vtt':'text/vtt; charset=utf-8'};
 const env={ASSETS:{async fetch(request){
  const url=new URL(request.url),pathname=decodeURIComponent(url.pathname);
  const file=resolve(root,'.'+pathname);
  if(!file.startsWith(root+sep))return new Response('Not found',{status:404});
  let data;try{data=await readFile(file);}catch{
-  if(!pathname.startsWith('/geraina/assets/'))return new Response('Not found',{status:404});
-  const fallback=resolve(appPublic,'.'+pathname.slice('/geraina'.length));
-  if(!fallback.startsWith(appPublic+sep))return new Response('Not found',{status:404});
+  const product=pathname.match(/^\/(geraina|dapuros)\/assets\//)?.[1];
+  if(!product)return new Response('Not found',{status:404});
+  const fallback=resolve(appPublic[product],'.'+pathname.slice(product.length+1));
+  if(!fallback.startsWith(appPublic[product]+sep))return new Response('Not found',{status:404});
   try{data=await readFile(fallback);}catch{return new Response('Not found',{status:404});}
  }
  const headers={'Content-Type':types[extname(file)]||'application/octet-stream','Content-Length':String(data.length),'Cache-Control':'no-store'};
@@ -35,9 +42,10 @@ const env={ASSETS:{async fetch(request){
 const server=createServer(async(req,res)=>{
  try{
   if(req.url.startsWith('/api/')){res.writeHead(401,{'Content-Type':'application/json'});res.end('{"detail":"Local visual preview: account services disabled"}');return;}
-  const result=await worker.fetch(new Request('http://127.0.0.1:8794'+req.url,{method:req.method,headers:req.headers}),env,{});
+  const result=await worker.fetch(new Request(origin+req.url,{method:req.method,headers:req.headers}),env,{});
   res.writeHead(result.status,Object.fromEntries(result.headers));
   if(result.body)Readable.fromWeb(result.body).pipe(res);else res.end();
  }catch(error){console.error(error.message);res.writeHead(500);res.end('Local preview failed');}
 });
-server.listen(8794,'127.0.0.1',()=>console.log('Geraina showcase review: http://127.0.0.1:8794/geraina#lihat-geraina'));
+const page = dapuros ? '/dapuros#galeri-dapuros' : '/geraina#lihat-geraina';
+server.listen(port,'127.0.0.1',()=>console.log(`Local showcase review: ${origin}${page}`));
