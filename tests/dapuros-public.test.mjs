@@ -68,8 +68,8 @@ test('DapurOS pricing retains the three paid purchase forms and billing controls
   assert.equal((body.match(/class="plan-purchase" method="post" action="\/dapuros\/checkout"/g)||[]).length,3);
   assert.match(body,/aria-label="Periode langganan"/);
   for(const tier of ['starter','pro','business'])assert.match(body,new RegExp('id="plan-'+tier+'"'));
-  assert.match(body.match(/<article[^>]*id="plan-business"[\s\S]*?<\/article>/)[0],/Reservasi meja atas nama pelanggan/);
-  for(const tier of ['starter','pro'])assert.doesNotMatch(body.match(new RegExp('<article[^>]*id="plan-'+tier+'"[\\s\\S]*?<\\/article>'))[0],/Reservasi meja atas nama pelanggan/);
+  assert.match(body.match(/<article[^>]*id="plan-business"[\s\S]*?<\/article>/)[0],/Kalender reservasi meja dengan tanggal, jam, dan nama pelanggan/);
+  for(const tier of ['starter','pro'])assert.doesNotMatch(body.match(new RegExp('<article[^>]*id="plan-'+tier+'"[\\s\\S]*?<\\/article>'))[0],/reservasi meja/i);
   assert.doesNotMatch(body,/<h2>Free Trial<\/h2>|>Mulai Trial<\/a>/);
   assert.match(body,/class="dapuros dapuros-purchase"/);
   assert.match(body,/\/subscription-pricing\.js/);
