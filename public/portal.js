@@ -4,7 +4,7 @@ const products = [
   { name: "LaundryOS", desc: "Operasional laundry dan dry cleaning.", icon: "laundryos-icon.png", color: "#2b9bf0", status: "coming-soon" },
   { name: "AutoCareOS", desc: "Sistem workshop dan autocare.", icon: "autocareos-icon.png", color: "#176fe8", status: "coming-soon" },
   { name: "SalonOS", desc: "Operasional salon dan layanan.", icon: "salonos-icon.png", color: "#e14ab4", status: "coming-soon" },
-  { name: "DagangOS Web", desc: "Kehadiran digital untuk bisnis.", href: "/produk#dagangos-web", icon: "dagangosweb-icon.png", color: "#7257ef", status: "available" },
+  { name: "DagangOS Web", desc: "Kehadiran digital untuk bisnis.", href: "https://wmp.dagangos.com/id", icon: "dagangosweb-icon.png", color: "#7257ef", status: "available" },
 ];
 
 const route = location.pathname.replace(/^\/|\/$/g, "") || "home";

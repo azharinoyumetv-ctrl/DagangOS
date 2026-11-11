@@ -26,7 +26,7 @@ const portalDocuments = {
   '/produk': {
     title: 'Produk — DagangOS',
     description: 'Produk DagangOS untuk retail, restoran, dan kehadiran digital bisnis.',
-    content: '<span class="eyebrow">Produk DagangOS</span><h1>Sistem yang punya peran.</h1><p><a href="/geraina">Geraina POS</a> untuk retail, <a href="/dapuros">DapurOS</a> untuk restoran dan F&amp;B, serta <a href="https://wmp.dagangos.com/">DagangOS Web</a> untuk website dan kehadiran digital.</p><p>LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan.</p>',
+    content: '<span class="eyebrow">Produk DagangOS</span><h1>Sistem yang punya peran.</h1><p><a href="/geraina">Geraina POS</a> untuk retail, <a href="/dapuros">DapurOS</a> untuk restoran dan F&amp;B, serta <a href="https://wmp.dagangos.com/id">DagangOS Web</a> untuk website dan kehadiran digital.</p><p>LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan.</p>',
   },
   '/solusi': {
     title: 'Solusi — DagangOS',
@@ -176,7 +176,7 @@ export default {
               'You are the public support assistant for the DagangOS parent ecosystem.',
               'Confirmed currently available products are Geraina POS for retail, DapurOS for restaurants and F&B, and DagangOS Web for business websites and digital presence.',
               'LaundryOS, AutoCareOS, and SalonOS are coming soon; never present them as available.',
-              'When a question concerns one product, answer briefly and include its relevant link: https://dagangos.com/geraina, https://dagangos.com/dapuros, or https://dagangos.com/produk#dagangos-web.',
+              'When a question concerns one product, answer briefly and include its relevant link: https://dagangos.com/geraina, https://dagangos.com/dapuros, or https://wmp.dagangos.com/id.',
             ].join(' '),
           },
         };
@@ -293,7 +293,7 @@ export default {
           } else if (/(restoran|kafe|cafe|warung|f&b|kds|dapur)/i.test(message)) {
             localReply = `Untuk restoran dan F&B, produk yang sesuai adalah DapurOS. Pelajari di ${officialLinks.dapuros.home} dan lihat paket di ${officialLinks.dapuros.pricing}`;
           } else if (/(website|situs|web|kehadiran digital|online)/i.test(message)) {
-            localReply = `Untuk website dan kehadiran digital bisnis, lihat DagangOS Web di https://dagangos.com/produk#dagangos-web`;
+            localReply = 'Untuk website dan kehadiran digital bisnis, lihat DagangOS Web di https://wmp.dagangos.com/id';
           } else if (/(laundryos|laundry|autocareos|autocare|workshop|salonos|salon)/i.test(message)) {
             localReply = `LaundryOS, AutoCareOS, dan SalonOS masih berstatus segera hadir. Status produk terbaru tersedia di ${officialLinks.dagangos.products}`;
           } else if (/(produk|solusi|pilih|cocok|tersedia|ekosistem)/i.test(message)) {
