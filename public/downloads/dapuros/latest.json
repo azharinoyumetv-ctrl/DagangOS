@@ -1,16 +1,16 @@
 {
-  "version": "1.0.10",
-  "versionCode": 12,
+  "version": "1.0.11",
+  "versionCode": 13,
   "applicationId": "com.dagangos.dapuros",
-  "downloadUrl": "/downloads/dapuros/DapurOS-POS-1.0.10.apk",
-  "bytes": 19257457,
-  "sha256": "feeaadc6c525e4c4a591dab439881540f3345bf2a4eeb48f34c9a51c3688dc75",
+  "downloadUrl": "/downloads/dapuros/DapurOS-POS-1.0.11.apk",
+  "bytes": 19258345,
+  "sha256": "328537f940d8eb5fe469911b846a53b41c7f22b85ddf67ed08cb04c9052ab433",
   "minimumAndroid": "14.0",
   "minimumSdk": 34,
   "supportedAbis": [
     "arm64-v8a",
     "x86_64"
   ],
-  "verifiedAt": "2026-11-11T15:13:45.480Z",
+  "verifiedAt": "2026-11-12T02:24:49.683Z",
   "signingCertificateSha256": "fced7b77d88c3477bd991d97e4a224567e775a633c2e16a280ad03991f2c914a"
 }
