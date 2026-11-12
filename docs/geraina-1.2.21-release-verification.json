@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 17,
+  "status": "passed",
+  "publicationAuthorized": true,
+  "version": "1.2.21",
+  "versionCode": 26,
+  "applicationId": "com.dagangos.geraina",
+  "minimumSdk": 34,
+  "supportedAbis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "verifiedAt": "2026-11-12T02:50:01.141383+00:00",
+  "apkSha256": "a6e9b2274adee61b9b59e94b52caa01f36134136998c9dc03418ef196286c0f1",
+  "browser": {
+    "brandCasesPassed": 6,
+    "scope": "signed APK bundled frontend with isolated API and MongoDB"
+  },
+  "package": {
+    "releaseBuild": "passed",
+    "signatureVerified": true,
+    "privateCredentialScan": "passed",
+    "distributionManifestAndCode": "passed",
+    "alignment": "passed",
+    "signerSha256": "52e14a39a7da4f5f528838f33602860e35960373070a6132d08f682487494ec8"
+  },
+  "android": {
+    "status": "passed",
+    "verifiedAt": "2026-11-12T02:49:11.219Z",
+    "version": "1.2.21",
+    "versionCode": 26,
+    "apkSha256": "a6e9b2274adee61b9b59e94b52caa01f36134136998c9dc03418ef196286c0f1",
+    "installedApkSha256": "a6e9b2274adee61b9b59e94b52caa01f36134136998c9dc03418ef196286c0f1",
+    "upgrade": {
+      "fromVersion": "1.2.20",
+      "status": "passed",
+      "tokenRetained": true,
+      "preferenceRetained": true
+    },
+    "profiles": [
+      {
+        "name": "phone",
+        "size": "1080x2400",
+        "density": "420",
+        "status": "passed",
+        "apkSha256": "a6e9b2274adee61b9b59e94b52caa01f36134136998c9dc03418ef196286c0f1"
+      },
+      {
+        "name": "large-tablet-window",
+        "size": "2960x1848",
+        "density": "240",
+        "status": "passed",
+        "apkSha256": "a6e9b2274adee61b9b59e94b52caa01f36134136998c9dc03418ef196286c0f1"
+      }
+    ],
+    "runtimeErrors": [],
+    "productionRequests": 0,
+    "productionWrites": 0,
+    "scope": "Signed APK installed on a separate Android emulator, with Playwright selecting brands in the real WebView and real isolated API/MongoDB. No production writes or physical-device test."
+  }
+}
