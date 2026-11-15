@@ -6,7 +6,7 @@ Affiliates have one code and one dashboard at `https://dagangos.com/affiliate-pr
 | --- | --- |
 | Geraina POS | Referral link, first-purchase discount, and one-time pending commission on verified settlement |
 | DapurOS | Same checkout contract with its own catalog prices and existing product entitlements |
-| DagangOS Web | Referral link and source reference on new project orders. The current catalog sells one-time projects and has no monthly list price for calculating a commission. |
+| DagangOS Web | Referral link and source reference on new project orders. The owner approved a commission of 10% of the first project price; first-purchase verification, settlement, and commission recording are not implemented yet. |
 | LaundryOS, AutoCareOS, SalonOS | Listed as upcoming. Enable referral links when their product destinations launch. |
 
 A qualifying checkout applies 10% off the selected monthly or annual price. The annual price already incorporates the product's annual offer. The commission is 10% of the matching plan's frozen **monthly** list price. Geraina Starter annual therefore charges Rp1,341,000 and records Rp14,900 after settlement. Trials, add-ons, subsequent purchases, renewals, plan changes and migrations earn zero commission. The subscription services retain their existing trial and billing behavior.
@@ -50,7 +50,7 @@ Review `requested` acquisitions whose Xendit invoice creation returned an uncert
 
 DagangOS Web stores the opaque visit ID as `affiliateVisitId` in the project order notes. During review, match it to a valid `affiliate_visits` row with `product_id = 'web'` and check the visit timestamp. The order note records a lead source and does not authorize a discount or commission.
 
-The approved payout policy is a minimum balance of Rp149,000, monthly on the 25th, and a 30-day wait after customer payment. It is recorded in `affiliate_payout_policy` and can be revised. This is policy data and disclosure only: payout eligibility, payment scheduling and execution, payout identity, partial refunds and disputes are not implemented. These gaps must be resolved before a financial launch. The pilot does not apply the PRD's proposed voluntary cancellation or refund formula.
+The approved payout policy is a minimum balance of Rp149,000, monthly on the 25th, and a 30-day wait after customer payment. It is recorded in `affiliate_payout_policy` and can be revised. The owner selected automatic bank transfers through Xendit after human review; affiliate-facing copy should remain DagangOS-branded. This is policy data and disclosure only: payout eligibility, approval, bank-account collection, payment scheduling and execution, payout identity, partial refunds and disputes are not implemented. A production credential available during development returned `REQUEST_FORBIDDEN_ERROR` for the money-out API; the deployment credential's own permissions remain unverified. These gaps must be resolved before a financial launch. The pilot does not apply the PRD's proposed voluntary cancellation or refund formula.
 
 ## Add a product
 
