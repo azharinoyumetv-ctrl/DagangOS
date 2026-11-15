@@ -6,7 +6,7 @@
     "BACKEND_ORIGIN": "dapuros.vercel.app",
     "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app",
     "XENDIT_ENVIRONMENT": "production",
-    "AFFILIATE_CHECKOUT": "off"
+    "AFFILIATE_CHECKOUT": "on"
   },
   "d1_databases": [
     {
