@@ -236,7 +236,7 @@ body{color:var(--ink);background:#050a14}
 /* Shared contact and legal pages */
 .site-footer{grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);align-items:start;gap:32px;padding-top:42px}
 .footer-links{display:grid;grid-template-columns:1fr 1.3fr;gap:24px}
-.site-footer .footer-links nav{align-items:flex-start;flex-direction:column;gap:12px;font-size:12px;line-height:1.6}
+.site-footer .footer-links nav{align-items:flex-start;justify-content:flex-start;flex-direction:column;gap:12px;font-size:12px;line-height:1.6}
 .footer-heading{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
 .footer-contact{display:flex;flex-direction:column;gap:12px;font-size:12px;line-height:1.7;font-style:normal;overflow-wrap:anywhere}
 .footer-contact span{color:var(--muted)}
