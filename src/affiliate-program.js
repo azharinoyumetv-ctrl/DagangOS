@@ -341,6 +341,12 @@ async function registerAffiliate(db, request, env, url) {
 }
 
 async function verifyAffiliate(db, request, url, token) {
+  if (!token && request.method === 'POST') {
+    if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+    const raw = await request.text();
+    if (raw.length > 256) return page('Permintaan tidak valid', '', 413);
+    token = new URLSearchParams(raw).get('token');
+  }
   if (!accessPattern.test(token || '')) return page('Tautan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 404);
   const tokenHash = await hash(token);
   const now = Date.now();
@@ -348,9 +354,9 @@ async function verifyAffiliate(db, request, url, token) {
     const pending = await statement(db, `SELECT token_hash FROM affiliate_verification_requests
       WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?`, tokenHash, now).first();
     const response = pending ? page('Verifikasi email', `<p>Klik untuk menyelesaikan verifikasi email Anda.</p>
-      <form method="post" action="${affiliateRoot}/verify/${token}"><button type="submit">Verifikasi email</button></form>`)
+      <form method="post" action="${affiliateRoot}/verify"><input type="hidden" name="token" value="${token}"><button type="submit">Verifikasi email</button></form>`)
       : page('Tautan kedaluwarsa', `<p>Minta tautan baru di halaman afiliasi.</p><a href="${affiliateRoot}">Kembali</a>`, 410);
-    response.headers.set('Referrer-Policy', 'no-referrer');
+    response.headers.set('Referrer-Policy', 'origin');
     return response;
   }
   if (request.method !== 'POST') return page('Metode tidak didukung', '', 405);
@@ -451,7 +457,7 @@ async function affiliateRequest(request, env, url, path, admin) {
   if (admin) return operatorApi(request, env, path);
   const db = env.AFFILIATE_DB;
   if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
-  if (path.startsWith(`${affiliateRoot}/verify/`)) return verifyAffiliate(db, request, url, path.slice(`${affiliateRoot}/verify/`.length));
+  if (path === `${affiliateRoot}/verify` || path.startsWith(`${affiliateRoot}/verify/`)) return verifyAffiliate(db, request, url, path.slice(`${affiliateRoot}/verify/`.length));
   if (path === `${affiliateRoot}/login` || path === `${affiliateRoot}/logout`) {
     if (request.method !== 'POST') return redirect(affiliateRoot);
     if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 403);
