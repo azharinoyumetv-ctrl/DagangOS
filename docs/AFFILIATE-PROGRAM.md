@@ -52,6 +52,8 @@ DagangOS Web stores the opaque visit ID as `affiliateVisitId` in the project ord
 
 The approved payout policy is a minimum balance of Rp149,000, monthly on the 25th, and a 30-day wait after customer payment. It is recorded in `affiliate_payout_policy` and can be revised. The owner selected automatic bank transfers through Xendit after human review; affiliate-facing copy should remain DagangOS-branded. This is policy data and disclosure only: payout eligibility, approval, bank-account collection, payment scheduling and execution, payout identity, partial refunds and disputes are not implemented. A production credential available during development returned `REQUEST_FORBIDDEN_ERROR` for the money-out API; the deployment credential's own permissions remain unverified. These gaps must be resolved before a financial launch. The pilot does not apply the PRD's proposed voluntary cancellation or refund formula.
 
+`src/affiliate-payout-policy.js` contains tested calculation primitives for matured commissions, reversals, outstanding payouts, the approved minimum, and the 25th in Western Indonesia Time (WIB). `src/affiliate-payout-provider.js` contains a sandbox-tested provider adapter with idempotent requests. Neither module is wired into live payout processing: the finance ledger, review/approval, safe destination storage, scheduled execution and reconciliation must be integrated and tested first.
+
 ## Add a product
 
 Insert a row into `affiliate_products` with a unique lowercase slug, display name, product destination, and program mode. The dashboard and referral router pick up the row automatically.
