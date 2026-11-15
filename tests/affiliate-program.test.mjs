@@ -11,7 +11,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -92,6 +92,10 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.equal(landing.headers.get('Referrer-Policy'), 'same-origin');
   const publicPage = await landing.text();
   assert.match(publicPage, /Kode akses dasbor/);
+  assert.match(publicPage, /Rp 149\.000/);
+  assert.match(publicPage, /tanggal 25/);
+  assert.match(publicPage, /masa tunggu 30 hari/);
+  assert.match(publicPage, /belum berjalan otomatis/);
   const login = await fetch('/affiliate-program/login', { method: 'POST', headers: { Origin: origin }, body: new URLSearchParams({ access: accessCode }).toString() });
   assert.equal(login.status, 303);
   assert.equal(login.headers.get('Location'), '/affiliate-program');

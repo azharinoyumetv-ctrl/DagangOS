@@ -241,12 +241,16 @@ async function affiliateHome(db, request, status = 200) {
   const token = cookieValue(request, sessionCookie);
   const account = accessPattern.test(token || '') && await statement(db,
     'SELECT id, code, name FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first();
+  const payoutPolicy = await db.prepare('SELECT minimum_idr, payout_day, wait_days FROM affiliate_payout_policy WHERE id = 1').first();
+  const payoutInfo = payoutPolicy ? `<p>Ketentuan pembayaran komisi: saldo minimum ${rupiah(payoutPolicy.minimum_idr)},
+    pembayaran bulanan setiap tanggal ${payoutPolicy.payout_day}, dan masa tunggu ${payoutPolicy.wait_days} hari sejak pembayaran pelanggan.
+    Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.</p>` : '';
   if (!account) {
     return page('Program Afiliasi DagangOS', `<p>Satu akun afiliasi untuk membagikan produk DagangOS dan melihat hasil rujukan Anda.</p>
       <form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label>
       <input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required>
       <button type="submit">Masuk ke dasbor</button></form>
-      <p>Untuk bergabung, hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a>.</p>`, status);
+      <p>Untuk bergabung, hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a>.</p>${payoutInfo}`, status);
   }
   const [products, visits, ledger] = await Promise.all([
     activeProducts(db),
@@ -269,7 +273,7 @@ async function affiliateHome(db, request, status = 200) {
   }).join('');
   return page('Dasbor Afiliasi', `<div class="account"><p>${escape(account.name)} · Kode afiliasi <strong>${account.code}</strong></p>
     <form method="post" action="${affiliateRoot}/logout"><button type="submit">Keluar</button></form></div>
-    <div class="products">${cards}</div>`);
+    ${payoutInfo}<div class="products">${cards}</div>`);
 }
 
 function productDestination(destination, origin) {
