@@ -13,11 +13,11 @@ const cart = { ...selection('geraina', 'starter', 'monthly'), provider: 'xendit'
 const boundCart = { ...cart, ownerId, storeId };
 const sign = value => signReceipt(value, env.SUBSCRIPTION_SIGNING_KEY);
 const post = (url, body) => new Request(`https://dagangos.com${url}`, { method: 'POST', body: JSON.stringify(body) });
-async function submit(override = {}, headers = {}, chosen = cart) {
+async function submit(override = {}, headers = {}, chosen = cart, bindings = env) {
   return checkout(new Request(`https://dagangos.com/${chosen.module}/checkout`, {
     method: 'POST', headers: { Origin: 'https://dagangos.com', 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
     body: new URLSearchParams({ cart: await sign(chosen), access_token: 'test.account.token-for-checkout-only', ...override }),
-  }), env);
+  }), bindings);
 }
 function mockCheckout(t, options = {}) {
   const calls = [], invoices = [];
@@ -78,6 +78,20 @@ test('anonymous buyers sign in with their selection preserved and no order creat
   assert.equal(location.pathname, '/geraina/login');
   assert.equal(location.searchParams.get('next'), '/geraina/pricing?period=monthly&plan=starter&checkout=1');
   assert.equal(globalThis.fetch.mock.callCount(), 0);
+});
+
+test('an affiliate database outage cannot interrupt regular checkout while referral discounts are off', async t => {
+  const { invoices } = mockCheckout(t);
+  const bindings = { ...env, AFFILIATE_CHECKOUT: 'off', AFFILIATE_DB: {
+    prepare() { assert.fail('Regular checkout must not use the affiliate database'); },
+  } };
+  const response = await submit({}, {}, cart, bindings);
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get('Location'), paymentUrl);
+  assert.equal(invoices[0].amount, cart.amount);
+  const staleOffer = await submit({ confirm_referral: 'stale.signed-offer' });
+  assert.equal(staleOffer.status, 409);
+  assert.equal(invoices.length, 1);
 });
 
 test('changing an active Geraina term requires an explicit full-price confirmation before any invoice', async t => {

@@ -1,4 +1,5 @@
 import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscription-checkout.js';
+import { handleAffiliate } from './affiliate-program.js';
 import { portalInformationDocuments } from './portal-information.js';
 import { gerainaCanonicalPath, renderGerainaPublic, injectGerainaWebBoundary } from './geraina-public.js';
 import { dapurosCanonicalPath, renderDapurosPublic, injectDapurosWebBoundary } from './dapuros-public.js';
@@ -118,10 +119,10 @@ export default {
         return Response.redirect(url.toString(), 308);
       }
 
-      const subscriptionResponse = await handleSubscriptionCheckout(request, env);
-      if (subscriptionResponse) return request.method === 'HEAD'
-        ? new Response(null, { status: subscriptionResponse.status, headers: subscriptionResponse.headers })
-        : subscriptionResponse;
+      const serviceResponse = await handleAffiliate(request, env) || await handleSubscriptionCheckout(request, env);
+      if (serviceResponse) return request.method === 'HEAD'
+        ? new Response(null, { status: serviceResponse.status, headers: serviceResponse.headers })
+        : serviceResponse;
 
       // CORS: batasi ke origin dagangos.com (+ localhost dev); selain itu fallback domain utama.
       const reqOrigin = request.headers.get('Origin') || '';

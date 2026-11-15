@@ -1,10 +1,9 @@
 import { createPaymentLink, findInvoice, verifiedInvoiceStatus, equalToken, invoiceUrl } from './xendit-payments.js';
+import { acquisitionQuote, checkoutPolicy, claimAcquisitionInvoice, findAcquisition, observeAcquisition, reserveAcquisition, tenPercent } from './affiliate-program.js';
+import { CATALOG, subscriptionBackendHost } from './subscription-products.js';
 // Subscription orders belong to a verified account and product store. Product backends
 // grant access only after checking payment truth with this central payment service.
-export const CATALOG = {
-  geraina: { name: 'Geraina POS', prices: { starter: [149000, 1490000], pro: [349000, 3490000], business: [549000, 5490000] } },
-  dapuros: { name: 'DapurOS', prices: { starter: [249000, 2490000], pro: [499000, 4990000], business: [749000, 7490000] } },
-};
+export { CATALOG };
 export const ADDONS = {
   extra_device: { name: 'Device kasir tambahan', tier: 'pro', amount: 49000 },
   extra_outlet: { name: 'Outlet tambahan', tier: 'business', amount: 149000 },
@@ -29,13 +28,17 @@ const securityHeaders = {
 function page(module, title, body, status = 200, refresh = false) {
   const product = CATALOG[module];
   const feedback = Object.hasOwn(CATALOG, module) ? '<link rel="stylesheet" href="/subscription-feedback.css?v=20261027b"><script src="/subscription-feedback.js?v=20261027b" defer></script>' : '';
-  return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="10">' : ''}<title>${escape(title)} — ${product.name}</title><link rel="icon" href="/assets/brand/${module}-icon.png"><link rel="stylesheet" href="/product-public.css?v=theme-20261024"><link rel="stylesheet" href="/subscription-checkout.css?v=theme-20261024">${feedback}</head><body class="checkout ${module}"><header class="topbar"><div class="shell topbar__inner"><a class="brand" href="/${module}"><img src="/assets/brand/${module}-icon.png" alt="">${product.name}</a><nav class="nav"><a href="/${module}/pricing">Kembali ke paket</a></nav></div></header><main class="checkout-shell"><p class="eyebrow">LANGGANAN DAGANGOS</p><h1>${escape(title)}</h1>${body}</main><footer class="footer"><div class="shell footer__inner"><span>PT DagangOS Digital Indonesia</span><a href="mailto:contact@dagangos.com">contact@dagangos.com</a></div></footer></body></html>`, { status, headers: securityHeaders });
+  return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="10">' : ''}<title>${escape(title)} — ${product.name}</title><link rel="icon" href="/assets/brand/${module}-icon.png"><link rel="stylesheet" href="/product-public.css?v=theme-20261024"><link rel="stylesheet" href="/subscription-checkout.css?v=referral-20261115">${feedback}</head><body class="checkout ${module}"><header class="topbar"><div class="shell topbar__inner"><a class="brand" href="/${module}"><img src="/assets/brand/${module}-icon.png" alt="">${product.name}</a><nav class="nav"><a href="/${module}/pricing">Kembali ke paket</a></nav></div></header><main class="checkout-shell"><p class="eyebrow">LANGGANAN DAGANGOS</p><h1>${escape(title)}</h1>${body}</main><footer class="footer"><div class="shell footer__inner"><span>PT DagangOS Digital Indonesia</span><a href="mailto:contact@dagangos.com">contact@dagangos.com</a></div></footer></body></html>`, { status, headers: securityHeaders });
 }
 export function selection(module, tier, period) {
   if (!Object.hasOwn(CATALOG, module)) return null;
   const product = CATALOG[module];
   if (!Object.hasOwn(product.prices, tier) || !['monthly', 'yearly'].includes(period)) return null;
   return { module, tier, period, amount: product.prices[tier][period === 'yearly' ? 1 : 0] };
+}
+function isSubscriptionOrderId(orderId, module) {
+  const product = typeof orderId === 'string' && /^DG-([a-z0-9-]+)-[a-f0-9]{32}$/.exec(orderId)?.[1];
+  return Boolean(product && Object.hasOwn(CATALOG, product) && (module === undefined || module === product));
 }
 export async function renderSubscriptionPricing(html, module, request, env) {
   const period = new URL(request.url).searchParams.get('period') === 'yearly' ? 'yearly' : 'monthly';
@@ -75,7 +78,8 @@ export async function renderSubscriptionPricing(html, module, request, env) {
 }
 function summary(cart) {
   if (cart.kind === 'addon') return `<dl class="order-details"><dt>Add-on</dt><dd>${escape(ADDONS[cart.addonId].name)}</dd><dt>Paket yang diperlukan</dt><dd>${label(cart.tier)}</dd><dt>Periode</dt><dd>1 bulan${cart.renewalId ? ' perpanjangan' : ''}</dd><dt>Total pembayaran</dt><dd class="order-total">${money(cart.amount)}</dd></dl><p class="muted">Satu pembayaran, tanpa penagihan otomatis. Add-on hanya dapat digunakan selama paket ${label(cart.tier)} aktif. Pembelian baru berlaku satu bulan sejak pembayaran terverifikasi; perpanjangan menambah satu bulan setelah masa aktif add-on yang sudah dibayar.</p>`;
-  return `<dl class="order-details"><dt>Produk</dt><dd>${CATALOG[cart.module].name}</dd><dt>Paket</dt><dd>${label(cart.tier)}</dd><dt>Periode</dt><dd>${cart.period === 'yearly' ? '12 bulan' : '1 bulan'}</dd><dt>Total pembayaran</dt><dd class="order-total">${money(cart.amount)}</dd></dl><p class="muted">Satu pembayaran untuk periode yang dipilih. Tidak ada penagihan otomatis. Add-on tidak termasuk dalam pesanan ini.</p>`;
+  const discount = cart.baseAmount > cart.amount ? `<dt>Harga paket</dt><dd>${money(cart.baseAmount)}</dd><dt>Diskon rujukan pertama (10%)</dt><dd>−${money(cart.baseAmount - cart.amount)}</dd>` : '';
+  return `<dl class="order-details"><dt>Produk</dt><dd>${CATALOG[cart.module].name}</dd><dt>Paket</dt><dd>${label(cart.tier)}</dd><dt>Periode</dt><dd>${cart.period === 'yearly' ? '12 bulan' : '1 bulan'}</dd>${discount}<dt>Total pembayaran</dt><dd class="order-total">${money(cart.amount)}</dd></dl><p class="muted">Satu pembayaran untuk periode yang dipilih. Tidak ada penagihan otomatis. Add-on tidak termasuk dalam pesanan ini.</p>`;
 }
 async function signingKey(secret) {
   return crypto.subtle.importKey('raw', encoder.encode(`dagangos-subscription-receipt-v1:${secret}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
@@ -97,15 +101,21 @@ export async function readReceipt(token, secret) {
     const data = JSON.parse(new TextDecoder().decode(unbase64(payload)));
     if (data.kind !== undefined && data.kind !== 'addon') return null;
     const cart = data.kind === 'addon' ? addonSelection(data.module, data.addonId, data.period) : selection(data.module, data.tier, data.period);
-    if (!cart || data.amount !== cart.amount || !/^DG-(geraina|dapuros)-[a-f0-9]{32}$/.test(data.orderId) || !data.orderId.startsWith(`DG-${data.module}-`)) return null;
-    if (data.kind === 'addon' && (data.tier !== cart.tier || data.renewalId !== undefined && !/^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(data.renewalId))) return null;
+    if (!isSubscriptionOrderId(data.orderId, data.module)) return null;
+    if (data.kind === 'addon' && (!cart || data.tier !== cart.tier || data.renewalId !== undefined && !/^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(data.renewalId))) return null;
     if ((data.ownerId !== undefined || data.storeId !== undefined) && ![data.ownerId, data.storeId].every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id))) return null;
+    if (data.acquisition === true) {
+      // A bound receipt represents a frozen invoice, even if the catalog changes.
+      if (data.kind || !data.ownerId || !/^[a-z0-9-]+$/.test(data.tier) || !['monthly', 'yearly'].includes(data.period)
+        || !Number.isSafeInteger(data.baseAmount) || data.baseAmount <= 0
+        || ![data.baseAmount, data.baseAmount - tenPercent(data.baseAmount)].includes(data.amount)) return null;
+    } else if (!cart || data.amount !== cart.amount || data.acquisition !== undefined || data.baseAmount !== undefined) return null;
     return data;
   } catch { return null; }
 }
 export const verifiedStatus = verifiedInvoiceStatus;
 async function backend(module, env, path, { token, body } = {}) {
-  const host = module === 'geraina' ? (env.GERAINA_BACKEND_ORIGIN || 'geraina-os.vercel.app') : (env.BACKEND_ORIGIN || 'dapuros.vercel.app');
+  const host = subscriptionBackendHost(env, module);
   const response = await fetch(`https://${host}/api/subscriptions${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: { 'Content-Type': 'application/json', 'X-DagangOS-Module': module, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -115,16 +125,28 @@ async function backend(module, env, path, { token, body } = {}) {
   return { response, data };
 }
 async function paymentStatus(cart, env) {
-  let invoice = null, status = 'unverified';
+  let invoice = null, status = 'unverified', paidAt = null;
   try {
     invoice = await findInvoice(env, cart.orderId);
     status = verifiedInvoiceStatus(invoice, cart);
+    if (status === 'paid') paidAt = new Date(invoice.paid_at).toISOString();
   } catch { /* An outage or ambiguous invoice never grants access. */ }
+  if (cart.acquisition && invoice && status !== 'unverified') {
+    const acquisition = env.AFFILIATE_DB && await findAcquisition(env.AFFILIATE_DB, cart.orderId);
+    if (!acquisition || acquisition.charged_amount !== cart.amount || acquisition.list_amount !== cart.baseAmount
+      || acquisition.owner_id !== cart.ownerId || acquisition.store_id !== cart.storeId || acquisition.product_id !== cart.module
+      || acquisition.tier !== cart.tier || acquisition.period !== cart.period) {
+      status = 'unverified';
+    } else {
+      ({ status, paidAt } = await observeAcquisition(env.AFFILIATE_DB, acquisition, invoice));
+    }
+  }
   return {
     orderId: cart.orderId, module: cart.module, tier: cart.tier, period: cart.period, amount: cart.amount,
     ownerId: cart.ownerId, storeId: cart.storeId, status,
-    paidAt: status === 'paid' ? new Date(invoice.paid_at).toISOString() : null,
+    paidAt: status === 'paid' ? paidAt : null,
     paymentUrl: status === 'pending' && invoice ? invoiceUrl(invoice.invoice_url) : null,
+    ...(cart.acquisition ? { acquisition: true, baseAmount: cart.baseAmount } : {}),
     ...(cart.kind === 'addon' ? {kind: 'addon', addonId: cart.addonId, renewalId: cart.renewalId || null} : {}),
   };
 }
@@ -133,6 +155,79 @@ function signIn(module, cart, destination = 'login') {
   const next = cart.kind === 'addon' ? `/${module}/pricing?period=monthly&addon=${cart.addonId}&checkout=1${cart.renewalId ? `&renewal=${encodeURIComponent(cart.renewalId)}` : ''}` : `/${module}/pricing?period=${cart.period}&plan=${cart.tier}&checkout=1`;
   return new Response(null, { status: 303, headers: { Location: `/${module}/${destination}?next=${encodeURIComponent(next)}`, 'Cache-Control': 'no-store' } });
 }
+const orderLocation = (cart, receipt) => `/${cart.module}/order?receipt=${encodeURIComponent(receipt)}`;
+const orderRedirect = (cart, receipt) => new Response(null, { status: 303, headers: {
+  Location: orderLocation(cart, receipt), 'Cache-Control': 'no-store',
+} });
+function pendingAcquisition(module, pending) {
+  const resume = pending?.receipt && Object.hasOwn(CATALOG, pending.module)
+    ? `<a class="button" href="${orderLocation(pending, pending.receipt)}">Periksa pesanan sebelumnya</a>` : '';
+  return page(module, 'Pesanan pertama sedang diproses', `<p>Periksa status pesanan sebelumnya sebelum membuat pembayaran baru.</p>${resume}<a class="button button--quiet" href="/${module}/app/settings/billing">Kembali ke langganan</a>`, 409);
+}
+
+function reviewAcquisition(cart, form, accessToken, { confirmation, code, error, canEnterCode }) {
+  const module = cart.module;
+  const fields = `<input type="hidden" name="cart" value="${escape(form.get('cart'))}">
+    <input type="hidden" name="access_token" value="${escape(accessToken)}">`;
+  const applied = code ? `<p role="status">Kode afiliasi <strong>${escape(code)}</strong> diterapkan.</p>` : '';
+  const notice = error ? `<p class="notice" role="alert">${escape(error)}</p>` : '';
+  const entry = canEnterCode ? `<details class="referral-entry"${error ? ' open' : ''}>
+    <summary>Punya kode afiliasi?</summary>
+    <form method="post" action="/${module}/checkout">${fields}
+      <label for="affiliate-code">Kode afiliasi</label>
+      <input id="affiliate-code" name="affiliate_code" type="text" maxlength="24" autocomplete="off" autocapitalize="characters" required>
+      <button class="button button--quiet" type="submit">Terapkan</button>
+    </form></details>` : '';
+  const intent = confirmation
+    ? `<input type="hidden" name="confirm_referral" value="${escape(confirmation)}">`
+    : '<input type="hidden" name="proceed_without_referral" value="yes">';
+  return page(module, code ? 'Konfirmasi diskon rujukan' : 'Tinjau pembelian paket', `<section class="card">
+    ${summary(cart)}${applied}${notice}${entry}
+    <form method="post" action="/${module}/checkout" data-subscription-submit>
+    ${fields}${intent}<button class="button" type="submit">Lanjut ke pembayaran</button></form>
+    <a class="button button--quiet" href="/${module}/pricing">Kembali ke paket</a></section>`);
+}
+
+async function prepareAcquisition(request, env, { policy, cart, account, form, accessToken, secret }) {
+  const db = env.AFFILIATE_DB;
+  const { module } = cart;
+  const confirmed = form.get('confirm_referral');
+  const attemptedCode = form.has('affiliate_code');
+  const manualCode = form.get('affiliate_code')?.trim();
+  if (attemptedCode && (!policy?.conversion_days || account.affiliate_eligible !== true)) {
+    return { response: page(module, 'Kode afiliasi tidak tersedia', `<p>Diskon rujukan berlaku untuk pembelian pertama yang memenuhi syarat.</p><a href="/${module}/pricing">Kembali ke paket</a>`, 409) };
+  }
+  const acquisitionRequest = policy && account.affiliate_eligible === true
+    ? await acquisitionQuote(db, request, policy, { ...cart, monthlyAmount: CATALOG[module].prices[cart.tier][0] }, account, manualCode) : null;
+  if (acquisitionRequest?.kind === 'conflict') return { response: pendingAcquisition(module) };
+  if (attemptedCode && acquisitionRequest?.kind === 'ineligible') {
+    return { response: page(module, 'Kode afiliasi tidak tersedia', `<p>Pembelian yang memenuhi syarat sudah tercatat.</p><a href="/${module}/pricing">Kembali ke paket</a>`, 409) };
+  }
+  const acquisition = acquisitionRequest?.kind === 'ineligible' ? null : acquisitionRequest?.acquisition;
+  if (!acquisition && db && await findAcquisition(db, cart.orderId)) return { response: pendingAcquisition(module) };
+  const bound = { ...cart, ownerId: account.owner_id, storeId: account.store_id };
+  if (acquisition) Object.assign(bound, { acquisition: true, amount: acquisition.charged_amount, baseAmount: acquisition.list_amount });
+  if (acquisition?.affiliate_id && acquisitionRequest.kind === 'new') {
+    const confirmation = await signReceipt({ orderId: cart.orderId, ownerId: bound.ownerId, storeId: bound.storeId,
+      affiliateId: acquisition.affiliate_id, visitId: acquisition.visit_id, amount: bound.amount, version: acquisition.policy_version }, secret);
+    if (!equalToken(confirmation, confirmed)) {
+      return { response: reviewAcquisition(bound, form, accessToken, { confirmation, code: acquisitionRequest.code }) };
+    }
+  } else if (confirmed && !acquisition?.affiliate_id) {
+    return { response: page(module, 'Diskon rujukan tidak tersedia', `<p>Harga berubah. Buka kembali halaman paket untuk melihat harga terbaru.</p><a class="button" href="/${module}/pricing">Kembali ke paket</a>`, 409) };
+  } else if (policy?.conversion_days && acquisitionRequest?.kind === 'new'
+    && (attemptedCode || form.get('proceed_without_referral') !== 'yes')) {
+    return { response: reviewAcquisition(bound, form, accessToken, {
+      error: attemptedCode && !manualCode ? 'Masukkan kode afiliasi.' : acquisitionRequest.error,
+      canEnterCode: acquisitionRequest.canEnterCode,
+    }) };
+  }
+  if (acquisitionRequest?.kind === 'new' && !await reserveAcquisition(db, acquisition)) {
+    return { response: pendingAcquisition(module) };
+  }
+  return { bound };
+}
+
 async function paymentService(request, env, pathname) {
   if (!['/api/subscriptions/payment-status', '/api/subscriptions/webhook'].includes(pathname)) return null;
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -145,10 +240,14 @@ async function paymentService(request, env, pathname) {
   if (pathname.endsWith('/payment-status')) {
     const receipt = await readReceipt(data.receipt, receiptSecret(env));
     if (!receipt?.ownerId || !receipt.storeId) return json({ error: 'Invalid payment reference' }, 403);
-    return json(await paymentStatus(receipt, env));
+    try {
+      return json(await paymentStatus(receipt, env));
+    } catch {
+      return json({ error: 'Payment verification will be retried' }, 503);
+    }
   }
   if (!equalToken(request.headers.get('x-callback-token'), env.XENDIT_WEBHOOK_TOKEN)) return json({ error: 'Invalid notification token' }, 403);
-  const module = /^DG-(geraina|dapuros)-[a-f0-9]{32}$/.exec(data.external_id || '')?.[1];
+  const module = isSubscriptionOrderId(data.external_id) && data.external_id.slice(3, -33);
   if (!module && /^[a-f0-9-]{36}$/i.test(data.external_id || '')) {
     try {
       const response = await fetch('https://wmp.dagangos.com/api/webhooks/payments/xendit', {
@@ -170,15 +269,15 @@ export async function handleSubscriptionCheckout(request, env) {
   const url = new URL(request.url);
   const service = await paymentService(request, env, url.pathname);
   if (service) return service;
-  const match = url.pathname.match(/^\/(geraina|dapuros)\/(checkout|order)$/);
-  if (!match) return null;
+  const match = url.pathname.match(/^\/([a-z0-9-]+)\/(checkout|order)$/);
+  if (!match || !Object.hasOwn(CATALOG, match[1])) return null;
   const [, module, route] = match;
   if (!['GET', 'HEAD', 'POST'].includes(request.method) || (route === 'order' && request.method === 'POST')) return page(module, 'Metode tidak didukung', '<p>Silakan buka halaman checkout.</p>', 405);
   const secret = receiptSecret(env);
   if (route === 'order') {
     const receipt = secret && await readReceipt(url.searchParams.get('receipt'), secret);
     if (!receipt || receipt.module !== module) return page(module, 'Pesanan tidak ditemukan', '<p>Tautan pesanan tidak valid. Silakan gunakan tautan asli setelah checkout.</p>', 404);
-    let { status, paymentUrl: resumeUrl } = await paymentStatus(receipt, env);
+    let { status, paymentUrl: resumeUrl } = await paymentStatus(receipt, env).catch(() => ({ status: 'unverified' }));
     let activation = 'pending', expiresAt;
     if (receipt.ownerId && ['paid', 'failed', 'refunded'].includes(status)) {
       try {
@@ -226,10 +325,14 @@ export async function handleSubscriptionCheckout(request, env) {
     const accessToken = form.get('access_token') || request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
     if (!/^[a-zA-Z0-9_.-]{20,4096}$/.test(accessToken)) return signIn(module, cart);
     try {
-      const prepared = await backend(module, env, '/orders', { token: accessToken, body: { orderId: cart.orderId, tier: cart.tier, period: cart.period, ...(cart.kind === 'addon' ? {kind:'addon',addonId:cart.addonId,renewalId:cart.renewalId,confirmAddon:form.get('confirm_addon')==='yes'} : {}) } });
+      const policy = cart.kind !== 'addon' && await checkoutPolicy(env, module);
+      const prepared = await backend(module, env, '/orders', { token: accessToken, body: { orderId: cart.orderId, tier: cart.tier, period: cart.period,
+        ...(policy ? { affiliateCheck: policy.scope } : {}),
+        ...(cart.kind === 'addon' ? {kind:'addon',addonId:cart.addonId,renewalId:cart.renewalId,confirmAddon:form.get('confirm_addon')==='yes'} : {}) } });
       if (prepared.response.status === 401) return signIn(module, cart);
       if (prepared.response.status === 409 && prepared.data.detail === 'no_store_for_module') return signIn(module, cart, 'activate');
       if (prepared.response.status === 409 && prepared.data.detail?.code === 'subscription_active') return page(module, 'Paket Anda sudah aktif', `<p>Akun Anda sudah memiliki paket ${escape(label(cart.tier))} aktif. Tidak ada pembayaran baru yang dibuat.</p><a class="button" href="/${module}/app/dashboard">Buka aplikasi</a>`);
+      if (prepared.response.status === 409 && prepared.data.detail?.code === 'first_purchase_pending') return pendingAcquisition(module, prepared.data.detail);
       if (prepared.response.status === 403) return page(module, 'Akun pemilik diperlukan', '<p>Masuk dengan akun pemilik untuk membeli atau mengubah langganan.</p>', 403);
       if (cart.kind === 'addon' && prepared.response.status === 400) return page(module, 'Add-on belum dapat dibeli', `<p>${escape(typeof prepared.data.detail === 'string' ? prepared.data.detail : 'Periksa paket yang diperlukan.')}</p><a class="button" href="/${module}/app/settings/billing">Kembali ke langganan</a>`,400);
       if (cart.kind === 'addon' && prepared.response.status === 409) {
@@ -237,12 +340,18 @@ export async function handleSubscriptionCheckout(request, env) {
         return page(module, 'Periksa pesanan add-on', `<p>${escape(prepared.data.detail?.message || 'Pesanan sudah diproses atau berubah. Periksa pesanan sebelum membeli lagi.')}</p>${receipt ? `<a class="button" href="/${module}/order?receipt=${encodeURIComponent(receipt)}">Periksa atau lanjutkan pembayaran</a>` : ''}<a class="button button--quiet" href="/${module}/app/settings/billing">Kembali ke langganan</a>`);
       }
       if (!prepared.response.ok || prepared.data.amount !== cart.amount || prepared.data.order_id !== cart.orderId || ![prepared.data.owner_id, prepared.data.store_id].every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id))) return page(module, 'Pesanan belum dapat disiapkan', '<p>Pesanan belum dibuat dan tidak ada pembayaran yang ditarik. Silakan kembali ke halaman paket dan coba lagi.</p>', 502);
+      if (policy && (typeof prepared.data.affiliate_eligible !== 'boolean' || typeof prepared.data.email !== 'string')) return page(module, 'Pesanan belum dapat disiapkan', '<p>Status pembelian pertama belum dapat diperiksa.</p>', 502);
       if (cart.kind === 'addon' && (prepared.data.kind !== 'addon' || prepared.data.addonId !== cart.addonId || prepared.data.tier !== cart.tier || (prepared.data.renewalId || null) !== (cart.renewalId || null))) return page(module,'Pesanan tidak cocok','<p>Referensi add-on tidak cocok. Pembayaran belum dibuat.</p>',502);
       if (Object.hasOwn(CATALOG,module) && prepared.data.active_subscription && form.get('confirm_change') !== 'yes') {
         const active = prepared.data.active_subscription;
         return page(module, 'Konfirmasi perubahan paket', `<section class="card"><p>Paket ${escape(label(active.tier))} Anda masih berlaku hingga ${escape(new Date(active.expires_at).toLocaleDateString('id-ID'))}.</p>${summary(cart)}<p class="notice">Paket baru dikenakan harga penuh dan mulai berlaku setelah pembayaran terverifikasi. Paket ini menggantikan paket saat ini; sisa waktu paket lama tidak dikreditkan atau dikembalikan. Jika ingin memakai sisa masa aktif, kembali dan beli setelah paket berakhir.</p><form method="post" action="/${module}/checkout" data-subscription-submit><input type="hidden" name="cart" value="${escape(form.get('cart'))}"><input type="hidden" name="access_token" value="${escape(accessToken)}"><input type="hidden" name="confirm_change" value="yes"><button class="button" type="submit">Saya setuju, lanjut ke pembayaran</button></form><a class="button button--quiet" href="/${module}/app/settings/billing">Kembali tanpa membeli</a></section>`);
       }
-      const boundCart = { ...cart, ownerId: prepared.data.owner_id, storeId: prepared.data.store_id };
+      const affiliateIntent = cart.kind !== 'addon' && (policy || form.has('affiliate_code') || form.has('confirm_referral') || form.has('proceed_without_referral'));
+      const acquisition = affiliateIntent
+        ? await prepareAcquisition(request, env, { policy, cart, account: prepared.data, form, accessToken, secret })
+        : { bound: { ...cart, ownerId: prepared.data.owner_id, storeId: prepared.data.store_id } };
+      if (acquisition.response) return acquisition.response;
+      const boundCart = acquisition.bound;
       const receipt = await signReceipt(boundCart, secret);
       const attached = await backend(module, env, `/orders/${cart.orderId}/reference`, { token: accessToken, body: { receipt } });
       if (!attached.response.ok) return page(module, 'Pesanan belum dapat disiapkan', '<p>Referensi akun belum tersimpan. Pembayaran belum dimulai; silakan coba lagi dari halaman paket.</p>', 502);
@@ -250,8 +359,10 @@ export async function handleSubscriptionCheckout(request, env) {
         if (form.get('confirm_addon') !== 'yes') return page(module, 'Konfirmasi pembelian add-on', `<section class="card">${summary(cart)}${prepared.data.base_expires_at ? `<p class="notice">Paket utama berakhir pada ${escape(new Date(prepared.data.base_expires_at).toLocaleDateString('id-ID'))}. Paket utama perlu tetap aktif agar kapasitas add-on dapat digunakan.</p>` : ''}<form method="post" action="/${module}/checkout" data-subscription-submit><input type="hidden" name="cart" value="${escape(form.get('cart'))}"><input type="hidden" name="access_token" value="${escape(accessToken)}"><input type="hidden" name="confirm_addon" value="yes"><button class="button" type="submit">Setuju, bayar add-on</button></form><a class="button button--quiet" href="/${module}/app/settings/billing">Kembali tanpa membeli</a></section>`);
         const claim = await backend(module, env, `/orders/${cart.orderId}/invoice-claim`, {token:accessToken,body:{}});
         if (!claim.response.ok || !claim.data.claimed) return new Response(null,{status:303,headers:{Location:`/${module}/order?receipt=${encodeURIComponent(receipt)}`,'Cache-Control':'no-store'}});
+      } else if (boundCart.acquisition && !await claimAcquisitionInvoice(env.AFFILIATE_DB, cart.orderId)) {
+        return orderRedirect(boundCart, receipt);
       }
-      const paymentUrl = await createPaymentLink(env, boundCart, prepared.data.email, receipt);
+      const paymentUrl = await createPaymentLink(env, boundCart, prepared.data.email, receipt, CATALOG[module].name);
       return new Response(null, { status: 303, headers: { Location: paymentUrl, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
     } catch {
       return page(module, 'Koneksi pembayaran terputus', `<p>Status pembuatan pesanan belum dapat dipastikan. Hubungi contact@dagangos.com sebelum mencoba lagi.</p><p>Nomor pesanan: ${escape(cart.orderId)}</p><a class="button" href="/${module}/app/settings/billing">Periksa langganan dan pesanan</a>`, 502);

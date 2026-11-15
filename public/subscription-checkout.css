@@ -21,3 +21,20 @@
 .checkout .honeypot { position: absolute; left: -10000px; }
 .checkout .notice { font-size: 13px; }
 @media(max-width:720px) { .checkout-grid { grid-template-columns: 1fr; } .checkout-shell { width: calc(100% - 28px); margin-top: 32px; } }
+.referral-entry {
+  margin-block: 1.25rem;
+  padding: .8rem 1rem;
+  border: 1px solid var(--border, #d9e2eb);
+  border-radius: .8rem;
+}
+.referral-entry summary { cursor: pointer; font-weight: 700; }
+.referral-entry form { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.referral-entry label { flex-basis: 100%; }
+.referral-entry input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: .65rem;
+  border: 1px solid #788b96;
+  border-radius: .5rem;
+  font: inherit;
+}

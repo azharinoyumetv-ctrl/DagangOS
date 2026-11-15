@@ -5,8 +5,16 @@
   "vars": {
     "BACKEND_ORIGIN": "dapuros.vercel.app",
     "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app",
-    "XENDIT_ENVIRONMENT": "production"
+    "XENDIT_ENVIRONMENT": "production",
+    "AFFILIATE_CHECKOUT": "off"
   },
+  "d1_databases": [
+    {
+      "binding": "AFFILIATE_DB",
+      "database_name": "dagangos-affiliate-production",
+      "database_id": "37ebd428-a790-4ed4-b255-8573fbb696ec"
+    }
+  ],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
