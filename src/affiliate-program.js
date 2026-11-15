@@ -62,15 +62,22 @@ async function savedReferral(db, product, owner) {
   `, owner, product).first();
 }
 
-async function saveReferral(db, policy, product, owner, candidate, source) {
+function conversionDeadline(policy, signupAt) {
+  const start = Date.parse(signupAt);
+  if (!Number.isFinite(start) || start > Date.now() || !policy.conversion_days) return null;
+  return start + policy.conversion_days * day;
+}
+
+async function saveReferral(db, policy, product, owner, candidate, source, deadline) {
   const now = Date.now();
+  if (!deadline || deadline <= now) return null;
   await statement(db, `
     INSERT INTO affiliate_attributions (owner_id, product_id, affiliate_id, visit_id, source, policy_version, saved_at, expires_at)
     SELECT ?, ?, id, ?, ?, ?, ?, ? FROM affiliates
     WHERE id = ? AND active = 1 AND NOT EXISTS (
       SELECT 1 FROM affiliate_acquisitions WHERE scope_key = ? AND state <> 'failed'
     ) ON CONFLICT (owner_id, product_id) DO NOTHING
-  `, owner, product, candidate.visit_id, source, policy.version, now, now + policy.conversion_days * day,
+  `, owner, product, candidate.visit_id, source, policy.version, now, deadline,
   candidate.affiliate_id, acquisitionScope(policy, product, owner)).run();
   return savedReferral(db, product, owner);
 }
@@ -91,18 +98,20 @@ export async function acquisitionQuote(db, request, policy, cart, account, manua
     return { kind: ['paid', 'settled', 'reversed'].includes(previous.state) ? 'ineligible' : 'conflict', acquisition: previous };
   }
   const ownerEmailHash = await emailHash(account.email);
+  const deadline = conversionDeadline(policy, account.affiliate_signup_at);
   let saved = await savedReferral(db, cart.module, ownerId);
   let referral = saved || await referralCandidate(db, request, policy, cart.module, manualCode);
   let error;
   if (!saved && referral && referral.email_hash !== ownerEmailHash && policy.conversion_days) {
-    saved = await saveReferral(db, policy, cart.module, ownerId, referral, manualCode ? 'checkout_code' : 'checkout_link');
-    if (!saved) return { kind: 'conflict' };
+    saved = await saveReferral(db, policy, cart.module, ownerId, referral, manualCode ? 'checkout_code' : 'checkout_link', deadline);
+    if (!saved && deadline > now) return { kind: 'conflict' };
+    if (!saved) { referral = null; error = 'Masa berlaku kode afiliasi sudah berakhir atau belum dapat diperiksa.'; }
     referral = saved;
   }
   if (saved && (!saved.active || saved.expires_at <= now)) error = 'Kode afiliasi yang tersimpan sudah tidak berlaku.';
-  if (referral?.email_hash === ownerEmailHash || manualCode && !referral) error = 'Kode afiliasi tidak dapat digunakan.';
+  if (!error && (referral?.email_hash === ownerEmailHash || manualCode && !referral)) error = 'Kode afiliasi tidak dapat digunakan.';
   const referred = referral && !error;
-  return { kind: 'new', code: referred ? referral.code : null, error, canEnterCode: Boolean(policy.conversion_days && !saved), acquisition: {
+  return { kind: 'new', code: referred ? referral.code : null, error, canEnterCode: Boolean(deadline > now && !saved), acquisition: {
     order_id: cart.orderId, scope_key: scopeKey, product_id: cart.module, owner_id: ownerId, store_id: account.store_id,
     affiliate_id: referred ? referral.affiliate_id : null, visit_id: referred ? referral.visit_id : null,
     policy_version: policy.version, tier: cart.tier, period: cart.period, list_amount: cart.amount,
@@ -159,10 +168,13 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
     `, settled ? 'settled' : 'paid', paidAt, order)];
     if (settled) records.push(statement(db, `
       INSERT INTO affiliate_ledger (order_id, affiliate_id, product_id, kind, amount, provider_reference, recorded_at)
-      SELECT order_id, affiliate_id, product_id, 'commission', ?, ?, ?
-      FROM affiliate_acquisitions WHERE order_id = ? AND state = 'settled' AND affiliate_id IS NOT NULL
+      SELECT sale.order_id, sale.affiliate_id, sale.product_id, 'commission', ?, ?, ?
+      FROM affiliate_acquisitions sale LEFT JOIN affiliate_attributions attribution
+        ON attribution.owner_id = sale.owner_id AND attribution.product_id = sale.product_id
+      WHERE sale.order_id = ? AND sale.state = 'settled' AND sale.affiliate_id IS NOT NULL
+        AND (attribution.owner_id IS NULL OR ? < attribution.expires_at)
       ON CONFLICT (order_id, kind) DO NOTHING
-    `, tenPercent(acquisition.monthly_amount), evidence, Date.now(), order));
+    `, tenPercent(acquisition.monthly_amount), evidence, Date.now(), order, Date.parse(paidAt)));
     await db.batch(records);
   } else if (status === 'failed') {
     await statement(db, "UPDATE affiliate_acquisitions SET state = 'failed' WHERE order_id = ? AND state = 'requested'", order).run();
@@ -217,7 +229,8 @@ async function trialReferral(request, env, url) {
     || !uuidPattern.test(account.id || '') || typeof account.email !== 'string' || candidate.email_hash === await emailHash(account.email)) {
     return json({ error: 'Kode afiliasi tidak dapat digunakan untuk akun ini.' }, 422);
   }
-  const saved = await saveReferral(env.AFFILIATE_DB, policy, product, account.id, candidate, manualCode ? 'signup_code' : 'signup_link');
+  const deadline = conversionDeadline(policy, account.affiliate_signup_at);
+  const saved = await saveReferral(env.AFFILIATE_DB, policy, product, account.id, candidate, manualCode ? 'signup_code' : 'signup_link', deadline);
   if (!saved || !saved.active || saved.expires_at <= Date.now()) return json({ error: 'Kode afiliasi tidak dapat disimpan.' }, 409);
   return json({ available: true, code: saved.code });
 }
@@ -237,7 +250,7 @@ async function activeProducts(db) {
   return (await db.prepare("SELECT id, name, mode FROM affiliate_products ORDER BY mode = 'upcoming', rowid").all()).results;
 }
 
-async function affiliateHome(db, request, status = 200) {
+async function affiliateHome(db, request, env, status = 200) {
   const token = cookieValue(request, sessionCookie);
   const account = accessPattern.test(token || '') && await statement(db,
     'SELECT id, code, name FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first();
@@ -250,7 +263,11 @@ async function affiliateHome(db, request, status = 200) {
       <form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label>
       <input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required>
       <button type="submit">Masuk ke dasbor</button></form>
-      <p>Untuk bergabung, hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a>.</p>${payoutInfo}`, status);
+      ${env.RESEND_API_KEY ? `<h2>Daftar afiliasi</h2><p>Verifikasi email Anda untuk membuat akun dan memperoleh kode afiliasi.</p>
+      <form method="post" action="${affiliateRoot}/register"><label for="name">Nama</label>
+      <input id="name" name="name" maxlength="100" required autocomplete="name">
+      <label for="email">Email</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email">
+      <button type="submit">Kirim tautan verifikasi</button></form>` : `<p>Untuk bergabung, hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a>.</p>`}${payoutInfo}`, status);
   }
   const [products, visits, ledger] = await Promise.all([
     activeProducts(db),
@@ -274,6 +291,86 @@ async function affiliateHome(db, request, status = 200) {
   return page('Dasbor Afiliasi', `<div class="account"><p>${escape(account.name)} · Kode afiliasi <strong>${account.code}</strong></p>
     <form method="post" action="${affiliateRoot}/logout"><button type="submit">Keluar</button></form></div>
     ${payoutInfo}<div class="products">${cards}</div>`);
+}
+
+async function enrollmentLimit(db, bucket, now, maximum) {
+  const key = await hash(bucket);
+  const result = await statement(db, `INSERT INTO affiliate_enrollment_limits (bucket_hash, created_at)
+    SELECT ?, ? WHERE (SELECT COUNT(*) FROM affiliate_enrollment_limits WHERE bucket_hash = ? AND created_at > ?) < ?`,
+  key, now, key, now - 3600000, maximum).run();
+  return result.meta.changes === 1;
+}
+
+async function registerAffiliate(db, request, env, url) {
+  if (request.method !== 'POST') return redirect(affiliateRoot);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 403);
+  if (!env.RESEND_API_KEY) return page('Pendaftaran belum tersedia', `<p>Silakan hubungi tim DagangOS.</p>`, 503);
+  const raw = await request.text();
+  if (raw.length > 2048) return page('Permintaan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 413);
+  const form = new URLSearchParams(raw);
+  const name = (form.get('name') || '').trim();
+  const email = (form.get('email') || '').trim().toLowerCase();
+  if (!name || name.length > 100 || /[\x00-\x1f\x7f]/.test(name) || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return page('Periksa data pendaftaran', `<p>Masukkan nama dan alamat email yang valid.</p><a href="${affiliateRoot}">Kembali</a>`, 400);
+  }
+  const ip = request.headers.get('CF-Connecting-IP');
+  if (!ip || ip.length > 64) return page('Pendaftaran belum tersedia', '<p>Silakan coba lagi nanti.</p>', 503);
+  const now = Date.now();
+  await db.batch([
+    statement(db, 'DELETE FROM affiliate_enrollment_limits WHERE created_at < ?', now - day),
+    statement(db, 'DELETE FROM affiliate_verification_requests WHERE expires_at < ?', now - day),
+  ]);
+  const emailKey = await emailHash(email);
+  if (!await enrollmentLimit(db, `ip:${ip}`, now, 20) || !await enrollmentLimit(db, `email:${emailKey}`, now, 3)) {
+    return page('Terlalu banyak permintaan', '<p>Tunggu satu jam sebelum mencoba lagi.</p>', 429);
+  }
+  const token = hex(crypto.getRandomValues(new Uint8Array(32)));
+  await statement(db, `INSERT INTO affiliate_verification_requests
+    (token_hash, email_hash, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,
+  await hash(token), emailKey, name, now, now + 30 * 60000).run();
+  const verifyUrl = `${url.origin}${affiliateRoot}/verify/${token}`;
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000),
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: 'DagangOS <contact@dagangos.com>', to: [email],
+      subject: 'Verifikasi email Program Afiliasi DagangOS',
+      text: `Untuk memverifikasi email Program Afiliasi DagangOS, buka tautan ini dalam 30 menit:\n\n${verifyUrl}\n\nJika Anda tidak meminta ini, abaikan email ini.` }),
+  });
+  if (!response.ok) return page('Email belum dapat dikirim', '<p>Silakan coba lagi nanti.</p>', 503);
+  return page('Periksa email Anda', '<p>Jika alamat dapat menerima email, tautan verifikasi akan dikirim. Tautan berlaku selama 30 menit.</p>');
+}
+
+async function verifyAffiliate(db, request, url, token) {
+  if (!accessPattern.test(token || '')) return page('Tautan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 404);
+  const tokenHash = await hash(token);
+  const now = Date.now();
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    const pending = await statement(db, `SELECT token_hash FROM affiliate_verification_requests
+      WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?`, tokenHash, now).first();
+    const response = pending ? page('Verifikasi email', `<p>Klik untuk menyelesaikan verifikasi email Anda.</p>
+      <form method="post" action="${affiliateRoot}/verify/${token}"><button type="submit">Verifikasi email</button></form>`)
+      : page('Tautan kedaluwarsa', `<p>Minta tautan baru di halaman afiliasi.</p><a href="${affiliateRoot}">Kembali</a>`, 410);
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    return response;
+  }
+  if (request.method !== 'POST') return page('Metode tidak didukung', '', 405);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+  const pending = await statement(db, `UPDATE affiliate_verification_requests SET consumed_at = ?
+    WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ? RETURNING email_hash, name`, now, tokenHash, now).first();
+  if (!pending) return page('Tautan kedaluwarsa', `<p>Minta tautan baru di halaman afiliasi.</p><a href="${affiliateRoot}">Kembali</a>`, 410);
+  await statement(db, 'UPDATE affiliate_verification_requests SET consumed_at = ? WHERE email_hash = ? AND consumed_at IS NULL', now, pending.email_hash).run();
+  const access = hex(crypto.getRandomValues(new Uint8Array(32)));
+  const code = hex(crypto.getRandomValues(new Uint8Array(8))).toUpperCase();
+  const account = await statement(db, `INSERT INTO affiliates (id, code, name, email_hash, access_hash, created_at)
+    VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(email_hash) DO UPDATE SET access_hash = excluded.access_hash
+    WHERE affiliates.active = 1 RETURNING code`, crypto.randomUUID(), code, pending.name, pending.email_hash, await hash(access), now).first();
+  if (!account) return page('Akun dalam peninjauan', '<p>Hubungi tim DagangOS untuk bantuan.</p>', 403);
+  const response = page('Email terverifikasi', `<p>Akun afiliasi siap digunakan. Kode afiliasi Anda: <strong>${escape(account.code)}</strong>.</p>
+    <p>Simpan kode akses dasbor ini di tempat aman. Kode akses berbeda dari kode afiliasi dan hanya ditampilkan sekarang.</p>
+    <label for="new-access">Kode akses dasbor</label><input id="new-access" value="${access}" readonly>
+    <p>Jika kode akses hilang, verifikasi email yang sama kembali untuk membuat kode akses baru.</p><p><a href="${affiliateRoot}">Buka dasbor</a></p>`);
+  response.headers.append('Set-Cookie', cookie(sessionCookie, access, affiliateRoot));
+  return response;
 }
 
 function productDestination(destination, origin) {
@@ -338,7 +435,7 @@ async function operatorApi(request, env, path) {
   const code = typeof data?.code === 'string' ? data.code.trim().toUpperCase() : '';
   const name = typeof data?.name === 'string' ? data.name.trim() : '';
   const email = typeof data?.email === 'string' ? data.email.trim() : '';
-  if (!codePattern.test(code) || !name || name.length > 100 || email.length > 254 || !/^[^@\s]+@[^@\s]+$/.test(email)) {
+  if (!codePattern.test(code) || !name || name.length > 100 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: 'Provide a valid name, verified email and affiliate code (8–24 letters and digits)' }, 400);
   }
   const token = hex(crypto.getRandomValues(new Uint8Array(32)));
@@ -353,6 +450,8 @@ async function operatorApi(request, env, path) {
 async function affiliateRequest(request, env, url, path, admin) {
   if (admin) return operatorApi(request, env, path);
   const db = env.AFFILIATE_DB;
+  if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
+  if (path.startsWith(`${affiliateRoot}/verify/`)) return verifyAffiliate(db, request, url, path.slice(`${affiliateRoot}/verify/`.length));
   if (path === `${affiliateRoot}/login` || path === `${affiliateRoot}/logout`) {
     if (request.method !== 'POST') return redirect(affiliateRoot);
     if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 403);
@@ -365,7 +464,7 @@ async function affiliateRequest(request, env, url, path, admin) {
       : page('Kode akses tidak valid', `<p><a href="${affiliateRoot}">Coba lagi</a></p>`, 401);
   }
   if (!['GET', 'HEAD'].includes(request.method)) return page('Metode tidak didukung', `<a href="${affiliateRoot}">Kembali</a>`, 405);
-  if (path === affiliateRoot) return affiliateHome(db, request);
+  if (path === affiliateRoot) return affiliateHome(db, request, env);
   const [, , rawCode, product, extra] = path.split('/');
   const code = rawCode?.toUpperCase();
   if (!codePattern.test(code || '') || extra !== undefined) return page('Tautan rujukan tidak ditemukan', '<a href="/produk">Lihat produk DagangOS</a>', 404);

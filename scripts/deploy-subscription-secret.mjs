@@ -9,6 +9,7 @@ const values = {
   SUBSCRIPTION_SIGNING_KEY: process.env.SUBSCRIPTION_SIGNING_KEY,
 };
 if (!token || !account || Object.values(values).some(value => !value)) throw new Error('Missing checkout deployment configuration');
+if (process.env.RESEND_API_KEY) values.RESEND_API_KEY = process.env.RESEND_API_KEY;
 for (const [name, value] of Object.entries(values)) {
   const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/dagangos-portal/secrets`, {
     method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -17,4 +18,4 @@ for (const [name, value] of Object.entries(values)) {
   const result = await response.json();
   if (!response.ok || !result.success) throw new Error(`Could not configure checkout secret (HTTP ${response.status})`);
 }
-console.log('Xendit checkout and receipt-signing secrets configured');
+console.log('Checkout and configured affiliate email secrets updated');

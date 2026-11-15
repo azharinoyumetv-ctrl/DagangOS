@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { Miniflare, createFetchMock } from 'miniflare';
 import { selection, signReceipt } from '../src/subscription-checkout.js';
+import { observeAcquisition } from '../src/affiliate-program.js';
 
 const origin = 'https://dagangos.com';
 const ownerId = '11111111-1111-4111-8111-111111111111';
@@ -11,7 +12,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -37,6 +38,7 @@ async function setup(t, scope, conversionDays = null) {
     d1Persist: state,
     bindings: {
       AFFILIATE_CHECKOUT: 'on', AFFILIATE_ADMIN_TOKEN: 'operator-fixture',
+      RESEND_API_KEY: 'mail-fixture',
       SUBSCRIPTION_SIGNING_KEY: signingKey, XENDIT_SECRET_KEY: 'gateway-fixture',
       XENDIT_WEBHOOK_TOKEN: 'webhook-fixture', GERAINA_BACKEND_ORIGIN: 'geraina.test', BACKEND_ORIGIN: 'dapuros.test',
     },
@@ -72,10 +74,10 @@ async function submit(fetch, order, cookie, extra = {}) {
   });
 }
 
-function backend(mock, order, { email = 'merchant@example.test', eligible = true, times = 1 } = {}) {
+function backend(mock, order, { email = 'merchant@example.test', eligible = true, times = 1, signupAt = new Date(Date.now() - 86400000).toISOString() } = {}) {
   const api = mock.get(`https://${order.module}.test`);
   api.intercept({ path: '/api/subscriptions/orders', method: 'POST' }).reply(200,
-    { order_id: order.orderId, amount: order.amount, owner_id: ownerId, store_id: storeId, affiliate_eligible: eligible, email },
+    { order_id: order.orderId, amount: order.amount, owner_id: ownerId, store_id: storeId, affiliate_eligible: eligible, affiliate_signup_at: signupAt, email },
     headers).times(times);
   return api;
 }
@@ -120,6 +122,64 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.match(dashboard, /dagangos\.com\/affiliate-program\/PROMOTE01\/future-app/);
   assert.doesNotMatch(dashboard, /affiliate@example|merchant@example/);
   assert.equal(dashboardResponse.headers.get('Cache-Control'), 'no-store');
+});
+
+test('email verification creates an affiliate once and can recover dashboard access', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
+  const messages = [];
+  mock.get('https://api.resend.com').intercept({ path: '/emails', method: 'POST' }).reply(options => {
+    messages.push(new Response(options.body).json());
+    return { statusCode: 200, data: { id: 'email-fixture' }, responseOptions: headers };
+  }).times(2);
+  const register = () => fetch('/affiliate-program/register', { method: 'POST',
+    headers: { Origin: origin, 'CF-Connecting-IP': '192.0.2.10' },
+    body: new URLSearchParams({ name: 'Mitra Testing', email: 'test@example.test' }).toString() });
+  const initialRegistration = await register();
+  assert.equal(initialRegistration.status, 200, `${await initialRegistration.clone().text()} mocked messages=${messages.length}`);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 1);
+  const link = new URL((await messages[0]).text.match(/https:\/\/\S+/)[0]);
+  const verify = link.pathname;
+  assert.equal((await fetch(verify)).status, 200);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 1);
+  assert.equal((await fetch(verify, { method: 'POST', headers: { Origin: 'https://evil.test' } })).status, 403);
+  const created = await fetch(verify, { method: 'POST', headers: { Origin: origin } });
+  assert.equal(created.status, 200);
+  const body = await created.text();
+  const code = body.match(/Kode afiliasi Anda: <strong>([A-F0-9]+)<\/strong>/)[1];
+  const oldCookie = created.headers.get('Set-Cookie').split(';')[0];
+  assert.match(await (await fetch('/affiliate-program', { headers: { Cookie: oldCookie } })).text(), new RegExp(code));
+  assert.equal((await fetch(verify, { method: 'POST', headers: { Origin: origin } })).status, 410);
+  assert.equal((await register()).status, 200);
+  const recovery = new URL((await messages[1]).text.match(/https:\/\/\S+/)[0]).pathname;
+  const recovered = await fetch(recovery, { method: 'POST', headers: { Origin: origin } });
+  assert.equal(recovered.status, 200);
+  assert.match(await recovered.text(), new RegExp(code));
+  assert.match(await (await fetch('/affiliate-program', { headers: { Cookie: oldCookie } })).text(), /Kode akses dasbor/);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 2);
+  mock.assertNoPendingInterceptors();
+});
+
+test('enrollment rejects cross-site requests, expired links, and repeated email requests', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
+  const messages = [];
+  mock.get('https://api.resend.com').intercept({ path: '/emails', method: 'POST' }).reply(options => {
+    messages.push(new Response(options.body).json());
+    return { statusCode: 200, data: { id: 'email-fixture' }, responseOptions: headers };
+  }).times(3);
+  const registration = originHeader => fetch('/affiliate-program/register', { method: 'POST',
+    headers: { Origin: originHeader, 'CF-Connecting-IP': '192.0.2.11' },
+    body: new URLSearchParams({ name: 'Partner', email: 'partner@example.test' }).toString() });
+  assert.equal((await registration('https://evil.test')).status, 403);
+  for (let i = 0; i < 3; i++) assert.equal((await registration(origin)).status, 200);
+  assert.equal((await registration(origin)).status, 429);
+  const verification = new URL((await messages[0]).text.match(/https:\/\/\S+/)[0]).pathname;
+  const visit = await fetch(verification);
+  assert.equal(visit.headers.get('Referrer-Policy'), 'no-referrer');
+  await db.prepare('UPDATE affiliate_verification_requests SET expires_at = ?').bind(Date.now() - 1).run();
+  assert.equal((await fetch(verification)).status, 410);
+  assert.equal((await fetch(verification, { method: 'POST', headers: { Origin: origin } })).status, 410);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 1);
+  mock.assertNoPendingInterceptors();
 });
 
 test('Geraina annual checkout verifies the offer, creates one invoice, and records one settled commission and reversal', async t => {
@@ -229,12 +289,13 @@ test('a trial referral follows the verified owner to a different browser and sta
   assert.deepEqual(await preview.json(), { available: true, code: 'PROMOTE01' });
   const claim = headers => fetch(path, { method: 'POST', headers: { Origin: origin, Cookie: cookie, ...headers } });
   assert.equal((await claim({})).status, 401);
+  const started = new Date(Date.now() - 86400000).toISOString();
   mock.get('https://geraina.test').intercept({ path: '/api/auth/me', method: 'GET' }).reply(200,
-    { id: ownerId, role: 'Owner', current_module: 'geraina', is_store_owner: true, plan: 'trial', email: 'merchant@example.test' }, headers);
+    { id: ownerId, role: 'Owner', current_module: 'geraina', is_store_owner: true, plan: 'trial', email: 'merchant@example.test', affiliate_signup_at: started }, headers);
   assert.deepEqual(await (await claim({ Authorization: 'Bearer authenticated.sandbox-owner.test' })).json(),
     { available: true, code: 'PROMOTE01' });
-  const stored = await db.prepare('SELECT owner_id, product_id, source, expires_at - saved_at AS duration FROM affiliate_attributions').first();
-  assert.deepEqual(stored, { owner_id: ownerId, product_id: 'geraina', source: 'signup_link', duration: 30 * 86400000 });
+  const stored = await db.prepare('SELECT owner_id, product_id, source, expires_at FROM affiliate_attributions').first();
+  assert.deepEqual(stored, { owner_id: ownerId, product_id: 'geraina', source: 'signup_link', expires_at: Date.parse(started) + 30 * 86400000 });
   const geraina = cart('geraina', 'yearly', 'a');
   const dapur = cart('dapuros', 'monthly', 'b');
   backend(mock, geraina);
@@ -245,6 +306,36 @@ test('a trial referral follows the verified owner to a different browser and sta
   const dapurQuote = await (await submit(fetch, dapur)).text();
   assert.match(dapurQuote, /Punya kode afiliasi\?/);
   assert.doesNotMatch(dapurQuote, /PROMOTE01|Rp 224\.100/);
+  mock.assertNoPendingInterceptors();
+});
+
+test('a code entered after the conversion window cannot restart that window', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 30);
+  const order = cart('dapuros', 'monthly', 'd');
+  backend(mock, order, { signupAt: new Date(Date.now() - 31 * 86400000).toISOString() });
+  const response = await submit(fetch, order, '', { affiliate_code: 'PROMOTE01' });
+  const html = await response.text();
+  assert.doesNotMatch(html, /Rp 224\.100/);
+  assert.match(html, /Masa berlaku kode afiliasi sudah berakhir/);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_attributions').first('count'), 0);
+  mock.assertNoPendingInterceptors();
+});
+
+test('settlement after the saved referral deadline does not create commission', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 30);
+  const order = cart('dapuros', 'monthly', 'e');
+  const api = backend(mock, order, { times: 2 });
+  const quote = await (await submit(fetch, order, '', { affiliate_code: 'PROMOTE01' })).text();
+  const confirm_referral = quote.match(/name="confirm_referral" value="([^"]+)"/)[1];
+  api.intercept({ path: `/api/subscriptions/orders/${order.orderId}/reference`, method: 'POST' }).reply(200, { ok: true }, headers);
+  mock.get('https://api.xendit.co').intercept({ path: '/v2/invoices', method: 'POST' }).reply(201,
+    { external_id: order.orderId, amount: 224100, currency: 'IDR', invoice_url: paymentUrl }, headers);
+  assert.equal((await submit(fetch, order, '', { confirm_referral })).status, 303);
+  const deadline = await db.prepare('SELECT expires_at FROM affiliate_attributions').first('expires_at');
+  const acquisition = await db.prepare('SELECT * FROM affiliate_acquisitions').first();
+  await observeAcquisition(db, acquisition, { external_id: order.orderId, amount: 224100, paid_amount: 224100,
+    currency: 'IDR', status: 'SETTLED', paid_at: new Date(deadline + 1).toISOString() });
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_ledger').first('count'), 0);
   mock.assertNoPendingInterceptors();
 });
 
