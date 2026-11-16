@@ -153,6 +153,73 @@ test('affiliate landing shows the current referral and payout settings', async t
   assert.match(html, /masa tunggu 45 hari/);
 });
 
+test('affiliate dashboard reconciles earnings, holds, payout reservations and completed payments privately', async t => {
+  const {db, fetch, accessCode, createAccount} = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  await createAccount('OTHER987', 'another@example.test');
+  const otherId = await db.prepare("SELECT id FROM affiliates WHERE code = 'OTHER987'").first('id');
+  const now = Date.now(), day = 86400000;
+  async function sale(id, owner, amount, age, state='settled', product='geraina') {
+    const paidAt = state === 'requested' ? null : new Date(now-age*day).toISOString();
+    await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+      VALUES (?,?,?,?,?,?,'pilot','starter','monthly',249000,249000,224100,?,?,?)`)
+      .bind(id,id,product,`owner-${id}`,`store-${id}`,owner,now,state,paidAt).run();
+    if (amount !== null) await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,?,'commission',?,?)")
+      .bind(id,owner,product,amount,now).run();
+  }
+  await sale('test-matured',affiliateId,200000,31);
+  await sale('test-waiting',affiliateId,30000,10,'settled','dapuros');
+  await sale('test-reversed',affiliateId,10000,40,'reversed');
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES ('test-reversed',?,'geraina','reversal',-10000,?)").bind(affiliateId,now).run();
+  await sale('test-unsettled',affiliateId,null,2,'paid');
+  await sale('other-private-order',otherId,900000,45);
+  await db.prepare("INSERT INTO affiliate_attributions (owner_id,product_id,affiliate_id,source,policy_version,saved_at,expires_at) VALUES (?,'geraina',?,'signup_code','pilot',?,?)")
+    .bind('attributed-owner',affiliateId,now,now+day).run();
+  await db.prepare("INSERT INTO affiliate_bank_destinations VALUES (?,'ID_BCA','6789','cipher','nonce',?)").bind(affiliateId,now).run();
+  const insertPayout = (id, owner, amount, status) => db.prepare(`INSERT INTO affiliate_payouts
+    (id,affiliate_id,amount,bank_code,last_four,encrypted_details,nonce,destination_updated_at,created_at,status)
+    VALUES (?,?,?,'ID_BCA','6789','cipher','nonce',?,?,?)`).bind(id,owner,amount,now,now,status).run();
+  await insertPayout('paid-test',affiliateId,50000,'succeeded');
+  await insertPayout('review-test',affiliateId,40000,'proposed');
+  await insertPayout('other-private-payout',otherId,70000,'succeeded');
+  const login = await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const html = await (await fetch('/affiliate-program',{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}})).text();
+  assert.match(html, /Total komisi tercatat<\/span><strong>Rp 230\.000/);
+  assert.match(html, /Dalam masa tunggu<\/span><strong>Rp 30\.000/);
+  assert.match(html, /Saldo untuk peninjauan<\/span><strong>Rp 110\.000/);
+  assert.match(html, /Pembayaran dalam proses<\/span><strong>Rp 40\.000/);
+  assert.match(html, /Sudah dibayar<\/span><strong>Rp 50\.000/);
+  assert.match(html, /1 rujukan akun pernah tersimpan/);
+  assert.match(html, /Menunggu penyelesaian pembayaran/);
+  assert.match(html, /Dibatalkan \/ dikembalikan/);
+  assert.match(html, /Menunggu peninjauan/);
+  assert.match(html, /Transfer berhasil/);
+  assert.match(html, /Tidak perlu meminta penarikan/);
+  assert.match(html, /BCA ···· 6789/);
+  assert.doesNotMatch(html, /other-private-order|other-private-payout|900\.000/);
+  await db.prepare("UPDATE affiliate_payouts SET status='approved',reviewed_at=?,reviewer='fixture' WHERE id='review-test'").bind(now).run();
+  await db.prepare("UPDATE affiliate_payouts SET status='unknown' WHERE id='review-test'").run();
+  const uncertain = await (await fetch('/affiliate-program',{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}})).text();
+  assert.match(uncertain,/Saldo untuk peninjauan<\/span><strong>Rp 110\.000/);
+  assert.match(uncertain,/Status transfer sedang diperiksa/);
+});
+
+test('affiliate dashboard carries a post-payment reversal forward without displaying a negative withdrawable balance', async t => {
+  const {db,fetch,accessCode} = await setup(t,'merchant_product',90);
+  const id = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now=Date.now(),paidAt=new Date(now-31*86400000).toISOString();
+  await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES ('reversed-order','scope','geraina','owner','store',?,'pilot','starter','monthly',149000,149000,134100,?,'reversed',?)`).bind(id,now,paidAt).run();
+  await db.prepare("INSERT INTO affiliate_ledger VALUES ('reversed-order',?,'geraina','commission',14900,NULL,?)").bind(id,now).run();
+  await db.prepare("INSERT INTO affiliate_ledger VALUES ('reversed-order',?,'geraina','reversal',-14900,NULL,?)").bind(id,now).run();
+  await db.prepare(`INSERT INTO affiliate_payouts (id,affiliate_id,amount,bank_code,last_four,encrypted_details,nonce,destination_updated_at,created_at,status)
+    VALUES ('paid',?,14900,'ID_BCA','1234','cipher','nonce',?,?,'succeeded')`).bind(id,now,now).run();
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const html=await (await fetch('/affiliate-program',{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}})).text();
+  assert.match(html,/Saldo untuk peninjauan<\/span><strong>Rp 0/);
+  assert.match(html,/Penyesuaian Rp 14\.900 akan diperhitungkan/);
+});
+
 test('email verification creates an affiliate once and can recover dashboard access', async t => {
   const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
   const messages = [];
@@ -324,7 +391,7 @@ test('bank destination is encrypted and saved only after same-session email veri
   const key=await crypto.subtle.importKey('raw',new Uint8Array(32),'AES-GCM',false,['decrypt']);
   const decrypted=await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(row.nonce,'hex'),additionalData:new TextEncoder().encode(row.affiliate_id)},key,Buffer.from(row.encrypted_details,'hex'));
   assert.deepEqual(JSON.parse(new TextDecoder().decode(decrypted)),{name:'Ayu Test',number:'1234567890'});
-  assert.match(await (await fetch('/affiliate-program',{headers:{Cookie:cookie}})).text(),/ID_BCA ···· 7890/);
+  assert.match(await (await fetch('/affiliate-program',{headers:{Cookie:cookie}})).text(),/BCA ···· 7890/);
   mock.assertNoPendingInterceptors();
 });
 
