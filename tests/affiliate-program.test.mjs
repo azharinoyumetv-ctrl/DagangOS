@@ -13,7 +13,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -237,6 +237,64 @@ test('recent activity includes new unpaid orders even when older paid activity f
   assert.match(html,/new-unpaid/);
   assert.match(html,/Menunggu pembayaran/);
   assert.doesNotMatch(html,/old-paid-0</);
+});
+
+test('affiliates can customize a code without losing history or breaking old referrals', async t => {
+  const {db,fetch,mock,accessCode,createAccount} = await setup(t,'merchant_product',90);
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  await createAccount('OTHER987','other@example.test');
+  // Recreate the populated pre-migration database, then prove the upgrade
+  // backfills existing codes and can be rerun without losing their ownership.
+  for (const name of ['affiliate_code_before_insert','affiliate_code_after_insert','affiliate_code_before_update','affiliate_code_after_update']) {
+    await db.exec(`DROP TRIGGER ${name}`);
+  }
+  await db.exec('DROP TABLE affiliate_code_registry');
+  const upgrade=migrations[migrations.length-1].replace(/^--.*$/gm,'').trim().replace(/;\n\n/g,';\u0000').replace(/\n/g,' ').replace(/\u0000/g,'\n');
+  await db.exec(upgrade);
+  await db.exec(upgrade);
+  assert.equal(await db.prepare('SELECT affiliate_id FROM affiliate_code_registry WHERE code = ?').bind('PROMOTE01').first('affiliate_id'),id);
+  const now=Date.now();
+  await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES ('prior-order','prior','geraina','prior','prior',?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?)`).bind(id,now,new Date(now).toISOString()).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES ('prior-order',?,'geraina','commission',14900,?)").bind(id,now).run();
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const cookie=login.headers.get('Set-Cookie').split(';')[0];
+  const change=(code,customHeaders={}) => fetch('/affiliate-program/kode',{method:'POST',headers:{Origin:origin,Cookie:cookie,...customHeaders},body:new URLSearchParams({code}).toString()});
+  assert.equal((await fetch('/affiliate-program/kode',{method:'POST',headers:{Origin:origin},body:'code=MYSHOP88'})).status,401);
+  assert.equal((await change('MYSHOP88',{Origin:'https://evil.test'})).status,403);
+  assert.equal((await change('bad-code')).status,400);
+  assert.equal((await change('dashboard')).status,400);
+  assert.equal((await change('OTHER987')).status,409);
+  const changed=await change('myshop88');
+  assert.equal(changed.status,200);
+  assert.match(await changed.text(),/MYSHOP88/);
+  assert.equal(await db.prepare('SELECT code FROM affiliates WHERE id = ?').bind(id).first('code'),'MYSHOP88');
+  assert.equal(await db.prepare("SELECT SUM(amount) AS total FROM affiliate_ledger WHERE affiliate_id = ?").bind(id).first('total'),14900);
+  const dashboard=await (await fetch('/affiliate-program',{headers:{Cookie:cookie}})).text();
+  assert.match(dashboard,/Ubah kode afiliasi/);
+  assert.match(dashboard,/affiliate-program\/MYSHOP88\/geraina/);
+  assert.match(dashboard,/Rp 14\.900/);
+  for(const code of ['PROMOTE01','MYSHOP88']){
+    for(const product of ['geraina','dapuros']){
+      const link=await fetch(`/affiliate-program/${code}/${product}`);
+      assert.equal(link.status,303);
+      assert.equal(link.headers.get('Location'),`${origin}/${product}`);
+      const lookup=await fetch(`/api/affiliate/signup?product=${product}`,{headers:{'X-Affiliate-Code':code.toLowerCase()}});
+      assert.deepEqual(await lookup.json(),{available:true,code:'MYSHOP88'});
+    }
+  }
+  assert.equal((await createAccount('PROMOTE01','different@example.test')).status,409);
+  assert.equal((await createAccount('MYSHOP88','different@example.test')).status,409);
+  for(const [product,code,letter] of [['geraina','PROMOTE01','e'],['dapuros','MYSHOP88','f']]){
+    const order=cart(product,'monthly',letter); backend(mock,order);
+    const quote=await (await submit(fetch,order,'',{affiliate_code:code})).text();
+    assert.match(quote,/MYSHOP88/);
+    assert.equal(await db.prepare('SELECT affiliate_id FROM affiliate_attributions WHERE owner_id = ? AND product_id = ?').bind(ownerId,product).first('affiliate_id'),id);
+  }
+  assert.equal((await change('PROMOTE01')).status,200);
+  assert.equal((await fetch('/affiliate-program/MYSHOP88/geraina')).status,303);
+  const other=(await db.prepare("SELECT id FROM affiliates WHERE code = 'OTHER987'").first('id'));
+  await assert.rejects(db.prepare('UPDATE affiliates SET code = ? WHERE id = ?').bind('MYSHOP88',other).run());
 });
 
 test('dashboard filters and exports the same affiliate history beyond the first page', async t => {

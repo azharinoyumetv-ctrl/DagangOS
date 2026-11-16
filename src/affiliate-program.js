@@ -9,6 +9,7 @@ const legacyAffiliateRoot = '/affiliate';
 const accessPattern = /^[a-f0-9]{64}$/;
 const productPattern = /^[a-z][a-z0-9-]{0,39}$/;
 const codePattern = /^[A-Z0-9]{8,24}$/;
+const reservedCodes = new Set(['DASHBOARD', 'REGISTER', 'RECOVER', 'VERIFY', 'LOGIN', 'LOGOUT', 'BANK', 'EXPORT', 'PEMBAYARAN', 'KODE']);
 const uuidPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hex = bytes => Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -44,8 +45,9 @@ async function referralCandidate(db, request, policy, product, code) {
   if (code) {
     const normalized = code.trim().toUpperCase();
     if (!codePattern.test(normalized)) return null;
-    return statement(db, `SELECT id AS affiliate_id, code, email_hash, NULL AS visit_id
-      FROM affiliates WHERE code = ? AND active = 1`, normalized).first();
+    return statement(db, `SELECT affiliate.id AS affiliate_id, affiliate.code, affiliate.email_hash, NULL AS visit_id
+      FROM affiliate_code_registry registry JOIN affiliates affiliate ON affiliate.id = registry.affiliate_id
+      WHERE registry.code = ? AND affiliate.active = 1`, normalized).first();
   }
   const visitId = cookieValue(request, referralCookie(product));
   if (!uuidPattern.test(visitId || '')) return null;
@@ -281,7 +283,7 @@ async function trialReferral(request, env, url) {
 function page(title, body, status = 200, landing = false, dashboard = false) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} | DagangOS</title>
-    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=dashboard-20261116"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
+    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=code-20261117"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
     </head><body class="affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="DagangOS beranda"><img src="/assets/brand/dagangos-icon.png" alt=""><b>Dagang<span>OS</span></b></a>
@@ -522,6 +524,7 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
     <div class="affiliate-workspace-content">
       <header class="affiliate-dash-header"><div><p class="affiliate-breadcrumb">DAGANGOS <span>/</span> AFILIASI</p><h1>Dasbor Afiliasi</h1><p>Selamat datang, ${escape(account.name)}.</p></div><form method="post" action="${affiliateRoot}/logout"><button type="submit" class="affiliate-logout">Keluar</button></form></header>
       <div class="affiliate-code-strip"><div><span>KODE AFILIASI ANDA</span><strong>${escape(account.code)}</strong><small>Bagikan kode ini kepada calon pelanggan.</small></div><div class="affiliate-copy"><input id="affiliate-code" value="${escape(account.code)}" readonly aria-label="Kode afiliasi"><button type="button" data-copy-for="affiliate-code" hidden>Salin kode</button></div><span class="affiliate-copy-status" aria-live="polite"></span></div>
+      <details class="affiliate-code-edit"><summary>Ubah kode afiliasi</summary><p>Pilih 8–24 huruf atau angka tanpa spasi. Kode dan tautan lama tetap berlaku, dan riwayat serta komisi tetap di akun ini.</p><form method="post" action="${affiliateRoot}/kode"><label for="custom-code">Kode baru</label><input id="custom-code" name="code" minlength="8" maxlength="24" pattern="[A-Za-z0-9]{8,24}" autocapitalize="characters" autocomplete="off" required><button type="submit">Simpan kode</button></form></details>
     ${finance ? `<section id="ringkasan" class="affiliate-finance" aria-labelledby="finance-heading"><div class="affiliate-block-head"><div><h2 id="finance-heading">Ringkasan komisi</h2><p>Semua waktu · ${finance.registrations} rujukan akun pernah tersimpan. Data diperbarui saat halaman dimuat.</p></div><span class="affiliate-live-badge">● Data akun</span></div>
       <div class="affiliate-finance-grid">
         <div class="affiliate-kpi affiliate-kpi--primary"><span>Total komisi tercatat</span><strong>${rupiah(finance.earned)}</strong><small>Termasuk yang dibayar, setelah pembatalan</small></div>
@@ -567,6 +570,23 @@ async function sessionAccount(db, request) {
   const token = cookieValue(request, sessionCookie);
   return accessPattern.test(token || '') ? statement(db,
     'SELECT id, email_hash FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first() : null;
+}
+
+async function changeAffiliateCode(db, request, url) {
+  if (request.method !== 'POST') return page('Metode tidak didukung', '', 405);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+  const account = await sessionAccount(db, request);
+  if (!account) return page('Masuk terlebih dahulu', `<a href="${affiliateRoot}#masuk">Masuk ke dasbor</a>`, 401);
+  const raw = await request.text();
+  if (raw.length > 1024) return page('Permintaan tidak valid', '', 413);
+  const code = (new URLSearchParams(raw).get('code') || '').trim().toUpperCase();
+  const back = `<p><a href="${affiliateRoot}">Kembali ke dasbor</a></p>`;
+  if (!codePattern.test(code) || reservedCodes.has(code)) return page('Kode tidak dapat digunakan', `<p>Gunakan 8–24 huruf atau angka tanpa spasi dan pilih kode lain jika nama tersebut tersedia untuk fitur DagangOS.</p>${back}`, 400);
+  const changed = await statement(db, `UPDATE affiliates SET code = ? WHERE id = ? AND active = 1
+    AND NOT EXISTS (SELECT 1 FROM affiliate_code_registry WHERE code = ? AND affiliate_id <> ?)
+    RETURNING code`, code, account.id, code, account.id).first();
+  if (!changed) return page('Kode tidak tersedia', `<p>Kode tersebut sudah digunakan. Silakan pilih kode lain.</p>${back}`, 409);
+  return page('Kode berhasil disimpan', `<p>Kode afiliasi Anda sekarang <strong>${escape(changed.code)}</strong>. Kode dan tautan lama tetap berlaku; komisi dan riwayat tetap tersimpan.</p>${back}`);
 }
 
 function csvCell(value) {
@@ -921,8 +941,8 @@ function productDestination(destination, origin) {
 async function visitProduct(db, request, code, product) {
   const data = await statement(db, `SELECT affiliate.id AS affiliate_id, product.destination, product.handoff_path,
     (SELECT referral_days FROM affiliate_policy WHERE id = 1) AS referral_days
-    FROM affiliates affiliate CROSS JOIN affiliate_products product
-    WHERE affiliate.code = ? AND affiliate.active = 1 AND product.id = ? AND product.mode <> 'upcoming'`, code, product).first();
+    FROM affiliate_code_registry registry JOIN affiliates affiliate ON affiliate.id = registry.affiliate_id CROSS JOIN affiliate_products product
+    WHERE registry.code = ? AND affiliate.active = 1 AND product.id = ? AND product.mode <> 'upcoming'`, code, product).first();
   const destination = data && productDestination(data.destination, new URL(request.url).origin);
   if (!destination) return page('Tautan rujukan tidak ditemukan', '<p><a href="/produk">Lihat produk DagangOS</a></p>', 404);
   if (request.method === 'HEAD') return redirect(destination.href);
@@ -987,8 +1007,9 @@ async function operatorApi(request, env, path) {
   const token = hex(crypto.getRandomValues(new Uint8Array(32)));
   const result = await statement(db, `
     INSERT INTO affiliates (id, code, name, email_hash, access_hash, created_at)
-    VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING
-  `, crypto.randomUUID(), code, name, await emailHash(email), await hash(token), Date.now()).run();
+    SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM affiliate_code_registry WHERE code = ?)
+    ON CONFLICT DO NOTHING
+  `, crypto.randomUUID(), code, name, await emailHash(email), await hash(token), Date.now(), code).run();
   if (!result.meta.changes) return json({ error: 'Code or email already registered' }, 409);
   return json({ code, dashboard: `https://dagangos.com${affiliateRoot}`, accessCode: token }, 201);
 }
@@ -999,6 +1020,7 @@ async function affiliateRequest(request, env, url, path, admin) {
   if ([`${affiliateRoot}/dashboard`, `${affiliateRoot}/export/aktivitas`, `${affiliateRoot}/export/pembayaran`].includes(path)) return affiliateDashboardAction(db, request, env, url, path);
   if (path.startsWith(`${affiliateRoot}/pembayaran/`)) return affiliatePayoutReceipt(db, request, path.slice(`${affiliateRoot}/pembayaran/`.length));
   if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
+  if (path === `${affiliateRoot}/kode`) return changeAffiliateCode(db, request, url);
   if (path === `${affiliateRoot}/recover`) return recoverAffiliate(db, request, env, url);
   if (path === `${affiliateRoot}/recover/verify` || path.startsWith(`${affiliateRoot}/recover/verify/`)) return verifyAffiliateRecovery(db, request, url, path.slice(`${affiliateRoot}/recover/verify/`.length));
   if (path === `${affiliateRoot}/verify` || path.startsWith(`${affiliateRoot}/verify/`)) return verifyAffiliate(db, request, url, path.slice(`${affiliateRoot}/verify/`.length));
@@ -1021,7 +1043,8 @@ async function affiliateRequest(request, env, url, path, admin) {
   const code = rawCode?.toUpperCase();
   if (!codePattern.test(code || '') || extra !== undefined) return page('Tautan rujukan tidak ditemukan', '<a href="/produk">Lihat produk DagangOS</a>', 404);
   if (productPattern.test(product || '')) return visitProduct(db, request, code, product);
-  const account = !product && await statement(db, 'SELECT id FROM affiliates WHERE code = ? AND active = 1', code).first();
+  const account = !product && await statement(db, `SELECT affiliate.id FROM affiliate_code_registry registry
+    JOIN affiliates affiliate ON affiliate.id = registry.affiliate_id WHERE registry.code = ? AND affiliate.active = 1`, code).first();
   if (!account) return page('Tautan rujukan tidak ditemukan', '<a href="/produk">Lihat produk DagangOS</a>', 404);
   const products = (await activeProducts(db)).filter(item => item.mode === 'subscription');
   return page('Pilih produk DagangOS', `<ul>${products.map(item => `<li><a href="${affiliateRoot}/${code}/${item.id}">${escape(item.name)}</a></li>`).join('')}</ul>`);

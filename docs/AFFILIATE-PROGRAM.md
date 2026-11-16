@@ -1,6 +1,6 @@
 # DagangOS affiliate program pilot
 
-Affiliates have one code and one dashboard at `https://dagangos.com/affiliate-program`. The DagangOS footer links to the program, and `/affiliate` also opens it. Affiliates register using a name and email, then open and confirm a one-time verification link. Their dashboard access code is shown once; verifying the same email again rotates the access code while retaining the affiliate code. Product links follow `/affiliate-program/<code>/<product>` and open the selected product. The dashboard shows visit counts and net commissions under review without exposing merchant identities.
+Affiliates have one current code and one dashboard at `https://dagangos.com/affiliate-program`. They can change their public referral code in the dashboard to an available code of 8–24 letters and digits. Previous codes and links stay assigned to the same account and remain valid; rewards, attribution and access are unchanged. Codes owned by any other account, including a previous code, cannot be reassigned. The DagangOS footer links to the program, and `/affiliate` also opens it. Affiliates register using a name and email, then open and confirm a one-time verification link. Their dashboard access code is shown once; verifying the same email again rotates the access code while retaining the affiliate code. Product links follow `/affiliate-program/<code>/<product>` and open the selected product. The dashboard shows visit counts and net commissions under review without exposing merchant identities.
 
 | Product | Pilot behavior |
 | --- | --- |

@@ -21,7 +21,7 @@ async function setup(t) {
   t.after(async () => { await worker.dispose(); if (dirname(resolve(state)) === stateRoot) await rm(state, {recursive: true, force: true}); });
   const db = await worker.getD1Database('DB');
   for (const file of ['0001_affiliate_program.sql','0002_affiliate_attributions.sql','0003_affiliate_payout_policy.sql',
-    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql']) {
+    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql','0011_affiliate_code_registry.sql']) {
     const sql = await readFile(`migrations/${file}`, 'utf8');
     await db.exec(sql.replace(/^--.*$/gm, '').trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
   }
