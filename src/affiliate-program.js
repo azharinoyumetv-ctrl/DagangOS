@@ -161,14 +161,17 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
   if (matchingPayment && transaction.status === 'REVERSED') status = 'refunded';
   const evidence = matchingPayment ? transaction.id : invoice?.id ?? null;
   if (status === 'paid') {
+    // Development-mode card payments have returned SUCCESSFUL even though the
+    // transaction API documents SUCCESS. Both still require settled funds.
+    const successfulTransaction = matchingPayment && ['SUCCESS', 'SUCCESSFUL'].includes(transaction.status);
     const settled = invoice.status === 'SETTLED'
-      || matchingPayment && transaction.status === 'SUCCESS' && ['SETTLED', 'EARLY_SETTLED'].includes(transaction.settlement_status);
+      || successfulTransaction && ['SETTLED', 'EARLY_SETTLED'].includes(transaction.settlement_status);
     const paidAt = new Date(invoice.paid_at).toISOString();
     const records = [statement(db, `
       UPDATE affiliate_acquisitions SET state = ?, paid_at = COALESCE(paid_at, ?)
       WHERE order_id = ? AND state IN ('requested', 'paid')
     `, settled ? 'settled' : 'paid', paidAt, order)];
-    if (matchingPayment && transaction.status === 'SUCCESS'
+    if (successfulTransaction
       && ['SETTLED', 'EARLY_SETTLED'].includes(transaction.settlement_status)) records.push(statement(db, `
       UPDATE affiliate_acquisitions SET settlement_verified_at = ? WHERE order_id = ? AND state = 'settled'
     `, Date.now(), order));

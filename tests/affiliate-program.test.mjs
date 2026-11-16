@@ -5,6 +5,7 @@ import test from 'node:test';
 import { Miniflare, createFetchMock } from 'miniflare';
 import { selection, signReceipt } from '../src/subscription-checkout.js';
 import { observeAcquisition } from '../src/affiliate-program.js';
+import { findInvoice, xenditRequest } from '../src/xendit-payments.js';
 
 const origin = 'https://dagangos.com';
 const ownerId = '11111111-1111-4111-8111-111111111111';
@@ -321,6 +322,60 @@ test('DapurOS uses its own list price and QR reconciliation requires matching se
   assert.deepEqual(await db.prepare('SELECT kind, amount, provider_reference FROM affiliate_ledger').first(),
     { kind: 'commission', amount: 24900, provider_reference: 'txn_qr_fixture' });
   mock.assertNoPendingInterceptors();
+});
+
+test('provider SUCCESSFUL transaction only credits after settlement and becomes payout-verifiable', async t => {
+  const { db } = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const order = `DG-geraina-${'e'.repeat(32)}`, now = Date.now();
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id, scope_key, product_id, owner_id, store_id, affiliate_id, policy_version, tier, period,
+      list_amount, monthly_amount, charged_amount, quote_expires, state)
+    VALUES (?, ?, 'geraina', ?, ?, ?, 'pilot-1', 'starter', 'monthly', 149000, 149000, 134100, ?, 'requested')`)
+    .bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now).run();
+  const invoice = {external_id:order, amount:134100, paid_amount:134100, currency:'IDR', status:'PAID', paid_at:new Date(now).toISOString()};
+  const transaction = {id:'txn_fixture', reference_id:order, type:'PAYMENT', currency:'IDR', amount:134100,
+    cashflow:'MONEY_IN', status:'SUCCESSFUL', settlement_status:'PENDING'};
+  let acquisition = await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first();
+  await observeAcquisition(db, acquisition, invoice, transaction);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_ledger').first('n'), 0);
+  acquisition = await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first();
+  await observeAcquisition(db, acquisition, invoice, {...transaction, settlement_status:'SETTLED'});
+  assert.equal(await db.prepare('SELECT amount FROM affiliate_ledger WHERE order_id = ?').bind(order).first('amount'), 14900);
+  assert.ok(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first('settlement_verified_at'));
+});
+
+test('opt-in paid development invoice is matched to the affiliate ledger without early commission',
+  { skip: process.env.AFFILIATE_SANDBOX_PAID_E2E !== '1' }, async t => {
+  const sandboxKey = process.env.XENDIT_API_SANDBOX || '';
+  if (!sandboxKey.startsWith('xnd_development_')) throw new Error('Development-mode key required');
+  const { orderId } = JSON.parse(await readFile('tmp/affiliate-sandbox-checkout.json', 'utf8'));
+  const env = { XENDIT_SECRET_KEY: sandboxKey };
+  const invoice = await findInvoice(env, orderId);
+  const query = new URLSearchParams({types:'PAYMENT', reference_id:orderId, currency:'IDR', limit:'10'});
+  const transactions = await xenditRequest(env, `/transactions?${query}`);
+  assert.equal(invoice.status, 'PAID');
+  assert.equal(transactions.has_more, false);
+  assert.equal(transactions.data.length, 1);
+  const transaction = transactions.data[0];
+  assert.equal(transaction.reference_id, orderId);
+  assert.equal(transaction.amount, 134100);
+  const { db } = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id, scope_key, product_id, owner_id, store_id, affiliate_id, policy_version, tier, period,
+      list_amount, monthly_amount, charged_amount, quote_expires, state)
+    VALUES (?, ?, 'geraina', ?, ?, ?, 'pilot-1', 'starter', 'monthly', 149000, 149000, 134100, ?, 'requested')`)
+    .bind(orderId, `scope:${orderId}`, ownerId, storeId, affiliateId, Date.now()).run();
+  await observeAcquisition(db, await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(orderId).first(), invoice, transaction);
+  const sale = await db.prepare('SELECT state FROM affiliate_acquisitions WHERE order_id = ?').bind(orderId).first();
+  if (transaction.settlement_status === 'PENDING') {
+    assert.equal(sale.state, 'paid');
+    assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_ledger').first('n'), 0);
+  } else if (['SETTLED','EARLY_SETTLED'].includes(transaction.settlement_status)) {
+    assert.equal(sale.state, 'settled');
+    assert.equal(await db.prepare('SELECT amount FROM affiliate_ledger').first('amount'), 14900);
+  } else throw new Error('Unexpected settlement status');
 });
 
 test('scheduled reconciliation retries paid sales independently and records a settled commission once', async t => {
