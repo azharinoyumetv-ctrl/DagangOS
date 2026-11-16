@@ -27,11 +27,14 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
   if (env.AFFILIATE_PAYOUTS !== 'on' || !env.AFFILIATE_BANK_KEY || !env.AFFILIATE_XENDIT_KEY) return { status: 'disabled' };
   const policy = await db.prepare('SELECT payout_day FROM affiliate_payout_policy WHERE id = 1').first();
   if (!policy || new Date(now + 7 * 60 * 60 * 1000).getUTCDate() !== policy.payout_day) return { status: 'not_due' };
+  const localDate = new Date(now + 7 * 3600000);
+  const monthStart = Date.UTC(localDate.getUTCFullYear(), localDate.getUTCMonth(), 1) - 7 * 3600000;
+  const monthEnd = Date.UTC(localDate.getUTCFullYear(), localDate.getUTCMonth() + 1, 1) - 7 * 3600000;
   const { paidBy } = await cutoff(db, now);
   const row = await db.prepare('SELECT * FROM affiliate_payouts WHERE id = ? AND status = ?').bind(payoutId, 'approved').first();
   if (!row) return { status: 'not_approved' };
   const destination = await decryptDestination(env.AFFILIATE_BANK_KEY, row);
-  const claimed = await db.prepare(`UPDATE affiliate_payouts SET status = 'unknown'
+  const claimed = await db.prepare(`UPDATE affiliate_payouts SET status = 'unknown', submitted_at = ?
     WHERE id = ? AND status = 'approved' AND EXISTS (
       SELECT 1 FROM affiliates a JOIN affiliate_bank_destinations b ON b.affiliate_id = a.id
       WHERE a.id = affiliate_payouts.affiliate_id AND a.active = 1
@@ -39,13 +42,17 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
         AND b.bank_code = affiliate_payouts.bank_code AND b.last_four = affiliate_payouts.last_four
         AND b.encrypted_details = affiliate_payouts.encrypted_details AND b.nonce = affiliate_payouts.nonce
         AND (${availableSql}) >= 0
+        AND NOT EXISTS (SELECT 1 FROM affiliate_payouts prior
+          WHERE prior.affiliate_id = a.id AND prior.id <> affiliate_payouts.id
+            AND prior.status IN ('unknown', 'submitted', 'succeeded')
+            AND prior.submitted_at >= ? AND prior.submitted_at < ?)
         AND NOT EXISTS (
           SELECT 1 FROM affiliate_ledger c JOIN affiliate_acquisitions s ON s.order_id = c.order_id
           WHERE c.affiliate_id = a.id AND c.kind = 'commission' AND s.paid_at <= ?
             AND NOT EXISTS (SELECT 1 FROM affiliate_ledger rev WHERE rev.order_id = c.order_id AND rev.kind = 'reversal')
             AND (s.state <> 'settled' OR s.settlement_verified_at < ? OR s.settlement_verified_at < s.reconciled_at)
         )
-    )`).bind(payoutId, paidBy, paidBy, now - 7200000).run();
+    )`).bind(now, payoutId, paidBy, monthStart, monthEnd, paidBy, now - 7200000).run();
   if (!claimed.meta.changes) return { status: 'not_eligible' };
   let result;
   try {
