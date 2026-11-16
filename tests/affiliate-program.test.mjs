@@ -105,7 +105,7 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.match(publicPage, /Rp 149\.000/);
   assert.match(publicPage, /tanggal 25/);
   assert.match(publicPage, /masa tunggu 30 hari/);
-  assert.match(publicPage, /belum berjalan otomatis/);
+  assert.match(publicPage, /Pembayaran diproses setelah peninjauan/);
   const login = await fetch('/affiliate-program/login', { method: 'POST', headers: { Origin: origin }, body: new URLSearchParams({ access: accessCode }).toString() });
   assert.equal(login.status, 303);
   assert.equal(login.headers.get('Location'), '/affiliate-program');

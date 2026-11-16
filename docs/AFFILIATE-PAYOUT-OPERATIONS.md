@@ -1,6 +1,6 @@
 # Affiliate payout operations
 
-The payout queue is shared by Geraina and DapurOS. Production transfers are currently disabled while customer checkout testing is incomplete.
+The payout queue is shared by Geraina and DapurOS. Approved payouts may be sent automatically on the scheduled date; unapproved proposals are never sent.
 
 The system creates a proposal when an active affiliate has an email-verified bank destination and at least Rp149,000 in commission from customer payments at least 30 days old. This email verification confirms control of the affiliate email; it does **not** verify ownership of the bank account.
 
@@ -14,7 +14,7 @@ Approval reserves that specific amount and bank snapshot. Changing the bank deta
 
 ## Timing and uncertain outcomes
 
-When production transfers are enabled, approved proposals are submitted on the 25th in Western Indonesia Time (UTC+7), subject to a recent successful settlement check for all underlying commissions. Submission and provider status are reconciled periodically. Processing errors can delay payment.
+Approved proposals are submitted on the 25th in Western Indonesia Time (UTC+7), subject to a recent successful settlement check for all underlying commissions. Submission and provider status are reconciled periodically. Processing errors can delay payment.
 
 An `unknown` status means that the transfer request's outcome is uncertain. Do not create or send a replacement manually. The reconciliation job searches the provider by the original reference; if the result remains unknown, investigate with the provider before taking further action. `failed` and `reversed` outcomes release the reservation for a later reviewed proposal.
 

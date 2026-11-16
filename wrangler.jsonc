@@ -9,7 +9,7 @@
     "XENDIT_ENVIRONMENT": "production",
     "AFFILIATE_CHECKOUT": "on",
     "AFFILIATE_PAYOUT_REVIEW": "on",
-    "AFFILIATE_PAYOUTS": "off"
+    "AFFILIATE_PAYOUTS": "on"
   },
   "d1_databases": [
     {

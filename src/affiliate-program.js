@@ -300,7 +300,7 @@ async function affiliateHome(db, request, env, status = 200) {
   const payoutPolicy = await db.prepare('SELECT minimum_idr, payout_day, wait_days FROM affiliate_payout_policy WHERE id = 1').first();
   const payoutInfo = payoutPolicy ? `<p>Ketentuan pembayaran komisi: saldo minimum ${rupiah(payoutPolicy.minimum_idr)},
     pembayaran bulanan setiap tanggal ${payoutPolicy.payout_day}, dan masa tunggu ${payoutPolicy.wait_days} hari sejak pembayaran pelanggan.
-    Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.</p>` : '';
+    ${env.AFFILIATE_PAYOUTS === 'on' ? 'Pembayaran diproses setelah peninjauan.' : 'Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.'}</p>` : '';
   if (!account) {
     return page('Program Afiliasi DagangOS', `<p>Satu akun afiliasi untuk membagikan produk DagangOS dan melihat hasil rujukan Anda.</p>
       <form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label>
