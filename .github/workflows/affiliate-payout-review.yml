@@ -1,0 +1,29 @@
+name: Review affiliate payouts
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: List payouts, then approve or cancel a specific payout ID
+        required: true
+        type: choice
+        options: [list, approve, cancel]
+      payout_id:
+        description: Payout ID (required for approve or cancel)
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Review payout
+        env:
+          AFFILIATE_ADMIN_TOKEN: ${{ secrets.AFFILIATE_ADMIN_TOKEN }}
+          PAYOUT_ACTION: ${{ inputs.action }}
+          PAYOUT_ID: ${{ inputs.payout_id }}
+        run: node scripts/affiliate-payout-review.mjs

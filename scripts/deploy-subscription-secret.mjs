@@ -12,6 +12,7 @@ if (!token || !account || Object.values(values).some(value => !value)) throw new
 if (process.env.RESEND_API_KEY) values.RESEND_API_KEY = process.env.RESEND_API_KEY;
 if (process.env.AFFILIATE_BANK_KEY) values.AFFILIATE_BANK_KEY = process.env.AFFILIATE_BANK_KEY;
 if (process.env.AFFILIATE_XENDIT_KEY) values.AFFILIATE_XENDIT_KEY = process.env.AFFILIATE_XENDIT_KEY;
+if (process.env.AFFILIATE_ADMIN_TOKEN) values.AFFILIATE_ADMIN_TOKEN = process.env.AFFILIATE_ADMIN_TOKEN;
 for (const [name, value] of Object.entries(values)) {
   const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/dagangos-portal/secrets`, {
     method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

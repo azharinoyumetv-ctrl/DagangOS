@@ -12,7 +12,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -21,14 +21,17 @@ async function setup(t, scope, conversionDays = null) {
   const stateRoot = resolve('.wrangler');
   await mkdir(stateRoot, { recursive: true });
   const state = await mkdtemp(join(stateRoot, 'affiliate-test-'));
-  const filenames = ['src/subscription-checkout.js', 'src/xendit-payments.js', 'src/affiliate-program.js', 'src/subscription-products.js'];
+  const filenames = ['src/subscription-checkout.js', 'src/xendit-payments.js', 'src/affiliate-program.js', 'src/subscription-products.js',
+    'src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js', 'src/affiliate-payout-scheduler.js'];
   const worker = new Miniflare({
     modules: [
       { type: 'ESModule', path: resolve('affiliate-test-worker.mjs'), contents: `
         import { handleAffiliate, reconcileAffiliateBatch } from './src/affiliate-program.js';
         import { handleSubscriptionCheckout } from './src/subscription-checkout.js';
+        import { runAffiliatePayoutBatch } from './src/affiliate-payout-scheduler.js';
         export default { async fetch(request, env) {
           if (new URL(request.url).pathname === '/__test/reconcile') return Response.json(await reconcileAffiliateBatch(env, Number(new URL(request.url).searchParams.get('now'))));
+          if (new URL(request.url).pathname === '/__test/payout') return Response.json(await runAffiliatePayoutBatch(env, Number(new URL(request.url).searchParams.get('now'))));
           return await handleAffiliate(request, env) || await handleSubscriptionCheckout(request, env) || new Response('', {status: 404});
         } };
       ` },
@@ -43,6 +46,7 @@ async function setup(t, scope, conversionDays = null) {
       AFFILIATE_BANK_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       SUBSCRIPTION_SIGNING_KEY: signingKey, XENDIT_SECRET_KEY: 'gateway-fixture',
       AFFILIATE_XENDIT_KEY: 'affiliate-fixture',
+      AFFILIATE_PAYOUT_REVIEW: 'on', AFFILIATE_PAYOUTS: 'on',
       XENDIT_WEBHOOK_TOKEN: 'webhook-fixture', GERAINA_BACKEND_ORIGIN: 'geraina.test', BACKEND_ORIGIN: 'dapuros.test',
     },
     fetchMock: mock,
@@ -53,7 +57,7 @@ async function setup(t, scope, conversionDays = null) {
   });
   const db = await worker.getD1Database('AFFILIATE_DB');
   // D1 exec expects a complete SQL statement on each line.
-  for (const migration of migrations) await db.exec(migration.trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
+  for (const migration of migrations) await db.exec(migration.replace(/^--.*$/gm, '').trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
   if (scope) await db.prepare("INSERT INTO affiliate_policy VALUES (1, 'pilot-1', ?, 30, ?)").bind(scope, conversionDays).run();
   const fetch = (path, options = {}) => worker.dispatchFetch(origin + path, { redirect: 'manual', ...options });
   const createAccount = (code, email, admin = true) => fetch('/api/affiliate/admin/accounts', {
@@ -374,6 +378,59 @@ test('scheduled reconciliation reverses a commission when a settled transaction 
   assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now}`)).json(), { checked: 1, failed: 0 });
   assert.deepEqual((await db.prepare('SELECT kind, amount FROM affiliate_ledger ORDER BY kind').all()).results,
     [{kind: 'commission', amount: 14900}, {kind: 'reversal', amount: -14900}]);
+  mock.assertNoPendingInterceptors();
+});
+
+test('payout flow: settled Geraina and DapurOS commissions, authenticated review, scheduled transfer and status reconciliation', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now = Date.now();
+  const currentDay = new Date(now + 7 * 3600000).getUTCDate();
+  const payoutNow = currentDay <= 28 ? now : Date.parse('2027-01-25T08:00:00.000Z');
+  await db.prepare('UPDATE affiliate_payout_policy SET payout_day = ? WHERE id = 1')
+    .bind(new Date(payoutNow + 7 * 3600000).getUTCDate()).run();
+  const iv = new Uint8Array(12), keyBytes = new Uint8Array(32);
+  const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
+  const encrypted = await crypto.subtle.encrypt({name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(affiliateId)}, key,
+    new TextEncoder().encode(JSON.stringify({name: 'Test Affiliate', number: '1234567890'})));
+  const hex = value => Buffer.from(value).toString('hex');
+  await db.prepare('INSERT INTO affiliate_bank_destinations VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(affiliateId, 'ID_BCA', '7890', hex(encrypted), hex(iv), payoutNow - 86400000).run();
+  for (let i = 0; i < 10; i++) {
+    const product = i % 2 ? 'dapuros' : 'geraina', order = `DG-${product}-${i.toString(16).repeat(32)}`;
+    await db.prepare(`INSERT INTO affiliate_acquisitions
+      (order_id, scope_key, product_id, owner_id, store_id, affiliate_id, policy_version, tier, period,
+      list_amount, monthly_amount, charged_amount, quote_expires, state)
+      VALUES (?, ?, ?, ?, ?, ?, 'pilot-1', 'starter', 'monthly', 149000, 149000, 134100, ?, 'requested')`)
+      .bind(order, `scope:${order}`, product, ownerId, storeId, affiliateId, payoutNow).run();
+    const invoice = { external_id: order, id: `invoice-${i}`, amount: 134100, paid_amount: 134100, currency: 'IDR',
+      status: 'SETTLED', paid_at: new Date(payoutNow - 31 * 86400000).toISOString() };
+    await observeAcquisition(db, await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first(), invoice,
+      { id: `txn-${i}`, reference_id: order, type: 'PAYMENT', currency: 'IDR', amount: 134100,
+        cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED' });
+  }
+  // Exercise a future payout day without waiting 30 days in the test.
+  await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(payoutNow).run();
+  const run = () => fetch(`/__test/payout?now=${payoutNow}`);
+  assert.deepEqual(await (await run()).json(), {prepared: 1, executed: 0, failed: 0});
+  const admin = body => fetch('/api/affiliate/admin/payouts', { method: 'POST',
+    headers: {Authorization: 'Bearer operator-fixture'}, body: JSON.stringify(body) });
+  assert.equal((await fetch('/api/affiliate/admin/payouts', {method: 'POST', body:'{}'})).status, 403);
+  const list = await (await admin({action: 'list'})).json();
+  assert.equal(list.payouts.length, 1);
+  assert.equal(list.payouts[0].amount, 149000);
+  assert.equal(list.payouts[0].accountName, 'Test Affiliate');
+  const id = list.payouts[0].id;
+  assert.equal((await admin({action:'approve', id, reviewer:'owner'})).status, 200);
+  const provider = mock.get('https://api.xendit.co');
+  const payout = { id: 'disb-test-payout-1234', reference_id: `affiliate-${id}`, currency: 'IDR', amount: 149000, status: 'REQUESTED' };
+  provider.intercept({path:'/v2/payouts', method:'POST'}).reply(200, payout, headers);
+  provider.intercept({path:'/v2/payouts/disb-test-payout-1234', method:'GET'}).reply(200, {...payout, status:'SUCCEEDED'}, headers);
+  assert.deepEqual(await (await run()).json(), {prepared: 0, executed: 1, failed: 0});
+  assert.equal(await db.prepare('SELECT status FROM affiliate_payouts WHERE id = ?').bind(id).first('status'), 'submitted');
+  assert.deepEqual(await (await fetch(`/__test/payout?now=${payoutNow + 3600001}`)).json(), {prepared: 0, executed: 0, failed: 0});
+  assert.equal(await db.prepare('SELECT status FROM affiliate_payouts WHERE id = ?').bind(id).first('status'), 'succeeded');
+  assert.equal(await db.prepare('SELECT SUM(amount) FROM affiliate_ledger').first('SUM(amount)'), 149000);
   mock.assertNoPendingInterceptors();
 });
 

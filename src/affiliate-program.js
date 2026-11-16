@@ -1,5 +1,7 @@
 import { equalToken, findInvoice, verifiedInvoiceStatus, xenditRequest } from './xendit-payments.js';
 import { subscriptionBackendHost } from './subscription-products.js';
+import { reviewAffiliatePayout } from './affiliate-payout-review.js';
+import { decryptDestination } from './affiliate-payout-execute.js';
 
 const day = 86400000;
 const affiliateRoot = '/affiliate-program';
@@ -166,6 +168,10 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
       UPDATE affiliate_acquisitions SET state = ?, paid_at = COALESCE(paid_at, ?)
       WHERE order_id = ? AND state IN ('requested', 'paid')
     `, settled ? 'settled' : 'paid', paidAt, order)];
+    if (matchingPayment && transaction.status === 'SUCCESS'
+      && ['SETTLED', 'EARLY_SETTLED'].includes(transaction.settlement_status)) records.push(statement(db, `
+      UPDATE affiliate_acquisitions SET settlement_verified_at = ? WHERE order_id = ? AND state = 'settled'
+    `, Date.now(), order));
     if (settled) records.push(statement(db, `
       INSERT INTO affiliate_ledger (order_id, affiliate_id, product_id, kind, amount, provider_reference, recorded_at)
       SELECT sale.order_id, sale.affiliate_id, sale.product_id, 'commission', ?, ?, ?
@@ -217,7 +223,7 @@ async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
 
 // Called only by the scheduled Worker. Moving checked entries to the back of
 // the queue makes retries bounded and prevents a failed invoice starving others.
-export async function reconcileAffiliateBatch(env, now = Date.now(), limit = 25) {
+export async function reconcileAffiliateBatch(env, now = Date.now(), limit = 5) {
   if (!env.AFFILIATE_DB || !env.XENDIT_SECRET_KEY || env.AFFILIATE_CHECKOUT !== 'on') return { checked: 0, failed: 0 };
   const db = env.AFFILIATE_DB;
   const candidates = await statement(db, `SELECT * FROM affiliate_acquisitions
@@ -550,6 +556,29 @@ async function operatorApi(request, env, path) {
   let data;
   try { data = JSON.parse(raw); } catch { return json({ error: 'Invalid JSON' }, 400); }
   const db = env.AFFILIATE_DB;
+  if (path === '/api/affiliate/admin/payouts') {
+    if (data?.action === 'list') {
+      if (!env.AFFILIATE_BANK_KEY) return json({ error: 'Payout review unavailable' }, 503);
+      const rows = (await db.prepare(`SELECT p.*, a.name AS affiliate_name, a.code AS affiliate_code
+        FROM affiliate_payouts p JOIN affiliates a ON a.id = p.affiliate_id
+        WHERE p.status IN ('proposed', 'approved', 'submitted', 'unknown') ORDER BY p.created_at LIMIT 100`).all()).results;
+      const payouts = [];
+      for (const row of rows) {
+        const destination = await decryptDestination(env.AFFILIATE_BANK_KEY, row);
+        payouts.push({ id: row.id, affiliate: row.affiliate_name, code: row.affiliate_code,
+          amount: row.amount, status: row.status, bank: row.bank_code,
+          accountName: destination.accountName, accountLastFour: row.last_four, createdAt: row.created_at });
+      }
+      return json({ payouts });
+    }
+    if (['approve', 'cancel'].includes(data?.action) && uuidPattern.test(data?.id || '')
+      && /^[a-zA-Z0-9@._-]{1,100}$/.test(data?.reviewer || '')) {
+      const changed = await reviewAffiliatePayout(db, data.id, data.reviewer, data.action);
+      return json(changed ? { status: data.action === 'approve' ? 'approved' : 'cancelled' }
+        : { error: 'Payout changed or is no longer eligible for review' }, changed ? 200 : 409);
+    }
+    return json({ error: 'Invalid payout review request' }, 400);
+  }
   if (path === '/api/affiliate/admin/reconcile') {
     const orderId = data?.orderId;
     if (typeof orderId !== 'string' || !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(orderId)) return json({ error: 'Invalid order ID' }, 400);
@@ -617,7 +646,7 @@ export async function handleAffiliate(request, env) {
       return json({ error: 'Kode afiliasi belum dapat diperiksa.' }, 503);
     }
   }
-  const admin = ['/api/affiliate/admin/accounts', '/api/affiliate/admin/reconcile'].includes(path);
+  const admin = ['/api/affiliate/admin/accounts', '/api/affiliate/admin/reconcile', '/api/affiliate/admin/payouts'].includes(path);
   if (!admin && path !== affiliateRoot && !path.startsWith(`${affiliateRoot}/`)) return null;
   if (env.AFFILIATE_DB) {
     try {

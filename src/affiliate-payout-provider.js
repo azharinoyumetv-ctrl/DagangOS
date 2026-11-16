@@ -46,3 +46,15 @@ export async function getPayout(key, { id, reference, amount }) {
   if (payout.id !== id) throw new Error('Payout response did not match the requested ID');
   return payout;
 }
+
+// Used when a create request timed out before returning its provider ID. An
+// empty or ambiguous result is never evidence that another transfer is safe.
+export async function findPayout(key, { reference, amount }) {
+  validateReference(reference);
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Invalid payout lookup');
+  const data = await request(key, `/v2/payouts?reference_id=${encodeURIComponent(reference)}`);
+  if (data?.has_more !== false || !Array.isArray(data.data)) throw new Error('Ambiguous payout lookup');
+  if (data.data.length === 0) return null;
+  if (data.data.length !== 1) throw new Error('Ambiguous payout lookup');
+  return validatePayout(data.data[0], reference, amount);
+}
