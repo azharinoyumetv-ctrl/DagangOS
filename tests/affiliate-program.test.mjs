@@ -12,7 +12,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -25,9 +25,10 @@ async function setup(t, scope, conversionDays = null) {
   const worker = new Miniflare({
     modules: [
       { type: 'ESModule', path: resolve('affiliate-test-worker.mjs'), contents: `
-        import { handleAffiliate } from './src/affiliate-program.js';
+        import { handleAffiliate, reconcileAffiliateBatch } from './src/affiliate-program.js';
         import { handleSubscriptionCheckout } from './src/subscription-checkout.js';
         export default { async fetch(request, env) {
+          if (new URL(request.url).pathname === '/__test/reconcile') return Response.json(await reconcileAffiliateBatch(env, Number(new URL(request.url).searchParams.get('now'))));
           return await handleAffiliate(request, env) || await handleSubscriptionCheckout(request, env) || new Response('', {status: 404});
         } };
       ` },
@@ -278,6 +279,33 @@ test('DapurOS uses its own list price and QR reconciliation requires matching se
   assert.equal((await (await reconcile()).json()).acquisitionState, 'settled');
   assert.deepEqual(await db.prepare('SELECT kind, amount, provider_reference FROM affiliate_ledger').first(),
     { kind: 'commission', amount: 24900, provider_reference: 'txn_qr_fixture' });
+  mock.assertNoPendingInterceptors();
+});
+
+test('scheduled reconciliation retries paid sales independently and records a settled commission once', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now = Date.now();
+  const insert = db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id, scope_key, product_id, owner_id, store_id, affiliate_id, policy_version, tier, period,
+     list_amount, monthly_amount, charged_amount, quote_expires, state)
+    VALUES (?, ?, 'geraina', ?, ?, ?, 'pilot-1', 'starter', 'monthly', 149000, 149000, 134100, ?, 'paid')`);
+  const orders = ['a', 'b'].map(letter => `DG-geraina-${letter.repeat(32)}`);
+  for (const order of orders) await insert.bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now + 10000).run();
+  const xendit = mock.get('https://api.xendit.co');
+  const path = order => `/v2/invoices?external_id=${order}&limit=10`;
+  const invoice = { external_id: orders[0], amount: 134100, paid_amount: 134100, currency: 'IDR', status: 'SETTLED', paid_at: new Date(now).toISOString() };
+  xendit.intercept({ path: path(orders[0]) }).reply(200, [invoice], headers);
+  xendit.intercept({ path: path(orders[1]) }).reply(500, {error: 'temporary'}, headers);
+  assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now}`)).json(), {checked: 2, failed: 1});
+  assert.deepEqual((await db.prepare('SELECT order_id, kind, amount FROM affiliate_ledger').all()).results,
+    [{order_id: orders[0], kind: 'commission', amount: 14900}]);
+  assert.equal(await db.prepare('SELECT state FROM affiliate_acquisitions WHERE order_id = ?').bind(orders[1]).first('state'), 'paid');
+  assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now + 1000}`)).json(), {checked: 0, failed: 0});
+  xendit.intercept({ path: path(orders[0]) }).reply(200, [invoice], headers);
+  xendit.intercept({ path: path(orders[1]) }).reply(200, [{...invoice, external_id: orders[1]}], headers);
+  assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now + 3600001}`)).json(), {checked: 2, failed: 0});
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_ledger').first('count'), 2);
   mock.assertNoPendingInterceptors();
 });
 

@@ -2,6 +2,9 @@ name = "dagangos-portal"
 main = "src/index.js"
 compatibility_date = "2026-06-27"
 
+[triggers]
+crons = ["*/10 * * * *"]
+
 [vars]
 BACKEND_ORIGIN = "dapuros.vercel.app"
 GERAINA_BACKEND_ORIGIN = "geraina-os.vercel.app"

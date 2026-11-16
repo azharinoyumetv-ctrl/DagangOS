@@ -1,5 +1,5 @@
 import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscription-checkout.js';
-import { handleAffiliate } from './affiliate-program.js';
+import { handleAffiliate, reconcileAffiliateBatch } from './affiliate-program.js';
 import { portalInformationDocuments } from './portal-information.js';
 import { gerainaCanonicalPath, renderGerainaPublic, injectGerainaWebBoundary } from './geraina-public.js';
 import { dapurosCanonicalPath, renderDapurosPublic, injectDapurosWebBoundary } from './dapuros-public.js';
@@ -108,6 +108,11 @@ async function serveHtmlAsset(env, request, assetPath, status = 200) {
 }
 
 export default {
+  async scheduled(controller, env, context) {
+    context.waitUntil(reconcileAffiliateBatch(env, controller.scheduledTime).then(result => {
+      if (result.failed) console.error('Affiliate reconciliation incomplete', result);
+    }));
+  },
   async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);

@@ -198,6 +198,38 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
   return { status: 'pending', paidAt: null };
 }
 
+async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
+  const orderId = acquisition.order_id;
+  const invoice = await findInvoice(env, orderId);
+  let transaction = null;
+  if (invoice?.status === 'PAID' && verifySettlement) {
+    const query = new URLSearchParams({ types: 'PAYMENT', reference_id: orderId, currency: 'IDR', limit: '10' });
+    const transactions = await xenditRequest(env, '/transactions?' + query);
+    const records = transactions.has_more === false && Array.isArray(transactions.data)
+      ? transactions.data.filter(item => item.reference_id === orderId) : [];
+    if (records.length === 1) transaction = records[0];
+  }
+  const result = await observeAcquisition(db, acquisition, invoice, transaction);
+  return { ...result, acquisitionState: (await findAcquisition(db, orderId)).state, invoiceStatus: invoice?.status || null };
+}
+
+// Called only by the scheduled Worker. Moving checked entries to the back of
+// the queue makes retries bounded and prevents a failed invoice starving others.
+export async function reconcileAffiliateBatch(env, now = Date.now(), limit = 25) {
+  if (!env.AFFILIATE_DB || !env.XENDIT_SECRET_KEY || env.AFFILIATE_CHECKOUT !== 'on') return { checked: 0, failed: 0 };
+  const db = env.AFFILIATE_DB;
+  const candidates = await statement(db, `SELECT * FROM affiliate_acquisitions
+    WHERE affiliate_id IS NOT NULL AND state IN ('requested', 'paid', 'settled')
+      AND reconciled_at <= ? ORDER BY reconciled_at, rowid LIMIT ?`, now - 3600000, limit).all();
+  let failed = 0;
+  for (const acquisition of candidates.results) {
+    await statement(db, 'UPDATE affiliate_acquisitions SET reconciled_at = ? WHERE order_id = ?', now, acquisition.order_id).run();
+    try { await reconcileAcquisition(db, env, acquisition, true); }
+    catch { failed++; }
+  }
+  return { checked: candidates.results.length, failed };
+}
+
 const headers = {
   'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex',
 };
@@ -425,18 +457,7 @@ async function operatorApi(request, env, path) {
     if (typeof orderId !== 'string' || !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(orderId)) return json({ error: 'Invalid order ID' }, 400);
     const acquisition = await findAcquisition(db, orderId);
     if (!acquisition) return json({ error: 'Order not found' }, 404);
-    const invoice = await findInvoice(env, orderId);
-    let transaction = null;
-    if (invoice?.status === 'PAID' && data?.verifySettlement === true) {
-      const query = new URLSearchParams({ types: 'PAYMENT', reference_id: orderId, currency: 'IDR', limit: '10' });
-      const transactions = await xenditRequest(env, '/transactions?' + query);
-      const records = transactions.has_more === false && Array.isArray(transactions.data)
-        ? transactions.data.filter(item => item.reference_id === orderId) : [];
-      if (records.length === 1) transaction = records[0];
-    }
-    const result = await observeAcquisition(db, acquisition, invoice, transaction);
-    const updated = await findAcquisition(db, orderId);
-    return json({ ...result, acquisitionState: updated.state, invoiceStatus: invoice?.status || null });
+    return json(await reconcileAcquisition(db, env, acquisition, data?.verifySettlement === true));
   }
   const code = typeof data?.code === 'string' ? data.code.trim().toUpperCase() : '';
   const name = typeof data?.name === 'string' ? data.name.trim() : '';
