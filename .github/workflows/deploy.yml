@@ -144,6 +144,12 @@ jobs:
           AFFILIATE_BANK_KEY: ${{ secrets.AFFILIATE_BANK_KEY }}
         run: node scripts/deploy-subscription-secret.mjs
 
+      - name: Check affiliate provider read permissions
+        continue-on-error: true
+        env:
+          XENDIT_SECRET_KEY: ${{ secrets.XENDIT_SECRET_KEY }}
+        run: node scripts/check-affiliate-provider-access.mjs
+
   e2e-geraina:
     needs: deploy
     # Explicit local verification avoids launching write-capable live Geraina tests.
