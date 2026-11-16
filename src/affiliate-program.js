@@ -202,7 +202,9 @@ async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
   const orderId = acquisition.order_id;
   const invoice = await findInvoice(env, orderId);
   let transaction = null;
-  if (invoice?.status === 'PAID' && verifySettlement) {
+  // A settled transaction can later be reversed even if the invoice remains
+  // SETTLED, so continue checking it throughout reconciliation.
+  if (['PAID', 'SETTLED'].includes(invoice?.status) && verifySettlement) {
     const query = new URLSearchParams({ types: 'PAYMENT', reference_id: orderId, currency: 'IDR', limit: '10' });
     const transactions = await xenditRequest({ XENDIT_SECRET_KEY: env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY }, '/transactions?' + query);
     const records = transactions.has_more === false && Array.isArray(transactions.data)

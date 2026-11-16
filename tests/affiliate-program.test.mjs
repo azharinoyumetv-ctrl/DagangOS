@@ -331,8 +331,10 @@ test('scheduled reconciliation retries paid sales independently and records a se
   for (const order of orders) await insert.bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now + 10000).run();
   const xendit = mock.get('https://api.xendit.co');
   const path = order => `/v2/invoices?external_id=${order}&limit=10`;
+  const transactionPath = order => `/transactions?types=PAYMENT&reference_id=${order}&currency=IDR&limit=10`;
   const invoice = { external_id: orders[0], amount: 134100, paid_amount: 134100, currency: 'IDR', status: 'SETTLED', paid_at: new Date(now).toISOString() };
   xendit.intercept({ path: path(orders[0]) }).reply(200, [invoice], headers);
+  xendit.intercept({ path: transactionPath(orders[0]) }).reply(200, {has_more: false, data: []}, headers);
   xendit.intercept({ path: path(orders[1]) }).reply(500, {error: 'temporary'}, headers);
   assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now}`)).json(), {checked: 2, failed: 1});
   assert.deepEqual((await db.prepare('SELECT order_id, kind, amount FROM affiliate_ledger').all()).results,
@@ -341,8 +343,37 @@ test('scheduled reconciliation retries paid sales independently and records a se
   assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now + 1000}`)).json(), {checked: 0, failed: 0});
   xendit.intercept({ path: path(orders[0]) }).reply(200, [invoice], headers);
   xendit.intercept({ path: path(orders[1]) }).reply(200, [{...invoice, external_id: orders[1]}], headers);
+  for (const order of orders) xendit.intercept({ path: transactionPath(order) }).reply(200, {has_more: false, data: []}, headers);
   assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now + 3600001}`)).json(), {checked: 2, failed: 0});
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_ledger').first('count'), 2);
+  mock.assertNoPendingInterceptors();
+});
+
+test('scheduled reconciliation reverses a commission when a settled transaction is reversed', async t => {
+  const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now = Date.now();
+  const order = `DG-geraina-${'c'.repeat(32)}`;
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id, scope_key, product_id, owner_id, store_id, affiliate_id, policy_version, tier, period,
+      list_amount, monthly_amount, charged_amount, quote_expires, state, paid_at)
+    VALUES (?, ?, 'geraina', ?, ?, ?, 'pilot-1', 'starter', 'monthly', 149000, 149000, 134100, ?, 'settled', ?)`)
+    .bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now + 10000, new Date(now - 86400000).toISOString()).run();
+  await db.prepare(`INSERT INTO affiliate_ledger (order_id, affiliate_id, product_id, kind, amount, provider_reference, recorded_at)
+    VALUES (?, ?, 'geraina', 'commission', 14900, 'txn_fixture', ?)`)
+    .bind(order, affiliateId, now - 86400000).run();
+  const xendit = mock.get('https://api.xendit.co');
+  xendit.intercept({ path: `/v2/invoices?external_id=${order}&limit=10` }).reply(200, [{
+    external_id: order, amount: 134100, paid_amount: 134100, currency: 'IDR', status: 'SETTLED',
+    paid_at: new Date(now - 86400000).toISOString(),
+  }], headers);
+  xendit.intercept({ path: `/transactions?types=PAYMENT&reference_id=${order}&currency=IDR&limit=10` }).reply(200, {
+    has_more: false, data: [{ id: 'txn_fixture', reference_id: order, type: 'PAYMENT', currency: 'IDR',
+      amount: 134100, cashflow: 'MONEY_IN', status: 'REVERSED', settlement_status: 'SETTLED' }],
+  }, headers);
+  assert.deepEqual(await (await fetch(`/__test/reconcile?now=${now}`)).json(), { checked: 1, failed: 0 });
+  assert.deepEqual((await db.prepare('SELECT kind, amount FROM affiliate_ledger ORDER BY kind').all()).results,
+    [{kind: 'commission', amount: 14900}, {kind: 'reversal', amount: -14900}]);
   mock.assertNoPendingInterceptors();
 });
 
