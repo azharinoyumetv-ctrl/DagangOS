@@ -5,6 +5,11 @@ function openLoginFromLink() {
 openLoginFromLink();
 window.addEventListener('hashchange', openLoginFromLink);
 
+document.querySelectorAll('[data-print-receipt]').forEach(button => {
+  button.hidden = false;
+  button.addEventListener('click', () => window.print());
+});
+
 document.querySelectorAll('[data-copy-for]').forEach(button => {
   const input = document.getElementById(button.dataset.copyFor);
   const status = button.parentElement.nextElementSibling;

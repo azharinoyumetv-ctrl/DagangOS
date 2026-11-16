@@ -239,6 +239,122 @@ test('recent activity includes new unpaid orders even when older paid activity f
   assert.doesNotMatch(html,/old-paid-0</);
 });
 
+test('dashboard filters and exports the same affiliate history beyond the first page', async t => {
+  const {db,fetch,accessCode,createAccount} = await setup(t,'merchant_product',90);
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  await createAccount('OTHER987','other@example.test');
+  const other=await db.prepare("SELECT id FROM affiliates WHERE code = 'OTHER987'").first('id');
+  const now=Date.now();
+  for(let i=0;i<25;i++){
+    const order=`DG-${i%2?'dapuros':'geraina'}-${String(i).padStart(32,'0')}`;
+    await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state)
+      VALUES (?,?,?,?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'requested')`)
+      .bind(order,order,i%2?'dapuros':'geraina',`owner-${i}`,`store-${i}`,id,now).run();
+  }
+  await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state)
+    VALUES ('private-other-order','other','geraina','other','other',?,'pilot','starter','monthly',149000,149000,134100,?,'requested')`).bind(other,now).run();
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const cookie=login.headers.get('Set-Cookie').split(';')[0];
+  const post = (path,values,requestOrigin=origin) => fetch(path,{method:'POST',headers:{Origin:requestOrigin,Cookie:cookie},body:new URLSearchParams(values).toString()});
+  const filtered=await post('/affiliate-program/dashboard',{product:'dapuros',state:'requested'});
+  const html=await filtered.text();
+  assert.equal(filtered.status,200);
+  assert.match(html,/12 aktivitas/);
+  assert.match(html,/DG-dapuros-00000000000000000000000000000023/);
+  assert.doesNotMatch(html,/DG-geraina-00000000000000000000000000000024|private-other-order/);
+  const second=await post('/affiliate-program/dashboard',{activity_page:'2'});
+  const secondHtml=await second.text();
+  assert.match(secondHtml,/25 aktivitas · Halaman 2 dari 2/);
+  assert.match(secondHtml,/DG-geraina-00000000000000000000000000000000/);
+  const csv=await post('/affiliate-program/export/aktivitas',{product:'dapuros',state:'requested'});
+  const text=await csv.text();
+  assert.equal(csv.status,200);
+  assert.match(csv.headers.get('Content-Type'),/text\/csv/);
+  assert.equal(csv.headers.get('Cache-Control'),'no-store');
+  assert.equal(text.trim().split('\r\n').length,13);
+  assert.doesNotMatch(text,/geraina|private-other-order/i);
+  assert.equal((await post('/affiliate-program/export/aktivitas',{},'https://evil.test')).status,403);
+  assert.equal((await fetch('/affiliate-program/export/aktivitas',{method:'POST',headers:{Origin:origin},body:''})).status,401);
+});
+
+test('CSV streams all history safely across multiple chunks', async t => {
+  const {db,fetch,accessCode} = await setup(t,'merchant_product',90);
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now=Date.now();
+  await db.prepare("UPDATE affiliate_products SET name = '=formula' WHERE id = 'geraina'").run();
+  const insert=db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state)
+    VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'requested')`);
+  for(let start=0;start<205;start+=50){
+    const batch=[];
+    for(let i=start;i<Math.min(start+50,205);i++){
+      const order=`bulk-${String(i).padStart(4,'0')}`;
+      batch.push(insert.bind(order,order,order,order,id,now));
+    }
+    await db.batch(batch);
+  }
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const cookie=login.headers.get('Set-Cookie').split(';')[0];
+  const response=await fetch('/affiliate-program/export/aktivitas',{method:'POST',headers:{Origin:origin,Cookie:cookie},body:''});
+  const lines=(await response.text()).trim().split('\r\n');
+  assert.equal(lines.length,206);
+  assert.match(lines[1],/"'=formula","bulk-0204"/);
+  assert.match(lines[205],/"bulk-0000"/);
+});
+
+test('earnings trend uses recorded ledger events and the selected period without changing lifetime totals', async t => {
+  const {db,fetch,accessCode}=await setup(t,'merchant_product',90);
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now=Date.now(), old=now-200*86400000;
+  await db.prepare('UPDATE affiliates SET created_at = ? WHERE id = ?').bind(old-86400000,id).run();
+  for(const [order,recorded,amount] of [['trend-old',old,10000],['trend-now',now-1000,20000]]){
+    await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+      VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?)`)
+      .bind(order,order,order,order,id,now,new Date(recorded).toISOString()).run();
+    await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,'geraina','commission',?,?)").bind(order,id,amount,recorded).run();
+  }
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const cookie=login.headers.get('Set-Cookie').split(';')[0];
+  const render=months=>fetch('/affiliate-program/dashboard',{method:'POST',headers:{Origin:origin,Cookie:cookie},body:new URLSearchParams({months}).toString()});
+  const three=await (await render('3')).text(), twelve=await (await render('12')).text();
+  assert.match(three,/Total komisi tercatat<\/span><strong>Rp 30\.000/);
+  assert.match(twelve,/Total komisi tercatat<\/span><strong>Rp 30\.000/);
+  const chart = html => html.match(/<section id="tren"[\s\S]*?<\/section>/)?.[0] || '';
+  assert.doesNotMatch(chart(three),/Rp 10\.000/);
+  assert.match(chart(twelve),/Rp 10\.000/);
+  assert.match(three,/Komisi bersih dicatat per bulan/);
+});
+
+test('successful payout records are private and printable without exposing bank account numbers', async t => {
+  const {db,fetch,accessCode,createAccount}=await setup(t,'merchant_product',90);
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const otherResult=await createAccount('OTHER987','other@example.test');
+  const otherAccess=(await otherResult.json()).accessCode;
+  const now=Date.now(),payoutId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',pendingId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  for(const [pid,status] of [[payoutId,'succeeded'],[pendingId,'proposed']]){
+    await db.prepare(`INSERT INTO affiliate_payouts (id,affiliate_id,amount,bank_code,last_four,encrypted_details,nonce,destination_updated_at,created_at,status,completed_at)
+      VALUES (?, ?,149000,'ID_BCA','7890','cipher','nonce',?,?,?,?)`).bind(pid,id,now,now,status,status==='succeeded'?now:null).run();
+  }
+  const login=async access=>{const r=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access}).toString()});return r.headers.get('Set-Cookie').split(';')[0]};
+  const cookie=await login(accessCode), otherCookie=await login(otherAccess);
+  assert.equal((await fetch(`/affiliate-program/pembayaran/${payoutId}`)).status,401);
+  assert.equal((await fetch(`/affiliate-program/pembayaran/${payoutId}`,{headers:{Cookie:otherCookie}})).status,404);
+  assert.equal((await fetch(`/affiliate-program/pembayaran/${pendingId}`,{headers:{Cookie:cookie}})).status,404);
+  const receipt=await fetch(`/affiliate-program/pembayaran/${payoutId}`,{headers:{Cookie:cookie}});
+  const text=await receipt.text();
+  assert.equal(receipt.status,200);
+  assert.equal(receipt.headers.get('Cache-Control'),'no-store');
+  assert.match(text,/Rp 149\.000/);
+  assert.match(text,/BCA ···· 7890/);
+  assert.match(text,/bukan faktur pajak/);
+  assert.match(text,/data-print-receipt/);
+  assert.doesNotMatch(text,/encrypted_details|provider_id/);
+  const exported=await fetch('/affiliate-program/export/pembayaran',{method:'POST',headers:{Origin:origin,Cookie:cookie},body:'payout_state=succeeded'});
+  const csv=await exported.text();
+  assert.equal(exported.status,200);
+  assert.match(csv,/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/);
+  assert.doesNotMatch(csv,/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|cipher|nonce/);
+});
+
 test('email verification creates an affiliate once and can recover dashboard access', async t => {
   const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
   const messages = [];

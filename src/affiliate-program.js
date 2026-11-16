@@ -278,10 +278,10 @@ async function trialReferral(request, env, url) {
   return json({ available: true, code: saved.code });
 }
 
-function page(title, body, status = 200, landing = false) {
+function page(title, body, status = 200, landing = false, dashboard = false) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} | DagangOS</title>
-    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=finance-20261116"><script src="/affiliate.js?v=20261116b" defer></script>
+    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=dashboard-20261116"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
     </head><body class="affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="DagangOS beranda"><img src="/assets/brand/dagangos-icon.png" alt=""><b>Dagang<span>OS</span></b></a>
@@ -289,7 +289,7 @@ function page(title, body, status = 200, landing = false) {
       <div class="header-actions"><a class="button button-quiet" href="/geraina/login">Masuk</a><a class="button button-primary" href="/produk">Jelajahi Produk ↗</a></div>
       <details class="affiliate-mobile-nav"><summary aria-label="Buka navigasi">☰</summary><nav aria-label="Navigasi utama seluler"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a></nav></details>
     </header>
-    <main class="affiliate-main ${landing ? 'affiliate-main--landing' : ''}">${landing ? body : `<div class="affiliate-message"><span class="affiliate-kicker">PROGRAM AFILIASI</span><h1>${escape(title)}</h1>${body}</div>`}</main>
+    <main class="affiliate-main ${landing ? 'affiliate-main--landing' : ''} ${dashboard ? 'affiliate-main--dashboard' : ''}">${landing ? body : `<div class="affiliate-message ${dashboard ? 'affiliate-dashboard' : ''}">${dashboard ? body : `<span class="affiliate-kicker">PROGRAM AFILIASI</span><h1>${escape(title)}</h1>${body}`}</div>`}</main>
     <footer class="site-footer">
       <div class="footer-brand"><img src="/assets/brand/dagangos-icon.png" alt=""><div><b>DagangOS</b><span>PT DagangOS Digital Indonesia</span></div></div>
       <div class="footer-links"><nav aria-label="Produk dan perusahaan"><b class="footer-heading">DagangOS</b><a href="/produk">Produk</a><a href="/geraina/android">Geraina untuk Android</a><a href="/solusi">Solusi</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/affiliate-program" aria-current="page">Program Afiliasi</a></nav>
@@ -312,6 +312,44 @@ const payoutStatusLabel = {
   reversed: 'Transfer dikembalikan', cancelled: 'Dibatalkan',
 };
 const bankLabel = code => ({ ID_BCA:'BCA', ID_BRI:'BRI', ID_BNI:'BNI', ID_MANDIRI:'Mandiri', ID_PERMATA:'Permata' }[code] || 'Bank');
+function activityStatus(sale, paidBy) {
+  if (sale.state === 'paid') return 'Menunggu penyelesaian pembayaran';
+  if (sale.state === 'settled') return sale.entries ? (sale.paid_at && sale.paid_at <= paidBy ? 'Masa tunggu selesai' : 'Dalam masa tunggu') : 'Komisi belum tercatat';
+  if (sale.state === 'failed') return 'Pembayaran tidak selesai';
+  if (sale.state === 'reversed') return 'Dibatalkan / dikembalikan';
+  return 'Menunggu pembayaran';
+}
+const activityStates = ['requested','paid','settled','failed','reversed'];
+const paymentStates = ['proposed','approved','submitted','unknown','succeeded','failed','reversed','cancelled'];
+function dashboardOptions(form = new URLSearchParams(), products = []) {
+  const pageNumber = key => {
+    const value = form.get(key) || '1';
+    return /^\d{1,6}$/.test(value) ? Math.max(1, Number(value)) : 1;
+  };
+  const product = form.get('product') || '';
+  const state = form.get('state') || '';
+  const payoutState = form.get('payout_state') || '';
+  const requestedMonths = Number(form.get('months'));
+  return {
+    product: products.some(item => item.id === product && item.mode === 'subscription') ? product : '',
+    state: activityStates.includes(state) ? state : '',
+    search: (form.get('search') || '').trim().slice(0, 80),
+    payoutState: paymentStates.includes(payoutState) ? payoutState : '',
+    activityPage: pageNumber('activity_page'),
+    payoutPage: pageNumber('payout_page'),
+    months: [3,6,12].includes(requestedMonths) ? requestedMonths : 6,
+  };
+}
+const salesWhere = `sale.affiliate_id = ? AND sale.state <> 'reserved'
+  AND (? = '' OR sale.product_id = ?) AND (? = '' OR sale.state = ?)
+  AND (? = '' OR instr(lower(sale.order_id), lower(?)) > 0)`;
+const salesBindings = (affiliateId, options) => [affiliateId, options.product, options.product,
+  options.state, options.state, options.search, options.search];
+const dashboardPageSize = 20;
+function monthStart(now, months) {
+  const local = new Date(now + 7 * 3600000);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth() - months + 1, 1) - 7 * 3600000;
+}
 function dashboardDate(value) {
   if (value === null || value === undefined || value === '') return '—';
   const date = new Date(value);
@@ -319,13 +357,43 @@ function dashboardDate(value) {
     ? new Intl.DateTimeFormat('id-ID', { day:'numeric', month:'short', year:'numeric', timeZone:'Asia/Jakarta' }).format(date)
     : '—';
 }
+function hiddenDashboardFields(options, excluded = []) {
+  const values = { product:options.product, state:options.state, search:options.search,
+    payout_state:options.payoutState, activity_page:options.activityPage, payout_page:options.payoutPage, months:options.months };
+  return Object.entries(values).filter(([name]) => !excluded.includes(name)).map(([name,value]) =>
+    `<input type="hidden" name="${name}" value="${escape(value)}">`).join('');
+}
+function dashboardTrend(finance, options) {
+  const amounts = new Map(finance.monthly.map(row => [row.month,row.amount]));
+  const start = new Date(finance.monthsFrom + 7 * 3600000), end = new Date(finance.now + 7 * 3600000);
+  const series = [];
+  for (let date = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    date <= new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+    date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth()+1, 1))) {
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}`;
+    const label = new Intl.DateTimeFormat('id-ID',{month:'short',year:'numeric',timeZone:'UTC'}).format(date);
+    series.push({label,amount:amounts.get(key) ?? 0});
+  }
+  const max = Math.max(1,...series.map(item => Math.abs(item.amount)));
+  const bars = series.map((item,i) => {
+    const height = Math.round(Math.abs(item.amount) / max * 54);
+    const x = 28 + i * 84, y = item.amount >= 0 ? 72-height : 72;
+    return `<g><title>${escape(item.label)}: ${escape(rupiah(item.amount))}</title><rect class="${item.amount < 0 ? 'negative' : 'positive'}" x="${x}" y="${y}" width="32" height="${height}" rx="5"></rect><text x="${x+16}" y="151" text-anchor="middle">${escape(item.label)}</text></g>`;
+  }).join('');
+  const rows = series.map(item => `<tr><td>${escape(item.label)}</td><td>${rupiah(item.amount)}</td></tr>`).join('');
+  return `<div class="affiliate-trend-header"><div><h2>Perkembangan komisi</h2><p>Komisi bersih saat dicatat, termasuk pembatalan. Bulan berjalan belum selesai.</p></div>
+    <form method="post" action="${affiliateRoot}/dashboard#tren" class="affiliate-period">${hiddenDashboardFields(options,['months'])}<label for="months">Periode</label><select id="months" name="months"><option value="3" ${options.months===3?'selected':''}>3 bulan</option><option value="6" ${options.months===6?'selected':''}>6 bulan</option><option value="12" ${options.months===12?'selected':''}>12 bulan</option></select><button type="submit">Tampilkan</button></form></div>
+    ${finance.monthly.length ? `<div class="affiliate-chart-scroll"><svg class="affiliate-chart" role="img" aria-label="Komisi bersih dicatat per bulan" width="${Math.max(360,series.length*84+24)}" height="165" viewBox="0 0 ${Math.max(360,series.length*84+24)} 165"><line x1="20" x2="${Math.max(340,series.length*84+4)}" y1="72" y2="72"></line>${bars}</svg></div>` : '<div class="affiliate-empty-chart">Belum ada komisi tercatat pada periode ini.</div>'}
+    <details class="affiliate-trend-details"><summary>Lihat angka per bulan</summary><div class="affiliate-table-wrap"><table><thead><tr><th scope="col">Bulan</th><th scope="col">Komisi bersih tercatat</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+}
 
-async function affiliateFinance(db, affiliateId, policy, now = Date.now()) {
+async function affiliateFinance(db, affiliateId, policy, options, createdAt, now = Date.now()) {
   if (!policy) return null;
   const paidBy = new Date(now - policy.wait_days * day).toISOString();
+  const monthsFrom = Math.max(monthStart(now, options.months), monthStart(createdAt || now, 1));
   // A D1 batch reads the figures and histories together so a payout or reversal
   // cannot be reflected in only one part of the financial summary.
-  const [balanceResult, totalsResult, payoutTotalsResult, payouts, sales, registrationsResult] = await db.batch([
+  const [balanceResult, totalsResult, payoutTotalsResult, payouts, sales, registrationsResult, saleCountResult, payoutCountResult, monthlyResult] = await db.batch([
     statement(db, `SELECT ${availableSql} AS amount FROM affiliates a WHERE a.id = ?`, paidBy, affiliateId),
     statement(db, `SELECT COALESCE(SUM(entry.amount),0) AS earned,
       COALESCE(SUM(CASE WHEN sale.paid_at IS NULL OR sale.paid_at > ? THEN entry.amount ELSE 0 END),0) AS waiting
@@ -335,30 +403,40 @@ async function affiliateFinance(db, affiliateId, policy, now = Date.now()) {
       COALESCE(SUM(CASE WHEN status IN ('proposed','approved','submitted','unknown') THEN amount ELSE 0 END),0) AS in_progress,
       COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount ELSE 0 END),0) AS paid
       FROM affiliate_payouts WHERE affiliate_id = ?`, affiliateId),
-    statement(db, `SELECT status, amount, bank_code, last_four, created_at, submitted_at, completed_at
-      FROM affiliate_payouts WHERE affiliate_id = ? ORDER BY created_at DESC LIMIT 20`, affiliateId),
+    statement(db, `SELECT id, status, amount, bank_code, last_four, created_at, submitted_at, completed_at
+      FROM affiliate_payouts WHERE affiliate_id = ? AND (? = '' OR status = ?) ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?`,
+      affiliateId, options.payoutState, options.payoutState, dashboardPageSize, (options.payoutPage-1)*dashboardPageSize),
     statement(db, `SELECT sale.order_id, sale.product_id, product.name, sale.state, sale.paid_at,
       COALESCE(SUM(entry.amount),0) AS net_commission, COUNT(entry.order_id) AS entries
       FROM affiliate_acquisitions sale JOIN affiliate_products product ON product.id = sale.product_id
       LEFT JOIN affiliate_ledger entry ON entry.order_id = sale.order_id AND entry.affiliate_id = sale.affiliate_id
-      WHERE sale.affiliate_id = ? AND sale.state <> 'reserved'
-      GROUP BY sale.order_id ORDER BY sale.rowid DESC LIMIT 20`, affiliateId),
+      WHERE ${salesWhere}
+      GROUP BY sale.order_id ORDER BY sale.rowid DESC LIMIT ? OFFSET ?`,
+      ...salesBindings(affiliateId, options), dashboardPageSize, (options.activityPage-1)*dashboardPageSize),
     statement(db, 'SELECT COUNT(*) AS count FROM affiliate_attributions WHERE affiliate_id = ?', affiliateId),
+    statement(db, `SELECT COUNT(*) AS count FROM affiliate_acquisitions sale WHERE ${salesWhere}`, ...salesBindings(affiliateId, options)),
+    statement(db, "SELECT COUNT(*) AS count FROM affiliate_payouts WHERE affiliate_id = ? AND (? = '' OR status = ?)",
+      affiliateId, options.payoutState, options.payoutState),
+    statement(db, `SELECT strftime('%Y-%m', recorded_at / 1000, 'unixepoch', '+7 hours') AS month, SUM(amount) AS amount
+      FROM affiliate_ledger WHERE affiliate_id = ? AND recorded_at >= ? AND recorded_at <= ?
+      GROUP BY month ORDER BY month`, affiliateId, monthsFrom, now),
   ]);
   const balance = balanceResult.results[0], totals = totalsResult.results[0];
   const payoutTotals = payoutTotalsResult.results[0], registrations = registrationsResult.results[0];
   const amounts = [balance?.amount, totals?.earned, totals?.waiting, payoutTotals?.in_progress, payoutTotals?.paid,
-    ...payouts.results.map(row => row.amount), ...sales.results.map(row => row.net_commission)];
+    ...payouts.results.map(row => row.amount), ...sales.results.map(row => row.net_commission), ...monthlyResult.results.map(row => row.amount)];
   if (!amounts.every(Number.isSafeInteger)) return null;
   return { earned:totals.earned, waiting:totals.waiting, available:Math.max(0, balance.amount),
     adjustment:Math.max(0, -balance.amount), inProgress:payoutTotals.in_progress, paid:payoutTotals.paid, payouts:payouts.results,
-    sales:sales.results, registrations:registrations.count, paidBy };
+    sales:sales.results, registrations:registrations.count, paidBy,
+    saleCount:saleCountResult.results[0].count, payoutCount:payoutCountResult.results[0].count,
+    monthly:monthlyResult.results, monthsFrom, now };
 }
 
-async function affiliateHome(db, request, env, status = 200) {
+async function affiliateHome(db, request, env, status = 200, form = new URLSearchParams()) {
   const token = cookieValue(request, sessionCookie);
   const account = accessPattern.test(token || '') && await statement(db,
-    'SELECT id, code, name FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first();
+    'SELECT id, code, name, created_at FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first();
   const payoutPolicy = await db.prepare('SELECT minimum_idr, payout_day, wait_days FROM affiliate_payout_policy WHERE id = 1').first();
   const referralPolicy = await db.prepare('SELECT scope, referral_days, conversion_days FROM affiliate_policy WHERE id = 1').first();
   const referralReady = env.AFFILIATE_CHECKOUT === 'on' && referralPolicy?.referral_days && referralPolicy?.conversion_days;
@@ -395,13 +473,14 @@ async function affiliateHome(db, request, env, status = 200) {
         <details id="masuk" class="affiliate-login"><summary>Sudah punya akun? Masuk</summary><p>Gunakan kode akses dasbor yang Anda simpan saat verifikasi. Kode ini berbeda dari kode afiliasi.</p><form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label><input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required><button type="submit">Masuk ke dasbor</button></form><p class="affiliate-form-note"><a href="${affiliateRoot}/recover">Lupa kode akses dasbor?</a></p></details></div>
       </section>`, status, true);
   }
-  const [products, visits, ledger, bank, finance] = await Promise.all([
-    activeProducts(db),
+  const products = await activeProducts(db);
+  const options = dashboardOptions(form, products);
+  const [visits, ledger, bank, finance] = await Promise.all([
     statement(db, 'SELECT product_id, COUNT(*) AS visits FROM affiliate_visits WHERE affiliate_id = ? GROUP BY product_id', account.id).all(),
     statement(db, `SELECT product_id, SUM(amount) AS total, SUM(kind = 'commission') AS conversions
       FROM affiliate_ledger WHERE affiliate_id = ? GROUP BY product_id`, account.id).all(),
     env.AFFILIATE_BANK_KEY ? statement(db, 'SELECT bank_code, last_four FROM affiliate_bank_destinations WHERE affiliate_id = ?', account.id).first() : null,
-    affiliateFinance(db, account.id, payoutPolicy),
+    affiliateFinance(db, account.id, payoutPolicy, options, account.created_at),
   ]);
   const stats = new Map(ledger.results.map(row => [row.product_id, row]));
   const traffic = new Map(visits.results.map(row => [row.product_id, row.visits]));
@@ -409,11 +488,12 @@ async function affiliateHome(db, request, env, status = 200) {
     const title = escape(product.name);
     const link = `https://dagangos.com${affiliateRoot}/${account.code}/${product.id}`;
     const result = stats.get(product.id);
-    return `<article><h2>${title}</h2><label for="link-${product.id}">Tautan rujukan</label>
+    const icon = ['geraina','dapuros'].includes(product.id) ? `<img src="/assets/brand/${product.id}-icon.png" alt="">` : escape(product.name.slice(0,1));
+    return `<article class="affiliate-product-card"><div class="affiliate-product-head"><span class="affiliate-product-icon">${icon}</span><div><h3>${title}</h3><span>Program aktif</span></div></div><label for="link-${product.id}">Tautan rujukan</label>
       <div class="affiliate-copy"><input type="url" id="link-${product.id}" value="${escape(link)}" readonly><button type="button" data-copy-for="link-${product.id}" hidden>Salin</button></div><span class="affiliate-copy-status" aria-live="polite"></span>
       <dl><dt>Kunjungan</dt><dd>${traffic.get(product.id) ?? 0}</dd>
-      ${product.mode === 'subscription' ? `<dt>Pembelian tercatat</dt><dd>${result?.conversions ?? 0}</dd>
-      <dt>Komisi tercatat</dt><dd>${rupiah(result?.total ?? 0)}</dd>` : '<dt>Status komisi</dt><dd>Dalam persiapan</dd>'}</dl></article>`;
+      <dt>Pembelian tercatat</dt><dd>${result?.conversions ?? 0}</dd>
+      <dt>Komisi tercatat</dt><dd>${rupiah(result?.total ?? 0)}</dd></dl></article>`;
   }).join('');
   const remaining = finance && payoutPolicy ? Math.max(0, payoutPolicy.minimum_idr - finance.available) : 0;
   const progress = finance && payoutPolicy ? Math.min(100, Math.floor(finance.available / payoutPolicy.minimum_idr * 100)) : 0;
@@ -424,41 +504,54 @@ async function affiliateHome(db, request, env, status = 200) {
     : finance.inProgress ? 'Ada pembayaran dalam proses. Lihat statusnya di riwayat pembayaran.'
     : finance.available < payoutPolicy.minimum_idr ? `Diperlukan ${rupiah(remaining)} lagi pada saldo untuk peninjauan agar mencapai ambang minimum.`
     : 'Saldo telah mencapai ambang minimum dan akan disiapkan untuk peninjauan.';
-  const saleRows = finance?.sales.map(sale => {
-    let label = 'Menunggu pembayaran';
-    if (sale.state === 'paid') label = 'Menunggu penyelesaian pembayaran';
-    else if (sale.state === 'settled') label = sale.entries ? (sale.paid_at && sale.paid_at <= finance.paidBy ? 'Masa tunggu selesai' : 'Dalam masa tunggu') : 'Komisi belum tercatat';
-    else if (sale.state === 'failed') label = 'Pembayaran tidak selesai';
-    else if (sale.state === 'reversed') label = 'Dibatalkan / dikembalikan';
-    return `<tr><td>${escape(sale.name)}<small>${escape(sale.order_id)}</small></td><td>${dashboardDate(sale.paid_at)}</td><td>${escape(label)}</td><td>${sale.entries ? rupiah(sale.net_commission) : '—'}</td></tr>`;
-  }).join('') || '<tr><td colspan="4">Belum ada aktivitas pembelian yang tercatat.</td></tr>';
+  const saleRows = finance?.sales.map(sale => `<tr><td>${escape(sale.name)}<small>${escape(sale.order_id)}</small></td><td>${dashboardDate(sale.paid_at)}</td><td>${escape(activityStatus(sale, finance.paidBy))}</td><td>${sale.entries ? rupiah(sale.net_commission) : '—'}</td></tr>`).join('')
+    || '<tr><td colspan="4">Tidak ada aktivitas yang cocok.</td></tr>';
   const payoutRows = finance?.payouts.map(item => `<tr><td>${dashboardDate(item.completed_at || item.submitted_at || item.created_at)}</td>
-    <td>${escape(payoutStatusLabel[item.status] || 'Sedang diperiksa')}</td><td>${escape(bankLabel(item.bank_code))} ···· ${escape(item.last_four)}</td><td>${rupiah(item.amount)}</td></tr>`).join('')
-    || '<tr><td colspan="4">Belum ada pembayaran komisi.</td></tr>';
-  return page('Dasbor Afiliasi', `<p>Bagikan kode atau tautan produk Anda, lalu pantau hasil rujukan di sini.</p><div class="account"><p>Halo, ${escape(account.name)}<br><span>Kode afiliasi</span> <strong>${account.code}</strong></p>
-    <form method="post" action="${affiliateRoot}/logout"><button type="submit">Keluar</button></form></div>
-    ${finance ? `<section class="affiliate-finance" aria-labelledby="finance-heading"><h2 id="finance-heading">Ringkasan komisi</h2>
-      <p>Semua waktu · ${finance.registrations} rujukan akun pernah tersimpan. Total komisi mencakup komisi yang sudah dibayar dan dikurangi pembatalan.</p>
+    <td><span class="affiliate-status">${escape(payoutStatusLabel[item.status] || 'Sedang diperiksa')}</span>${item.status === 'succeeded' && uuidPattern.test(item.id) ? `<a class="affiliate-receipt-link" href="${affiliateRoot}/pembayaran/${item.id}">Lihat catatan</a>` : ''}</td><td>${escape(bankLabel(item.bank_code))} ···· ${escape(item.last_four)}</td><td>${rupiah(item.amount)}</td></tr>`).join('')
+    || '<tr><td colspan="4">Tidak ada pembayaran yang cocok.</td></tr>';
+  const salePages = finance ? Math.max(1,Math.ceil(finance.saleCount/dashboardPageSize)) : 1;
+  const payoutPages = finance ? Math.max(1,Math.ceil(finance.payoutCount/dashboardPageSize)) : 1;
+  const stateOptions = [['','Semua status'],['requested','Menunggu pembayaran'],['paid','Menunggu penyelesaian'],['settled','Pembayaran selesai'],['failed','Pembayaran gagal'],['reversed','Dibatalkan / dikembalikan']];
+  const payoutOptions = [['','Semua status'], ...paymentStates.map(value => [value,payoutStatusLabel[value]])];
+  const optionList = (list, selected) => list.map(([value,label]) => `<option value="${escape(value)}" ${value===selected?'selected':''}>${escape(label)}</option>`).join('');
+  const activeOptions = [['','Semua produk'], ...products.filter(item=>item.mode==='subscription').map(item=>[item.id,item.name])];
+  return page('Dasbor Afiliasi', `<div class="affiliate-workspace">
+    <aside class="affiliate-sidebar" aria-label="Navigasi dasbor"><div class="affiliate-side-brand"><span class="affiliate-side-mark">✦</span><div><strong>Mitra DagangOS</strong><small>Dasbor afiliasi</small></div></div>
+      <nav aria-label="Bagian dasbor">${finance ? '<a href="#ringkasan">◫ <span>Ringkasan</span></a><a href="#tren">◷ <span>Perkembangan</span></a>' : ''}<a href="#produk">◇ <span>Tautan produk</span></a>${finance ? '<a href="#aktivitas">≡ <span>Aktivitas rujukan</span></a><a href="#pembayaran">↗ <span>Pembayaran</span></a>' : ''}${env.AFFILIATE_BANK_KEY ? '<a href="#rekening">▣ <span>Rekening</span></a>' : ''}</nav>
+      <div class="affiliate-side-help"><strong>Butuh bantuan?</strong><span>Tim DagangOS siap membantu.</span><a href="mailto:contact@dagangos.com">Hubungi kami ↗</a></div></aside>
+    <div class="affiliate-workspace-content">
+      <header class="affiliate-dash-header"><div><p class="affiliate-breadcrumb">DAGANGOS <span>/</span> AFILIASI</p><h1>Dasbor Afiliasi</h1><p>Selamat datang, ${escape(account.name)}.</p></div><form method="post" action="${affiliateRoot}/logout"><button type="submit" class="affiliate-logout">Keluar</button></form></header>
+      <div class="affiliate-code-strip"><div><span>KODE AFILIASI ANDA</span><strong>${escape(account.code)}</strong><small>Bagikan kode ini kepada calon pelanggan.</small></div><div class="affiliate-copy"><input id="affiliate-code" value="${escape(account.code)}" readonly aria-label="Kode afiliasi"><button type="button" data-copy-for="affiliate-code" hidden>Salin kode</button></div><span class="affiliate-copy-status" aria-live="polite"></span></div>
+    ${finance ? `<section id="ringkasan" class="affiliate-finance" aria-labelledby="finance-heading"><div class="affiliate-block-head"><div><h2 id="finance-heading">Ringkasan komisi</h2><p>Semua waktu · ${finance.registrations} rujukan akun pernah tersimpan. Data diperbarui saat halaman dimuat.</p></div><span class="affiliate-live-badge">● Data akun</span></div>
       <div class="affiliate-finance-grid">
-        <div><span>Total komisi tercatat</span><strong>${rupiah(finance.earned)}</strong><small>Setelah penyesuaian</small></div>
-        <div><span>Dalam masa tunggu</span><strong>${rupiah(finance.waiting)}</strong><small>Belum memenuhi masa tunggu</small></div>
-        <div><span>Saldo untuk peninjauan</span><strong>${rupiah(finance.available)}</strong><small>Setelah pembayaran dan proses sebelumnya</small></div>
-        <div><span>Pembayaran dalam proses</span><strong>${rupiah(finance.inProgress)}</strong><small>Ditinjau atau dikirim</small></div>
-        <div><span>Sudah dibayar</span><strong>${rupiah(finance.paid)}</strong><small>Transfer berhasil</small></div>
+        <div class="affiliate-kpi affiliate-kpi--primary"><span>Total komisi tercatat</span><strong>${rupiah(finance.earned)}</strong><small>Termasuk yang dibayar, setelah pembatalan</small></div>
+        <div class="affiliate-kpi"><span>Dalam masa tunggu</span><strong>${rupiah(finance.waiting)}</strong><small>Belum memenuhi masa tunggu</small></div>
+        <div class="affiliate-kpi"><span>Saldo untuk peninjauan</span><strong>${rupiah(finance.available)}</strong><small>Setelah pembayaran dan proses sebelumnya</small></div>
+        <div class="affiliate-kpi"><span>Pembayaran dalam proses</span><strong>${rupiah(finance.inProgress)}</strong><small>Ditinjau atau dikirim</small></div>
+        <div class="affiliate-kpi"><span>Sudah dibayar</span><strong>${rupiah(finance.paid)}</strong><small>Transfer berhasil</small></div>
       </div>${finance.adjustment ? `<p class="affiliate-finance-note">Saldo untuk peninjauan masih kurang ${rupiah(finance.adjustment)} untuk menutup pembayaran atau reservasi sebelumnya. Saldo akan diperbarui saat komisi memenuhi syarat atau ada penyesuaian.</p>` : ''}
       <div class="affiliate-payout-card"><div><span class="affiliate-kicker">PENARIKAN KOMISI</span><h3>Pembayaran otomatis ke rekening</h3>
         <p>${env.AFFILIATE_PAYOUTS === 'on' && env.AFFILIATE_PAYOUT_REVIEW === 'on' && env.AFFILIATE_XENDIT_KEY ? `Tidak perlu meminta penarikan. Pembayaran yang memenuhi syarat diproses pada tanggal ${payoutPolicy.payout_day} setiap bulan (WIB), setelah peninjauan.` : 'Pembayaran otomatis masih dalam persiapan.'}</p>
-        <p>${escape(payoutGuidance)}</p><p class="affiliate-finance-note">Saldo harus mencapai ${rupiah(payoutPolicy.minimum_idr)} setelah masa tunggu ${payoutPolicy.wait_days} hari. Peninjauan, verifikasi pembayaran dan kondisi transfer dapat memengaruhi waktu pembayaran.</p>
-        ${env.AFFILIATE_BANK_KEY ? `<a href="#rekening">${bank ? 'Lihat rekening tersimpan' : 'Tambahkan rekening'}</a>` : ''}</div>
-        <div class="affiliate-progress"><span>Saldo untuk peninjauan</span><strong>${rupiah(finance.available)}</strong><progress value="${progress}" max="100" aria-label="Kemajuan menuju ambang pembayaran"></progress><small>Minimum ${rupiah(payoutPolicy.minimum_idr)}</small></div></div></section>` : `<section><h2>Ringkasan komisi</h2><p>Informasi pembayaran belum tersedia. Hubungi tim DagangOS.</p></section>`}
-    <section><h2>Produk dan tautan rujukan</h2><p>Bagikan tautan produk atau kode afiliasi Anda.</p><div class="products">${cards}</div></section>
-    ${finance ? `<section id="aktivitas"><h2>Aktivitas rujukan</h2><p>Hingga 20 pembelian terbaru. Pembayaran yang belum selesai belum menghasilkan komisi.</p>
-      <div class="affiliate-table-wrap"><table><thead><tr><th scope="col">Produk dan referensi</th><th scope="col">Tanggal pembayaran</th><th scope="col">Status</th><th scope="col">Komisi bersih</th></tr></thead><tbody>${saleRows}</tbody></table></div></section>
-      <section id="pembayaran"><h2>Riwayat pembayaran</h2><p>Hingga 20 pembayaran terbaru. Tanggal menunjukkan penyelesaian, pengiriman, atau pembuatan jika pembayaran masih ditinjau.</p>
-      <div class="affiliate-table-wrap"><table><thead><tr><th scope="col">Tanggal</th><th scope="col">Status</th><th scope="col">Rekening</th><th scope="col">Jumlah</th></tr></thead><tbody>${payoutRows}</tbody></table></div></section>` : ''}
-    ${env.AFFILIATE_BANK_KEY ? `<section id="rekening"><h2>Rekening komisi</h2>
-      <p>${bank ? `Rekening tersimpan: ${escape(bankLabel(bank.bank_code))} ···· ${escape(bank.last_four)}.` : 'Belum ada rekening tersimpan.'}
-      Rekening dan komisi perlu ditinjau sebelum pembayaran dapat dilakukan. Perubahan rekening memerlukan verifikasi email dan peninjauan kembali.</p>
+        <p>${escape(payoutGuidance)}</p><p class="affiliate-finance-note">Minimum ${rupiah(payoutPolicy.minimum_idr)} setelah masa tunggu ${payoutPolicy.wait_days} hari. Peninjauan dan kondisi transfer dapat memengaruhi waktu pembayaran.</p>
+        ${env.AFFILIATE_BANK_KEY ? `<a class="affiliate-inline-action" href="#rekening">${bank ? 'Kelola rekening' : 'Tambahkan rekening'} ↗</a>` : ''}</div>
+        <div class="affiliate-progress"><span>Saldo untuk peninjauan</span><strong>${rupiah(finance.available)}</strong><progress value="${progress}" max="100" aria-label="Kemajuan menuju ambang pembayaran"></progress><small>Minimum ${rupiah(payoutPolicy.minimum_idr)}</small></div></div></section>
+      <section id="tren" class="affiliate-workspace-card">${dashboardTrend(finance,options)}</section>` : `<section><h2>Ringkasan komisi</h2><p>Informasi pembayaran belum tersedia. Hubungi tim DagangOS.</p></section>`}
+    <section id="produk"><div class="affiliate-block-head"><div><h2>Produk dan tautan rujukan</h2><p>Bagikan tautan produk atau kode afiliasi Anda. Kunjungan hanya menghitung pembukaan tautan, bukan penggunaan kode secara langsung.</p></div></div><div class="products">${cards || '<p>Belum ada program produk yang aktif.</p>'}</div></section>
+    ${finance ? `<section id="aktivitas" class="affiliate-workspace-card"><div class="affiliate-block-head"><div><h2>Aktivitas rujukan</h2><p>Pembayaran yang belum selesai belum menghasilkan komisi.</p></div></div>
+      <form method="post" action="${affiliateRoot}/dashboard#aktivitas" class="affiliate-history-form">
+      ${hiddenDashboardFields(options,['product','state','search','activity_page'])}
+      <div class="affiliate-filter-row"><label>Produk<select name="product">${optionList(activeOptions,options.product)}</select></label><label>Status<select name="state">${optionList(stateOptions,options.state)}</select></label><label>Cari referensi<input name="search" value="${escape(options.search)}" maxlength="80" placeholder="Referensi pesanan"></label>
+      <button type="submit">Terapkan</button><a href="${affiliateRoot}#aktivitas">Reset</a><button type="submit" formaction="${affiliateRoot}/export/aktivitas">Unduh CSV</button></div>
+      <div class="affiliate-table-wrap"><table><thead><tr><th scope="col">Produk dan referensi</th><th scope="col">Tanggal pembayaran</th><th scope="col">Status</th><th scope="col">Komisi bersih</th></tr></thead><tbody>${saleRows}</tbody></table></div>
+      <div class="affiliate-pagination"><span>${finance.saleCount} aktivitas · Halaman ${options.activityPage} dari ${salePages}</span><div><button type="submit" name="activity_page" value="${Math.max(1,options.activityPage-1)}" ${options.activityPage<=1?'disabled':''}>Sebelumnya</button><button type="submit" name="activity_page" value="${options.activityPage+1}" ${options.activityPage>=salePages?'disabled':''}>Berikutnya</button></div></div></form></section>
+      <section id="pembayaran" class="affiliate-workspace-card"><div class="affiliate-block-head"><div><h2>Riwayat pembayaran</h2><p>Tanggal menunjukkan penyelesaian, pengiriman, atau pembuatan jika masih ditinjau.</p></div></div>
+      <form method="post" action="${affiliateRoot}/dashboard#pembayaran" class="affiliate-history-form">${hiddenDashboardFields(options,['payout_state','payout_page'])}
+      <div class="affiliate-filter-row"><label>Status<select name="payout_state">${optionList(payoutOptions,options.payoutState)}</select></label><button type="submit">Terapkan</button><button type="submit" formaction="${affiliateRoot}/export/pembayaran">Unduh CSV</button></div>
+      <div class="affiliate-table-wrap"><table><thead><tr><th scope="col">Tanggal</th><th scope="col">Status</th><th scope="col">Rekening</th><th scope="col">Jumlah</th></tr></thead><tbody>${payoutRows}</tbody></table></div>
+      <div class="affiliate-pagination"><span>${finance.payoutCount} pembayaran · Halaman ${options.payoutPage} dari ${payoutPages}</span><div><button type="submit" name="payout_page" value="${Math.max(1,options.payoutPage-1)}" ${options.payoutPage<=1?'disabled':''}>Sebelumnya</button><button type="submit" name="payout_page" value="${options.payoutPage+1}" ${options.payoutPage>=payoutPages?'disabled':''}>Berikutnya</button></div></div></form></section>` : ''}
+    ${env.AFFILIATE_BANK_KEY ? `<section id="rekening" class="affiliate-workspace-card"><div class="affiliate-block-head"><div><h2>Rekening komisi</h2><p>${bank ? `Rekening tersimpan: ${escape(bankLabel(bank.bank_code))} ···· ${escape(bank.last_four)}.` : 'Belum ada rekening tersimpan.'}</p></div><span class="affiliate-bank-badge">${bank?'Tersimpan':'Belum diatur'}</span></div>
+      <p>Rekening dan komisi perlu ditinjau sebelum pembayaran. Perubahan rekening memerlukan verifikasi email dan peninjauan kembali.</p>
+      <details class="affiliate-bank-form" ${bank?'':'open'}><summary>${bank?'Ubah rekening':'Tambahkan rekening'}</summary>
       <form method="post" action="${affiliateRoot}/bank"><label for="bank-email">Email akun afiliasi</label>
       <input id="bank-email" name="email" type="email" maxlength="254" required>
       <label for="bank-code">Bank</label><select id="bank-code" name="bank" required>
@@ -466,13 +559,109 @@ async function affiliateHome(db, request, env, status = 200) {
       <option value="ID_MANDIRI">Mandiri</option><option value="ID_PERMATA">Permata</option></select>
       <label for="bank-name">Nama pemilik rekening</label><input id="bank-name" name="account_name" maxlength="100" required autocomplete="off">
       <label for="bank-number">Nomor rekening</label><input id="bank-number" name="account_number" maxlength="24" inputmode="numeric" required autocomplete="off">
-      <button type="submit">Verifikasi rekening melalui email</button></form></section>` : ''}`);
+      <button type="submit">Konfirmasi perubahan melalui email</button></form></details></section>` : ''}
+    </div></div>`, 200, false, true);
 }
 
 async function sessionAccount(db, request) {
   const token = cookieValue(request, sessionCookie);
   return accessPattern.test(token || '') ? statement(db,
     'SELECT id, email_hash FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first() : null;
+}
+
+function csvCell(value) {
+  if (value === null || value === undefined) return '""';
+  let text = String(value);
+  // Spreadsheet applications interpret certain text prefixes as formulas.
+  if (typeof value === 'string' && /^[\s]*[=+\-@]/.test(text)) text = "'" + text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+const csvLine = values => values.map(csvCell).join(',') + '\r\n';
+function csvUtc(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : '';
+}
+
+function exportAffiliateHistory(db, affiliateId, options, type, paidBy) {
+  const encoder = new TextEncoder();
+  const activity = type === 'activity';
+  let cursor = Number.MAX_SAFE_INTEGER;
+  let cursorDate = Number.MAX_SAFE_INTEGER;
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode('\uFEFF' + csvLine(activity
+        ? ['Produk','Referensi','Tanggal pembayaran (UTC)','Status','Komisi bersih (IDR)']
+        : ['Referensi pembayaran','Dibuat (UTC)','Dikirim (UTC)','Selesai (UTC)','Status','Bank','Akhiran rekening','Jumlah (IDR)'])));
+    },
+    async pull(controller) {
+      try {
+          const query = activity ? statement(db, `SELECT sale.rowid AS cursor, sale.order_id, product.name, sale.state, sale.paid_at,
+              COALESCE(SUM(entry.amount),0) AS net_commission, COUNT(entry.order_id) AS entries
+              FROM affiliate_acquisitions sale JOIN affiliate_products product ON product.id = sale.product_id
+              LEFT JOIN affiliate_ledger entry ON entry.order_id = sale.order_id AND entry.affiliate_id = sale.affiliate_id
+              WHERE ${salesWhere} AND sale.rowid < ? GROUP BY sale.order_id ORDER BY sale.rowid DESC LIMIT 200`,
+              ...salesBindings(affiliateId, options), cursor)
+            : statement(db, `SELECT rowid AS cursor, id, status, amount, bank_code, last_four, created_at, submitted_at, completed_at
+              FROM affiliate_payouts WHERE affiliate_id = ? AND (? = '' OR status = ?)
+              AND (created_at < ? OR (created_at = ? AND rowid < ?))
+              ORDER BY created_at DESC, rowid DESC LIMIT 200`, affiliateId, options.payoutState, options.payoutState, cursorDate, cursorDate, cursor);
+          const rows = (await query.all()).results;
+          if (!rows.length) { controller.close(); return; }
+          if (!rows.every(row => Number.isSafeInteger(row.cursor) && Number.isSafeInteger(activity ? row.net_commission : row.amount))) {
+            throw new Error('Invalid affiliate export amount');
+          }
+          const chunk = rows.map(row => csvLine(activity
+            ? [row.name,row.order_id,csvUtc(row.paid_at),activityStatus(row, paidBy),row.entries ? row.net_commission : null]
+            : [row.id,csvUtc(row.created_at),csvUtc(row.submitted_at),csvUtc(row.completed_at),
+              payoutStatusLabel[row.status] || 'Sedang diperiksa',bankLabel(row.bank_code),row.last_four,row.amount])).join('');
+          controller.enqueue(encoder.encode(chunk));
+          cursor = rows[rows.length - 1].cursor;
+          if (!activity) cursorDate = rows[rows.length - 1].created_at;
+          if (rows.length < 200) controller.close();
+      } catch (error) {
+        console.error('Affiliate export failed', { type: error?.name });
+        controller.error(error);
+      }
+    },
+  });
+  return new Response(stream, {headers:{...headers, 'Content-Type':'text/csv; charset=utf-8',
+    'Content-Disposition':`attachment; filename="dagangos-afiliasi-${activity ? 'rujukan' : 'pembayaran'}.csv"`,
+    'X-Content-Type-Options':'nosniff'}});
+}
+
+async function affiliateDashboardAction(db, request, env, url, path) {
+  if (request.method !== 'POST') return page('Metode tidak didukung', '', 405);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+  const account = await sessionAccount(db, request);
+  if (!account) return page('Masuk terlebih dahulu', `<a href="${affiliateRoot}#masuk">Masuk ke dasbor</a>`, 401);
+  const raw = await request.text();
+  if (raw.length > 4096) return page('Permintaan tidak valid', '', 413);
+  const form = new URLSearchParams(raw);
+  const options = dashboardOptions(form, await activeProducts(db));
+  if (path === `${affiliateRoot}/export/aktivitas`) {
+    const policy = await db.prepare('SELECT wait_days FROM affiliate_payout_policy WHERE id = 1').first();
+    if (!policy) return page('Data belum tersedia', '', 503);
+    return exportAffiliateHistory(db, account.id, options, 'activity', new Date(Date.now()-policy.wait_days*day).toISOString());
+  }
+  if (path === `${affiliateRoot}/export/pembayaran`) return exportAffiliateHistory(db, account.id, options, 'payout');
+  return affiliateHome(db, request, env, 200, form);
+}
+
+async function affiliatePayoutReceipt(db, request, id) {
+  if (!['GET','HEAD'].includes(request.method)) return page('Metode tidak didukung', '', 405);
+  const account = await sessionAccount(db, request);
+  if (!account) return page('Masuk terlebih dahulu', `<a href="${affiliateRoot}#masuk">Masuk ke dasbor</a>`, 401);
+  if (!uuidPattern.test(id || '')) return page('Catatan tidak ditemukan', '', 404);
+  const item = await statement(db, `SELECT id, status, amount, bank_code, last_four, created_at, submitted_at, completed_at
+    FROM affiliate_payouts WHERE id = ? AND affiliate_id = ? AND status = 'succeeded'`, id, account.id).first();
+  if (!item || !Number.isSafeInteger(item.amount)) return page('Catatan tidak ditemukan', `<a href="${affiliateRoot}#pembayaran">Kembali ke pembayaran</a>`, 404);
+  return page('Catatan pembayaran komisi', `<p>Catatan transfer yang berhasil. Ini bukan faktur pajak.</p>
+    <dl><dt>Referensi pembayaran</dt><dd>${escape(item.id)}</dd><dt>Jumlah</dt><dd>${rupiah(item.amount)}</dd>
+    <dt>Status</dt><dd>Transfer berhasil</dd><dt>Tanggal selesai</dt><dd>${dashboardDate(item.completed_at)}</dd>
+    <dt>Rekening tujuan</dt><dd>${escape(bankLabel(item.bank_code))} ···· ${escape(item.last_four)}</dd></dl>
+    <p>Catatan ini tidak merinci komisi per pembelian.</p><button type="button" data-print-receipt hidden>Cetak / simpan PDF</button>
+    <p><a href="${affiliateRoot}#pembayaran">Kembali ke pembayaran</a></p>`);
 }
 
 async function encryptBankDetails(keyText, affiliateId, details) {
@@ -807,6 +996,8 @@ async function operatorApi(request, env, path) {
 async function affiliateRequest(request, env, url, path, admin) {
   if (admin) return operatorApi(request, env, path);
   const db = env.AFFILIATE_DB;
+  if ([`${affiliateRoot}/dashboard`, `${affiliateRoot}/export/aktivitas`, `${affiliateRoot}/export/pembayaran`].includes(path)) return affiliateDashboardAction(db, request, env, url, path);
+  if (path.startsWith(`${affiliateRoot}/pembayaran/`)) return affiliatePayoutReceipt(db, request, path.slice(`${affiliateRoot}/pembayaran/`.length));
   if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
   if (path === `${affiliateRoot}/recover`) return recoverAffiliate(db, request, env, url);
   if (path === `${affiliateRoot}/recover/verify` || path.startsWith(`${affiliateRoot}/recover/verify/`)) return verifyAffiliateRecovery(db, request, url, path.slice(`${affiliateRoot}/recover/verify/`.length));
