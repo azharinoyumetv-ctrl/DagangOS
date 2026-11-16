@@ -42,6 +42,7 @@ async function setup(t, scope, conversionDays = null) {
       RESEND_API_KEY: 'mail-fixture',
       AFFILIATE_BANK_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       SUBSCRIPTION_SIGNING_KEY: signingKey, XENDIT_SECRET_KEY: 'gateway-fixture',
+      AFFILIATE_XENDIT_KEY: 'affiliate-fixture',
       XENDIT_WEBHOOK_TOKEN: 'webhook-fixture', GERAINA_BACKEND_ORIGIN: 'geraina.test', BACKEND_ORIGIN: 'dapuros.test',
     },
     fetchMock: mock,
@@ -307,10 +308,11 @@ test('DapurOS uses its own list price and QR reconciliation requires matching se
   const query = `/transactions?types=PAYMENT&reference_id=${order.orderId}&currency=IDR&limit=10`;
   const transaction = { id: 'txn_qr_fixture', reference_id: order.orderId, type: 'PAYMENT', currency: 'IDR',
     amount: 224100, cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED' };
-  xendit.intercept({ path: query }).reply(200, { has_more: false, data: [{ ...transaction, amount: 1 }] }, headers);
+  const affiliateAuth = { authorization: `Basic ${Buffer.from('affiliate-fixture:').toString('base64')}` };
+  xendit.intercept({ path: query, headers: affiliateAuth }).reply(200, { has_more: false, data: [{ ...transaction, amount: 1 }] }, headers);
   assert.equal((await (await reconcile()).json()).acquisitionState, 'paid');
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_ledger').first('count'), 0);
-  xendit.intercept({ path: query }).reply(200, { has_more: false, data: [transaction] }, headers);
+  xendit.intercept({ path: query, headers: affiliateAuth }).reply(200, { has_more: false, data: [transaction] }, headers);
   assert.equal((await (await reconcile()).json()).acquisitionState, 'settled');
   assert.deepEqual(await db.prepare('SELECT kind, amount, provider_reference FROM affiliate_ledger').first(),
     { kind: 'commission', amount: 24900, provider_reference: 'txn_qr_fixture' });

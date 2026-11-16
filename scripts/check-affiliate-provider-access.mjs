@@ -1,5 +1,5 @@
 // Read-only capability probe: no customer or payout records are requested.
-const key = process.env.XENDIT_SECRET_KEY;
+const key = process.env.AFFILIATE_XENDIT_KEY || process.env.XENDIT_SECRET_KEY;
 if (!key) throw new Error('Payment key unavailable');
 const authorization = `Basic ${Buffer.from(`${key}:`).toString('base64')}`;
 const queries = [

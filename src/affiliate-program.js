@@ -204,7 +204,7 @@ async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
   let transaction = null;
   if (invoice?.status === 'PAID' && verifySettlement) {
     const query = new URLSearchParams({ types: 'PAYMENT', reference_id: orderId, currency: 'IDR', limit: '10' });
-    const transactions = await xenditRequest(env, '/transactions?' + query);
+    const transactions = await xenditRequest({ XENDIT_SECRET_KEY: env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY }, '/transactions?' + query);
     const records = transactions.has_more === false && Array.isArray(transactions.data)
       ? transactions.data.filter(item => item.reference_id === orderId) : [];
     if (records.length === 1) transaction = records[0];

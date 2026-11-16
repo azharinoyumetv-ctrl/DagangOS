@@ -142,12 +142,14 @@ jobs:
           SUBSCRIPTION_SIGNING_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           AFFILIATE_BANK_KEY: ${{ secrets.AFFILIATE_BANK_KEY }}
+          AFFILIATE_XENDIT_KEY: ${{ secrets.AFFILIATE_XENDIT_KEY }}
         run: node scripts/deploy-subscription-secret.mjs
 
       - name: Check affiliate provider read permissions
         continue-on-error: true
         env:
           XENDIT_SECRET_KEY: ${{ secrets.XENDIT_SECRET_KEY }}
+          AFFILIATE_XENDIT_KEY: ${{ secrets.AFFILIATE_XENDIT_KEY }}
         run: node scripts/check-affiliate-provider-access.mjs
 
   e2e-geraina:
