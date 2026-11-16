@@ -259,7 +259,9 @@ async function trialReferral(request, env, url) {
   if (!policy?.conversion_days) return json({ available: false, code: null });
   const manualCode = request.headers.get('X-Affiliate-Code')?.trim();
   const candidate = await referralCandidate(env.AFFILIATE_DB, request, policy, product, manualCode);
-  if (request.method === 'GET') return json({ available: true, code: candidate?.code || null });
+  // Product signup validates that the response matches the code entered. An
+  // older alias is still valid and must not be replaced by the current code.
+  if (request.method === 'GET') return json({ available: true, code: candidate ? (manualCode ? manualCode.toUpperCase() : candidate.code) : null });
   if (request.headers.get('Origin') !== url.origin) return json({ error: 'Permintaan tidak valid.' }, 403);
   if (!candidate) return json({ available: true, code: null }, manualCode ? 422 : 200);
   const authorization = request.headers.get('Authorization');
@@ -277,7 +279,8 @@ async function trialReferral(request, env, url) {
   const deadline = conversionDeadline(policy, account.affiliate_signup_at);
   const saved = await saveReferral(env.AFFILIATE_DB, policy, product, account.id, candidate, manualCode ? 'signup_code' : 'signup_link', deadline);
   if (!saved || !saved.active || saved.expires_at <= Date.now()) return json({ error: 'Kode afiliasi tidak dapat disimpan.' }, 409);
-  return json({ available: true, code: saved.code });
+  const acceptedCode = manualCode && saved.affiliate_id === candidate.affiliate_id ? manualCode.toUpperCase() : saved.code;
+  return json({ available: true, code: acceptedCode });
 }
 
 function page(title, body, status = 200, landing = false, dashboard = false) {

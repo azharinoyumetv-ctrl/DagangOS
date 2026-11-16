@@ -280,9 +280,18 @@ test('affiliates can customize a code without losing history or breaking old ref
       assert.equal(link.status,303);
       assert.equal(link.headers.get('Location'),`${origin}/${product}`);
       const lookup=await fetch(`/api/affiliate/signup?product=${product}`,{headers:{'X-Affiliate-Code':code.toLowerCase()}});
-      assert.deepEqual(await lookup.json(),{available:true,code:'MYSHOP88'});
+      // The product signup forms require the validated code to match the one
+      // the customer typed, including when it is a previous affiliate code.
+      assert.deepEqual(await lookup.json(),{available:true,code});
     }
   }
+  mock.get('https://geraina.test').intercept({path:'/api/auth/me',method:'GET'}).reply(200,
+    {id:ownerId,role:'Owner',current_module:'geraina',is_store_owner:true,plan:'trial',email:'merchant@example.test',affiliate_signup_at:new Date(now-1000).toISOString()},headers).times(2);
+  const claim=code=>fetch('/api/affiliate/signup?product=geraina',{method:'POST',headers:{Origin:origin,Authorization:'Bearer authenticated.sandbox-owner.test','X-Affiliate-Code':code}});
+  assert.deepEqual(await (await claim('PROMOTE01')).json(),{available:true,code:'PROMOTE01'});
+  // A different affiliate's code cannot overwrite an existing attribution.
+  assert.deepEqual(await (await claim('OTHER987')).json(),{available:true,code:'MYSHOP88'});
+  assert.equal(await db.prepare('SELECT affiliate_id FROM affiliate_attributions WHERE owner_id = ? AND product_id = ?').bind(ownerId,'geraina').first('affiliate_id'),id);
   assert.equal((await createAccount('PROMOTE01','different@example.test')).status,409);
   assert.equal((await createAccount('MYSHOP88','different@example.test')).status,409);
   for(const [product,code,letter] of [['geraina','PROMOTE01','e'],['dapuros','MYSHOP88','f']]){
