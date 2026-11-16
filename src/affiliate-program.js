@@ -365,7 +365,6 @@ async function affiliateHome(db, request, env, status = 200) {
   const payoutText = payoutPolicy ? `Ketentuan pembayaran komisi: saldo minimum ${rupiah(payoutPolicy.minimum_idr)},
     pembayaran bulanan setiap tanggal ${payoutPolicy.payout_day}, dan masa tunggu ${payoutPolicy.wait_days} hari sejak pembayaran pelanggan.
     ${env.AFFILIATE_PAYOUTS === 'on' ? 'Pembayaran diproses setelah peninjauan.' : 'Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.'}` : '';
-  const payoutInfo = payoutText ? `<p>${payoutText}</p>` : '';
   if (!account) {
     return page('Program Afiliasi DagangOS', `
       <section class="affiliate-hero">
@@ -446,7 +445,7 @@ async function affiliateHome(db, request, env, status = 200) {
         <div><span>Saldo untuk peninjauan</span><strong>${rupiah(finance.available)}</strong><small>Setelah pembayaran dan proses sebelumnya</small></div>
         <div><span>Pembayaran dalam proses</span><strong>${rupiah(finance.inProgress)}</strong><small>Ditinjau atau dikirim</small></div>
         <div><span>Sudah dibayar</span><strong>${rupiah(finance.paid)}</strong><small>Transfer berhasil</small></div>
-      </div>${finance.adjustment ? `<p class="affiliate-finance-note">Penyesuaian ${rupiah(finance.adjustment)} akan diperhitungkan terhadap komisi berikutnya.</p>` : ''}
+      </div>${finance.adjustment ? `<p class="affiliate-finance-note">Saldo untuk peninjauan masih kurang ${rupiah(finance.adjustment)} untuk menutup pembayaran atau reservasi sebelumnya. Saldo akan diperbarui saat komisi memenuhi syarat atau ada penyesuaian.</p>` : ''}
       <div class="affiliate-payout-card"><div><span class="affiliate-kicker">PENARIKAN KOMISI</span><h3>Pembayaran otomatis ke rekening</h3>
         <p>${env.AFFILIATE_PAYOUTS === 'on' && env.AFFILIATE_PAYOUT_REVIEW === 'on' && env.AFFILIATE_XENDIT_KEY ? `Tidak perlu meminta penarikan. Pembayaran yang memenuhi syarat diproses pada tanggal ${payoutPolicy.payout_day} setiap bulan (WIB), setelah peninjauan.` : 'Pembayaran otomatis masih dalam persiapan.'}</p>
         <p>${escape(payoutGuidance)}</p><p class="affiliate-finance-note">Saldo harus mencapai ${rupiah(payoutPolicy.minimum_idr)} setelah masa tunggu ${payoutPolicy.wait_days} hari. Peninjauan, verifikasi pembayaran dan kondisi transfer dapat memengaruhi waktu pembayaran.</p>

@@ -217,7 +217,7 @@ test('affiliate dashboard carries a post-payment reversal forward without displa
   const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
   const html=await (await fetch('/affiliate-program',{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}})).text();
   assert.match(html,/Saldo untuk peninjauan<\/span><strong>Rp 0/);
-  assert.match(html,/Penyesuaian Rp 14\.900 akan diperhitungkan/);
+  assert.match(html,/Saldo untuk peninjauan masih kurang Rp 14\.900/);
 });
 
 test('recent activity includes new unpaid orders even when older paid activity fills the history', async t => {
