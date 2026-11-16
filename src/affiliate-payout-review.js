@@ -59,7 +59,7 @@ export async function reviewAffiliatePayout(db, payoutId, reviewer, decision, no
   const approved = decision === 'approve';
   const result = await statement(db, `
     UPDATE affiliate_payouts SET status = ?, reviewed_at = ?, reviewer = ?
-    WHERE id = ? AND status = 'proposed'
+    WHERE id = ? AND (status = 'proposed' OR (? = 0 AND status = 'approved'))
       AND (? = 0 OR EXISTS (
         SELECT 1 FROM affiliates a JOIN affiliate_bank_destinations b ON b.affiliate_id = a.id
         WHERE a.id = affiliate_payouts.affiliate_id AND a.active = 1
@@ -68,6 +68,7 @@ export async function reviewAffiliatePayout(db, payoutId, reviewer, decision, no
           AND b.encrypted_details = affiliate_payouts.encrypted_details AND b.nonce = affiliate_payouts.nonce
           AND (${availableSql}) >= 0
       ))
-  `, approved ? 'approved' : 'cancelled', now, reviewer, payoutId, Number(approved), paidBy).run();
-  return result.meta.changes === 1;
+  `, approved ? 'approved' : 'cancelled', now, reviewer, payoutId, Number(approved), Number(approved), paidBy).run();
+  // D1 includes the audit trigger's insert in the change count.
+  return result.meta.changes > 0;
 }

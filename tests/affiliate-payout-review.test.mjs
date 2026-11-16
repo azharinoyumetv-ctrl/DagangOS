@@ -21,7 +21,7 @@ async function setup(t) {
   t.after(async () => { await worker.dispose(); if (dirname(resolve(state)) === stateRoot) await rm(state, {recursive: true, force: true}); });
   const db = await worker.getD1Database('DB');
   for (const file of ['0001_affiliate_program.sql','0002_affiliate_attributions.sql','0003_affiliate_payout_policy.sql',
-    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql']) {
+    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql']) {
     const sql = await readFile(`migrations/${file}`, 'utf8');
     await db.exec(sql.replace(/^--.*$/gm, '').trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
   }
@@ -150,6 +150,17 @@ test('an uncertain transfer is reconciled by reference without submitting a seco
   assert.deepEqual(await reconcilePayout(db, 'fixture', row, () => { throw new Error('unexpected ID lookup'); }, find), {status:'succeeded'});
   assert.deepEqual(await db.prepare('SELECT status, provider_id FROM affiliate_payouts WHERE id = ?').bind(id).first(),
     {status:'succeeded', provider_id:'disb-fixture-1234'});
+});
+
+test('an approval can be cancelled before sending and both decisions remain in the audit history', async t => {
+  const db = await setup(t);
+  await commission(db, 1, 149000, now - 31 * day);
+  const id = await proposeAffiliatePayout(db, affiliateId, now);
+  assert.equal(await reviewAffiliatePayout(db, id, 'reviewer1', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, id, 'reviewer2', 'cancel', now + 1000), true);
+  assert.deepEqual((await db.prepare('SELECT action, reviewer FROM affiliate_payout_review_events WHERE payout_id = ? ORDER BY id')
+    .bind(id).all()).results, [{action:'approved', reviewer:'reviewer1'}, {action:'cancelled', reviewer:'reviewer2'}]);
+  await assert.rejects(db.prepare('DELETE FROM affiliate_payout_review_events WHERE payout_id = ?').bind(id).run());
 });
 
 test('opt-in Xendit development-mode payout from local review through provider read-back', { skip: process.env.AFFILIATE_SANDBOX_E2E !== '1' }, async t => {

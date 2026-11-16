@@ -12,7 +12,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
