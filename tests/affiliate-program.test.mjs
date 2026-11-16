@@ -101,6 +101,13 @@ test('one affiliate account serves current and future products and keeps dashboa
   const landing = await fetch('/affiliate-program');
   assert.equal(landing.headers.get('Referrer-Policy'), 'same-origin');
   const publicPage = await landing.text();
+  assert.match(publicPage, /aria-label="Navigasi utama"/);
+  assert.match(publicPage, /href="\/produk">Produk/);
+  assert.match(publicPage, /id="cara-kerja"/);
+  assert.match(publicPage, /action="\/affiliate-program\/register"/);
+  assert.match(publicPage, /Sudah punya akun\? Masuk/);
+  assert.match(publicPage, /Kode ini berbeda dari kode afiliasi/);
+  assert.match(publicPage, /href="\/kebijakan-privasi"/);
   assert.match(publicPage, /Kode akses dasbor/);
   assert.match(publicPage, /Rp 149\.000/);
   assert.match(publicPage, /tanggal 25/);
@@ -126,10 +133,25 @@ test('one affiliate account serves current and future products and keeps dashboa
   const dashboard = await dashboardResponse.text();
   assert.match(dashboard, /PROMOTE01 &lt;operator entry&gt;/);
   assert.match(dashboard, /DagangOS Web/);
+  assert.match(dashboard, /Program komisi dalam persiapan/);
+  assert.doesNotMatch(dashboard, /affiliate-program\/PROMOTE01\/web/);
   assert.match(dashboard, /LaundryOS/);
   assert.match(dashboard, /dagangos\.com\/affiliate-program\/PROMOTE01\/future-app/);
+  assert.match(dashboard, /data-copy-for="link-geraina"/);
   assert.doesNotMatch(dashboard, /affiliate@example|merchant@example/);
   assert.equal(dashboardResponse.headers.get('Cache-Control'), 'no-store');
+});
+
+test('affiliate landing shows the current referral and payout settings', async t => {
+  const { db, fetch } = await setup(t, 'merchant_product', 90);
+  await db.prepare('UPDATE affiliate_policy SET referral_days = ?, conversion_days = ? WHERE id = 1').bind(21, 75).run();
+  await db.prepare('UPDATE affiliate_payout_policy SET minimum_idr = ?, payout_day = ?, wait_days = ? WHERE id = 1').bind(200000, 20, 45).run();
+  const html = await (await fetch('/affiliate-program')).text();
+  assert.match(html, /21 \/ 75 hari/);
+  assert.match(html, /Tautan berlaku 21 hari/);
+  assert.match(html, /Rp 200\.000/);
+  assert.match(html, /tanggal 20/);
+  assert.match(html, /masa tunggu 45 hari/);
 });
 
 test('email verification creates an affiliate once and can recover dashboard access', async t => {
@@ -154,6 +176,8 @@ test('email verification creates an affiliate once and can recover dashboard acc
   const created = await fetch('/affiliate-program/verify', { method: 'POST', headers: { Origin: origin }, body: verifyBody });
   assert.equal(created.status, 200);
   const body = await created.text();
+  assert.match(body, /data-copy-for="new-access"/);
+  assert.match(body, /Kode akses berbeda dari kode afiliasi/);
   const code = body.match(/Kode afiliasi Anda: <strong>([A-F0-9]+)<\/strong>/)[1];
   const oldCookie = created.headers.get('Set-Cookie').split(';')[0];
   assert.match(await (await fetch('/affiliate-program', { headers: { Cookie: oldCookie } })).text(), new RegExp(code));

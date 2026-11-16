@@ -278,14 +278,26 @@ async function trialReferral(request, env, url) {
   return json({ available: true, code: saved.code });
 }
 
-function page(title, body, status = 200) {
+function page(title, body, status = 200, landing = false) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} | DagangOS</title>
-    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/affiliate.css">
-    </head><body><header><a href="/"><img src="/assets/brand/dagangos-icon.png" alt="">DagangOS</a></header>
-    <main><h1>${escape(title)}</h1>${body}</main></body></html>`, { status, headers: {
+    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=20261116b"><script src="/affiliate.js?v=20261116b" defer></script>
+    </head><body class="affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="DagangOS beranda"><img src="/assets/brand/dagangos-icon.png" alt=""><b>Dagang<span>OS</span></b></a>
+      <nav class="main-nav" aria-label="Navigasi utama"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a></nav>
+      <div class="header-actions"><a class="button button-quiet" href="/geraina/login">Masuk</a><a class="button button-primary" href="/produk">Jelajahi Produk ↗</a></div>
+      <details class="affiliate-mobile-nav"><summary aria-label="Buka navigasi">☰</summary><nav aria-label="Navigasi utama seluler"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a></nav></details>
+    </header>
+    <main class="affiliate-main ${landing ? 'affiliate-main--landing' : ''}">${landing ? body : `<div class="affiliate-message"><span class="affiliate-kicker">PROGRAM AFILIASI</span><h1>${escape(title)}</h1>${body}</div>`}</main>
+    <footer class="site-footer">
+      <div class="footer-brand"><img src="/assets/brand/dagangos-icon.png" alt=""><div><b>DagangOS</b><span>PT DagangOS Digital Indonesia</span></div></div>
+      <div class="footer-links"><nav aria-label="Produk dan perusahaan"><b class="footer-heading">DagangOS</b><a href="/produk">Produk</a><a href="/geraina/android">Geraina untuk Android</a><a href="/solusi">Solusi</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/affiliate-program" aria-current="page">Program Afiliasi</a></nav>
+      <nav aria-label="Kontak dan legal"><b class="footer-heading">Kontak &amp; Legal</b><a href="/kontak">Hubungi Kami</a><a href="/syarat-ketentuan">Syarat &amp; Ketentuan</a><a href="/kebijakan-privasi">Kebijakan Privasi</a><a href="/kebijakan-refund">Refund &amp; Pembatalan</a></nav></div>
+      <address class="footer-contact"><a href="mailto:contact@dagangos.com">contact@dagangos.com</a><a href="https://wa.me/628999155182">WhatsApp: +62 899 9155 182</a><span>Subang, Jawa Barat, Indonesia</span></address><small>© 2026 PT DagangOS Digital Indonesia.</small>
+    </footer></body></html>`, { status, headers: {
     ...headers, 'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'same-origin',
-    'Content-Security-Policy': "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   } });
 }
 
@@ -298,19 +310,41 @@ async function affiliateHome(db, request, env, status = 200) {
   const account = accessPattern.test(token || '') && await statement(db,
     'SELECT id, code, name FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first();
   const payoutPolicy = await db.prepare('SELECT minimum_idr, payout_day, wait_days FROM affiliate_payout_policy WHERE id = 1').first();
-  const payoutInfo = payoutPolicy ? `<p>Ketentuan pembayaran komisi: saldo minimum ${rupiah(payoutPolicy.minimum_idr)},
+  const referralPolicy = await db.prepare('SELECT scope, referral_days, conversion_days FROM affiliate_policy WHERE id = 1').first();
+  const referralReady = env.AFFILIATE_CHECKOUT === 'on' && referralPolicy?.referral_days && referralPolicy?.conversion_days;
+  const payoutText = payoutPolicy ? `Ketentuan pembayaran komisi: saldo minimum ${rupiah(payoutPolicy.minimum_idr)},
     pembayaran bulanan setiap tanggal ${payoutPolicy.payout_day}, dan masa tunggu ${payoutPolicy.wait_days} hari sejak pembayaran pelanggan.
-    ${env.AFFILIATE_PAYOUTS === 'on' ? 'Pembayaran diproses setelah peninjauan.' : 'Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.'}</p>` : '';
+    ${env.AFFILIATE_PAYOUTS === 'on' ? 'Pembayaran diproses setelah peninjauan.' : 'Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.'}` : '';
+  const payoutInfo = payoutText ? `<p>${payoutText}</p>` : '';
   if (!account) {
-    return page('Program Afiliasi DagangOS', `<p>Satu akun afiliasi untuk membagikan produk DagangOS dan melihat hasil rujukan Anda.</p>
-      <form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label>
-      <input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required>
-      <button type="submit">Masuk ke dasbor</button></form>
-      ${env.RESEND_API_KEY ? `<h2>Daftar afiliasi</h2><p>Verifikasi email Anda untuk membuat akun dan memperoleh kode afiliasi.</p>
-      <form method="post" action="${affiliateRoot}/register"><label for="name">Nama</label>
-      <input id="name" name="name" maxlength="100" required autocomplete="name">
-      <label for="email">Email</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email">
-      <button type="submit">Kirim tautan verifikasi</button></form>` : `<p>Untuk bergabung, hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a>.</p>`}${payoutInfo}`, status);
+    return page('Program Afiliasi DagangOS', `
+      <section class="affiliate-hero">
+        <div class="affiliate-hero-copy"><span class="affiliate-kicker">PROGRAM AFILIASI DAGANGOS</span>
+          <h1>Bertumbuh bersama <em>DagangOS.</em></h1>
+          <p>Kenalkan Geraina dan DapurOS kepada pelaku usaha. Bagikan kode atau tautan Anda dan pantau hasil rujukan dalam satu dasbor.</p>
+          <div class="affiliate-actions"><a class="affiliate-button" href="#daftar">Mulai sebagai afiliasi <span aria-hidden="true">↗</span></a><a class="affiliate-button affiliate-button--quiet" href="#cara-kerja">Pelajari cara kerja</a></div>
+          <div class="affiliate-hero-meta"><span><b>01</b> Satu akun afiliasi</span><span><b>02</b> Geraina &amp; DapurOS</span><span><b>03</b> Pantau dalam satu dasbor</span></div>
+        </div>
+        <aside class="affiliate-hero-panel" aria-label="Sekilas program afiliasi"><span class="affiliate-panel-label">KEMITRAAN DAGANGOS <span>●</span></span>
+          <div class="affiliate-panel-icon"><img src="/assets/brand/dagangos-icon.png" alt=""></div>
+          <p>Rekomendasi yang membantu usaha berkembang.</p><div class="affiliate-panel-products"><span>Geraina POS</span><span>DapurOS</span></div>
+          <small>Bagikan produk yang sesuai dengan kebutuhan pelanggan Anda.</small>
+        </aside>
+      </section>
+      <section id="cara-kerja" class="affiliate-section"><div class="affiliate-section-heading"><div><span class="affiliate-kicker">CARA KERJA</span><h2>Dari rekomendasi hingga komisi.</h2></div><p>Pendaftaran dimulai dengan verifikasi email. Komisi dihitung saat pembelian yang memenuhi syarat telah terverifikasi.</p></div>
+        <div class="affiliate-steps"><article><span>01</span><h3>Daftar dan verifikasi</h3><p>Isi nama dan email, lalu buka tautan verifikasi untuk membuat akun afiliasi.</p></article><article><span>02</span><h3>Bagikan rekomendasi</h3><p>Gunakan kode afiliasi atau tautan khusus produk dari dasbor Anda.</p></article><article><span>03</span><h3>Pantau hasilnya</h3><p>Lihat kunjungan, pembelian tercatat, dan komisi di dasbor afiliasi.</p></article></div>
+      </section>
+      <section class="affiliate-section affiliate-details"><div><span class="affiliate-kicker">KETENTUAN PROGRAM</span><h2>Jelas sejak awal.</h2><p>${referralReady ? `Rujukan berlaku untuk pembelian pertama yang memenuhi syarat ${referralPolicy.scope === 'merchant_product' ? 'pada masing-masing produk' : 'di DagangOS'}.` : 'Rincian rujukan akan tersedia setelah program siap.'}</p></div>
+        <div class="affiliate-facts"><div><b>14 hari</b><span>Pelanggan dapat mencoba produk selama masa trial. Trial belum menghasilkan komisi.</span></div>${referralReady ? `<div><b>10% komisi</b><span>Komisi dihitung dari harga satu bulan paket untuk pembelian pertama yang memenuhi syarat, termasuk paket tahunan.</span></div><div><b>10% diskon</b><span>Pelanggan yang memenuhi syarat mendapat diskon untuk pembelian paket pertama.</span></div><div><b>${referralPolicy.referral_days} / ${referralPolicy.conversion_days} hari</b><span>Tautan berlaku ${referralPolicy.referral_days} hari sebelum pendaftaran; rujukan tersimpan berlaku ${referralPolicy.conversion_days} hari sejak pendaftaran untuk pembayaran pertama.</span></div>` : '<div><b>Rujukan</b><span>Ketentuan rujukan masih dalam persiapan.</span></div>'}<div><b>Pembayaran bulanan</b><span>${payoutText || 'Ketentuan pembayaran tersedia melalui tim DagangOS.'}</span></div></div>
+      </section>
+      <section id="daftar" class="affiliate-section affiliate-join"><div class="affiliate-join-copy"><span class="affiliate-kicker">MULAI BERGABUNG</span><h2>Siap menjadi mitra DagangOS?</h2><p>Daftar dengan email aktif untuk menerima tautan verifikasi. Setelah diverifikasi, Anda akan mendapatkan kode afiliasi dan akses ke dasbor.</p><p class="affiliate-help">Sudah bergabung? <a href="#masuk">Masuk ke dasbor</a>.</p></div>
+        <div class="affiliate-form-card">${env.RESEND_API_KEY ? `<h2>Daftar afiliasi</h2><p>Langkah pertama: verifikasi email Anda.</p>
+        <form method="post" action="${affiliateRoot}/register"><label for="name">Nama</label><input id="name" name="name" maxlength="100" required autocomplete="name" placeholder="Nama lengkap">
+        <label for="email">Email</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email" placeholder="nama@email.com">
+        <button type="submit">Kirim tautan verifikasi <span aria-hidden="true">↗</span></button></form><p class="affiliate-form-note">Tautan verifikasi berlaku selama 30 menit. Periksa folder spam jika belum diterima. <a href="/kebijakan-privasi">Kebijakan Privasi</a></p>`
+        : `<h2>Daftar afiliasi</h2><p>Pendaftaran online belum tersedia. Hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a> untuk bergabung.</p>`}
+        <details id="masuk" class="affiliate-login"><summary>Sudah punya akun? Masuk</summary><p>Gunakan kode akses dasbor yang Anda simpan saat verifikasi. Kode ini berbeda dari kode afiliasi.</p><form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label><input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required><button type="submit">Masuk ke dasbor</button></form><p class="affiliate-form-note">Lupa kode akses? Verifikasi kembali email yang sama melalui formulir di atas untuk membuat kode akses baru. Kode akses sebelumnya tidak lagi berlaku.</p></details></div>
+      </section>`, status, true);
   }
   const [products, visits, ledger, bank] = await Promise.all([
     activeProducts(db),
@@ -323,18 +357,18 @@ async function affiliateHome(db, request, env, status = 200) {
   const traffic = new Map(visits.results.map(row => [row.product_id, row.visits]));
   const cards = products.map(product => {
     const title = escape(product.name);
-    if (product.mode === 'upcoming') return `<article><h2>${title}</h2><p>Segera hadir</p></article>`;
+    if (product.mode === 'upcoming' || product.id === 'web') return `<article><h2>${title}</h2><p>${product.id === 'web' ? 'Program komisi dalam persiapan.' : 'Segera hadir'}</p></article>`;
     const link = `https://dagangos.com${affiliateRoot}/${account.code}/${product.id}`;
     const result = stats.get(product.id);
     return `<article><h2>${title}</h2><label for="link-${product.id}">Tautan rujukan</label>
-      <input type="url" id="link-${product.id}" value="${escape(link)}" readonly>
+      <div class="affiliate-copy"><input type="url" id="link-${product.id}" value="${escape(link)}" readonly><button type="button" data-copy-for="link-${product.id}" hidden>Salin</button></div><span class="affiliate-copy-status" aria-live="polite"></span>
       <dl><dt>Kunjungan</dt><dd>${traffic.get(product.id) ?? 0}</dd>
       ${product.mode === 'subscription' ? `<dt>Pembelian tercatat</dt><dd>${result?.conversions ?? 0}</dd>
-      <dt>Komisi dalam peninjauan</dt><dd>${rupiah(result?.total ?? 0)}</dd>` : ''}</dl></article>`;
+      <dt>Komisi tercatat</dt><dd>${rupiah(result?.total ?? 0)}</dd>` : '<dt>Status komisi</dt><dd>Dalam persiapan</dd>'}</dl></article>`;
   }).join('');
-  return page('Dasbor Afiliasi', `<div class="account"><p>${escape(account.name)} · Kode afiliasi <strong>${account.code}</strong></p>
+  return page('Dasbor Afiliasi', `<p>Bagikan kode atau tautan produk Anda, lalu pantau hasil rujukan di sini.</p><div class="account"><p>Halo, ${escape(account.name)}<br><span>Kode afiliasi</span> <strong>${account.code}</strong></p>
     <form method="post" action="${affiliateRoot}/logout"><button type="submit">Keluar</button></form></div>
-    ${payoutInfo}<div class="products">${cards}</div>
+    ${payoutInfo}<h2>Produk dan tautan rujukan</h2><p>Komisi tercatat dapat mencakup komisi yang belum tersedia untuk pembayaran.</p><div class="products">${cards}</div>
     ${env.AFFILIATE_BANK_KEY ? `<section><h2>Rekening komisi</h2>
       <p>${bank ? `Rekening tersimpan: ${escape(bank.bank_code)} ···· ${escape(bank.last_four)}.` : 'Belum ada rekening tersimpan.'}
       Rekening dan komisi perlu ditinjau sebelum pembayaran dapat dilakukan.</p>
@@ -512,7 +546,7 @@ async function verifyAffiliate(db, request, url, token) {
   if (!account) return page('Akun dalam peninjauan', '<p>Hubungi tim DagangOS untuk bantuan.</p>', 403);
   const response = page('Email terverifikasi', `<p>Akun afiliasi siap digunakan. Kode afiliasi Anda: <strong>${escape(account.code)}</strong>.</p>
     <p>Simpan kode akses dasbor ini di tempat aman. Kode akses berbeda dari kode afiliasi dan hanya ditampilkan sekarang.</p>
-    <label for="new-access">Kode akses dasbor</label><input id="new-access" value="${access}" readonly>
+    <label for="new-access">Kode akses dasbor</label><div class="affiliate-copy"><input id="new-access" value="${access}" readonly><button type="button" data-copy-for="new-access" hidden>Salin</button></div><span class="affiliate-copy-status" aria-live="polite"></span>
     <p>Jika kode akses hilang, verifikasi email yang sama kembali untuk membuat kode akses baru.</p><p><a href="${affiliateRoot}">Buka dasbor</a></p>`);
   response.headers.append('Set-Cookie', cookie(sessionCookie, access, affiliateRoot));
   return response;
