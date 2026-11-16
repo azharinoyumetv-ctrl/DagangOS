@@ -220,6 +220,25 @@ test('affiliate dashboard carries a post-payment reversal forward without displa
   assert.match(html,/Penyesuaian Rp 14\.900 akan diperhitungkan/);
 });
 
+test('recent activity includes new unpaid orders even when older paid activity fills the history', async t => {
+  const {db,fetch,accessCode} = await setup(t,'merchant_product',90);
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
+  const now=Date.now(),paidAt=new Date(now-40*86400000).toISOString();
+  for (let i=0;i<21;i++) {
+    const order=`old-paid-${i}`;
+    await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+      VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?)`)
+      .bind(order,order,`owner-${i}`,`store-${i}`,id,now,paidAt).run();
+  }
+  await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state)
+    VALUES ('new-unpaid','new-unpaid','geraina','new-owner','new-store',?,'pilot','starter','monthly',149000,149000,134100,?,'requested')`).bind(id,now).run();
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const html=await (await fetch('/affiliate-program',{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}})).text();
+  assert.match(html,/new-unpaid/);
+  assert.match(html,/Menunggu pembayaran/);
+  assert.doesNotMatch(html,/old-paid-0</);
+});
+
 test('email verification creates an affiliate once and can recover dashboard access', async t => {
   const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
   const messages = [];

@@ -342,7 +342,7 @@ async function affiliateFinance(db, affiliateId, policy, now = Date.now()) {
       FROM affiliate_acquisitions sale JOIN affiliate_products product ON product.id = sale.product_id
       LEFT JOIN affiliate_ledger entry ON entry.order_id = sale.order_id AND entry.affiliate_id = sale.affiliate_id
       WHERE sale.affiliate_id = ? AND sale.state <> 'reserved'
-      GROUP BY sale.order_id ORDER BY COALESCE(sale.paid_at, '') DESC, sale.rowid DESC LIMIT 20`, affiliateId),
+      GROUP BY sale.order_id ORDER BY sale.rowid DESC LIMIT 20`, affiliateId),
     statement(db, 'SELECT COUNT(*) AS count FROM affiliate_attributions WHERE affiliate_id = ?', affiliateId),
   ]);
   const balance = balanceResult.results[0], totals = totalsResult.results[0];
