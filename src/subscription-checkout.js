@@ -291,7 +291,7 @@ export async function handleSubscriptionCheckout(request, env) {
     }
     const messages = {
       pending: ['Menunggu pembayaran', 'Pesanan dibuat. Pembayaran belum terkonfirmasi dan paket belum aktif.'],
-      paid: ['Pembayaran terkonfirmasi', 'Xendit telah mengonfirmasi pembayaran. Aktivasi paket dilakukan oleh tim DagangOS untuk akun Anda. Hubungi contact@dagangos.com dengan nomor pesanan ini.'],
+      paid: ['Pembayaran terkonfirmasi', 'Pembayaran telah dikonfirmasi. Aktivasi paket dilakukan oleh tim DagangOS untuk akun Anda. Hubungi contact@dagangos.com dengan nomor pesanan ini.'],
       failed: ['Pembayaran tidak selesai', 'Pembayaran dibatalkan, kedaluwarsa, atau ditolak. Paket tidak diaktifkan. Silakan buat pesanan baru.'],
       refunded: ['Pembayaran dikembalikan / disengketakan', 'Status pembayaran bukan langganan aktif. Hubungi tim DagangOS untuk tindak lanjut.'],
       unverified: ['Status belum dapat diverifikasi', 'Kami belum bisa memastikan status pembayaran. Jangan membayar ulang sebelum memeriksa transaksi sebelumnya.'],
@@ -311,7 +311,7 @@ export async function handleSubscriptionCheckout(request, env) {
     }
     const [heading, explanation] = messages[status] || messages.unverified;
     const waiting = Boolean(receipt.ownerId && (status === 'pending' || status === 'paid' && activation === 'pending'));
-    return page(module, heading, `<section class="card"><p class="badge">${escape(status.toUpperCase())}</p><p>${explanation}</p><p>Nomor pesanan<br><strong class="reference">${escape(receipt.orderId)}</strong></p>${summary(receipt)}${activation === 'active' || activation === 'superseded' ? `<a class="button" href="/${module}/app/dashboard">Buka ${CATALOG[module].name}</a>` : ''}${status === 'pending' && resumeUrl ? `<a class="button" href="${escape(resumeUrl)}" rel="noreferrer">Buka Pembayaran Xendit</a>` : ''}<a class="button button--quiet" href="${escape(url.pathname + url.search)}">Periksa Status Pembayaran</a>${waiting ? '<p class="muted">Status diperbarui otomatis setiap 10 detik. Anda tidak perlu menghubungi tim untuk aktivasi.</p>' : ''}${env.XENDIT_ENVIRONMENT === 'sandbox' ? '<p class="notice">SANDBOX: pembayaran uji, bukan transaksi asli.</p>' : ''}</section>`, 200, waiting);
+    return page(module, heading, `<section class="card"><p class="badge">${escape(status.toUpperCase())}</p><p>${explanation}</p><p>Nomor pesanan<br><strong class="reference">${escape(receipt.orderId)}</strong></p>${summary(receipt)}${activation === 'active' || activation === 'superseded' ? `<a class="button" href="/${module}/app/dashboard">Buka ${CATALOG[module].name}</a>` : ''}${status === 'pending' && resumeUrl ? `<a class="button" href="${escape(resumeUrl)}" rel="noreferrer">Lanjut ke pembayaran</a>` : ''}<a class="button button--quiet" href="${escape(url.pathname + url.search)}">Periksa Status Pembayaran</a>${waiting ? '<p class="muted">Status diperbarui otomatis setiap 10 detik. Anda tidak perlu menghubungi tim untuk aktivasi.</p>' : ''}${env.XENDIT_ENVIRONMENT === 'sandbox' ? '<p class="notice">SANDBOX: pembayaran uji, bukan transaksi asli.</p>' : ''}</section>`, 200, waiting);
   }
   if (request.method === 'POST') {
     // Browser-only same-origin form submission; no arbitrary cross-site invoice creation.
