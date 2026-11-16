@@ -20,7 +20,7 @@ export async function runAffiliatePayoutBatch(env, now = Date.now()) {
     AND reconciled_at <= ? ORDER BY reconciled_at, created_at LIMIT 2`).bind(now - 3600000).all();
   for (const row of pending.results) {
     await db.prepare('UPDATE affiliate_payouts SET reconciled_at = ? WHERE id = ?').bind(now, row.id).run();
-    try { await reconcilePayout(db, env.AFFILIATE_XENDIT_KEY, row); } catch { result.failed++; }
+    try { await reconcilePayout(db, env.AFFILIATE_XENDIT_KEY, row, undefined, undefined, now); } catch { result.failed++; }
   }
   return result;
 }

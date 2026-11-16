@@ -45,7 +45,8 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
         AND NOT EXISTS (SELECT 1 FROM affiliate_payouts prior
           WHERE prior.affiliate_id = a.id AND prior.id <> affiliate_payouts.id
             AND prior.status IN ('unknown', 'submitted', 'succeeded')
-            AND prior.submitted_at >= ? AND prior.submitted_at < ?)
+            AND COALESCE(prior.completed_at, prior.submitted_at) >= ?
+            AND COALESCE(prior.completed_at, prior.submitted_at) < ?)
         AND NOT EXISTS (
           SELECT 1 FROM affiliate_ledger c JOIN affiliate_acquisitions s ON s.order_id = c.order_id
           WHERE c.affiliate_id = a.id AND c.kind = 'commission' AND s.paid_at <= ?
@@ -61,19 +62,20 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
   } catch { return { status: 'unknown' }; }
   const mapped = mappedStatus(result.status);
   if (!mapped) return { status: 'unknown' };
-  await db.prepare("UPDATE affiliate_payouts SET status = ?, provider_id = ? WHERE id = ? AND status = 'unknown'")
-    .bind(mapped, result.id, payoutId).run();
+  await db.prepare("UPDATE affiliate_payouts SET status = ?, provider_id = ?, completed_at = CASE WHEN ? = 'succeeded' THEN ? ELSE completed_at END WHERE id = ? AND status = 'unknown'")
+    .bind(mapped, result.id, mapped, now, payoutId).run();
   return { status: mapped };
 }
 
-export async function reconcilePayout(db, key, row, lookupById = getPayout, lookupByReference = findPayout) {
+export async function reconcilePayout(db, key, row, lookupById = getPayout, lookupByReference = findPayout, now = Date.now()) {
   const query = { id: row.provider_id, reference: `affiliate-${row.id}`, amount: row.amount };
   const result = row.provider_id ? await lookupById(key, query) : await lookupByReference(key, query);
   if (!result) return { status: row.status };
   const mapped = mappedStatus(result.status);
   if (!mapped || (row.status === 'succeeded' && mapped !== 'succeeded' && mapped !== 'reversed')) return { status: row.status };
-  await db.prepare(`UPDATE affiliate_payouts SET status = ?, provider_id = COALESCE(provider_id, ?)
+  await db.prepare(`UPDATE affiliate_payouts SET status = ?, provider_id = COALESCE(provider_id, ?),
+    completed_at = CASE WHEN ? = 'succeeded' THEN COALESCE(completed_at, ?) ELSE completed_at END
     WHERE id = ? AND status = ? AND (provider_id IS NULL OR provider_id = ?)`)
-    .bind(mapped, result.id, row.id, row.status, result.id).run();
+    .bind(mapped, result.id, mapped, now, row.id, row.status, result.id).run();
   return { status: mapped };
 }

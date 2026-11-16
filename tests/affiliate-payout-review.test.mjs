@@ -21,7 +21,7 @@ async function setup(t) {
   t.after(async () => { await worker.dispose(); if (dirname(resolve(state)) === stateRoot) await rm(state, {recursive: true, force: true}); });
   const db = await worker.getD1Database('DB');
   for (const file of ['0001_affiliate_program.sql','0002_affiliate_attributions.sql','0003_affiliate_payout_policy.sql',
-    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql']) {
+    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql']) {
     const sql = await readFile(`migrations/${file}`, 'utf8');
     await db.exec(sql.replace(/^--.*$/gm, '').trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
   }
@@ -187,6 +187,36 @@ test('a second successful payout is held until the following month', async t => 
   await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(nextMonth).run();
   assert.deepEqual(await executeApprovedPayout(db, env, second, nextMonth, send), {status:'succeeded'});
   assert.equal(sends, 2);
+});
+
+test('a payout completed in a later month blocks another payout in that completion month', async t => {
+  const db = await setup(t);
+  await commission(db, 1, 149000, now - 31 * day);
+  const key = new Uint8Array(32), iv = new Uint8Array(12);
+  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv, additionalData:new TextEncoder().encode(affiliateId)},
+    await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['encrypt']),
+    new TextEncoder().encode(JSON.stringify({name:'Owner', number:'1234567890'})));
+  await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details = ?, nonce = ? WHERE affiliate_id = ?')
+    .bind(Buffer.from(cipher).toString('hex'), Buffer.from(iv).toString('hex'), affiliateId).run();
+  const env = {AFFILIATE_PAYOUTS:'on', AFFILIATE_BANK_KEY:Buffer.from(key).toString('base64'), AFFILIATE_XENDIT_KEY:'fixture'};
+  const first = await proposeAffiliatePayout(db, affiliateId, now);
+  assert.equal(await reviewAffiliatePayout(db, first, 'owner', 'approve', now), true);
+  assert.deepEqual(await executeApprovedPayout(db, env, first, now, async () => ({id:'disb-delayed-1234', status:'REQUESTED'})), {status:'submitted'});
+  const submitted = await db.prepare('SELECT * FROM affiliate_payouts WHERE id = ?').bind(first).first();
+  const decFirst = Date.parse('2026-12-01T08:00:00.000Z');
+  assert.deepEqual(await reconcilePayout(db, 'fixture', submitted, async () => ({id:'disb-delayed-1234', status:'SUCCEEDED'}), undefined, decFirst), {status:'succeeded'});
+  await commission(db, 2, 149000, now - 31 * day, 'dapuros');
+  const second = await proposeAffiliatePayout(db, affiliateId, now);
+  assert.equal(await reviewAffiliatePayout(db, second, 'owner', 'approve', now), true);
+  const dec25 = Date.parse('2026-12-25T08:00:00.000Z');
+  await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(dec25).run();
+  let sends = 0;
+  const send = async () => { sends++; return {id:'disb-next-1234', status:'SUCCEEDED'}; };
+  assert.deepEqual(await executeApprovedPayout(db, env, second, dec25, send), {status:'not_eligible'});
+  const jan25 = Date.parse('2027-01-25T08:00:00.000Z');
+  await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(jan25).run();
+  assert.deepEqual(await executeApprovedPayout(db, env, second, jan25, send), {status:'succeeded'});
+  assert.equal(sends, 1);
 });
 
 test('opt-in Xendit development-mode payout from local review through provider read-back', { skip: process.env.AFFILIATE_SANDBOX_E2E !== '1' }, async t => {
