@@ -343,7 +343,7 @@ async function affiliateHome(db, request, env, status = 200) {
         <label for="email">Email</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email" placeholder="nama@email.com">
         <button type="submit">Kirim tautan verifikasi <span aria-hidden="true">↗</span></button></form><p class="affiliate-form-note">Tautan verifikasi berlaku selama 30 menit. Periksa folder spam jika belum diterima. <a href="/kebijakan-privasi">Kebijakan Privasi</a></p>`
         : `<h2>Daftar afiliasi</h2><p>Pendaftaran online belum tersedia. Hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a> untuk bergabung.</p>`}
-        <details id="masuk" class="affiliate-login"><summary>Sudah punya akun? Masuk</summary><p>Gunakan kode akses dasbor yang Anda simpan saat verifikasi. Kode ini berbeda dari kode afiliasi.</p><form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label><input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required><button type="submit">Masuk ke dasbor</button></form><p class="affiliate-form-note">Lupa kode akses? Verifikasi kembali email yang sama melalui formulir di atas untuk membuat kode akses baru. Kode akses sebelumnya tidak lagi berlaku.</p></details></div>
+        <details id="masuk" class="affiliate-login"><summary>Sudah punya akun? Masuk</summary><p>Gunakan kode akses dasbor yang Anda simpan saat verifikasi. Kode ini berbeda dari kode afiliasi.</p><form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label><input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required><button type="submit">Masuk ke dasbor</button></form><p class="affiliate-form-note"><a href="${affiliateRoot}/recover">Lupa kode akses dasbor?</a></p></details></div>
       </section>`, status, true);
   }
   const [products, visits, ledger, bank] = await Promise.all([
@@ -355,9 +355,8 @@ async function affiliateHome(db, request, env, status = 200) {
   ]);
   const stats = new Map(ledger.results.map(row => [row.product_id, row]));
   const traffic = new Map(visits.results.map(row => [row.product_id, row.visits]));
-  const cards = products.map(product => {
+  const cards = products.filter(product => product.mode === 'subscription').map(product => {
     const title = escape(product.name);
-    if (product.mode === 'upcoming' || product.id === 'web') return `<article><h2>${title}</h2><p>${product.id === 'web' ? 'Program komisi dalam persiapan.' : 'Segera hadir'}</p></article>`;
     const link = `https://dagangos.com${affiliateRoot}/${account.code}/${product.id}`;
     const result = stats.get(product.id);
     return `<article><h2>${title}</h2><label for="link-${product.id}">Tautan rujukan</label>
@@ -513,6 +512,85 @@ async function registerAffiliate(db, request, env, url) {
   return page('Periksa email Anda', '<p>Jika alamat dapat menerima email, tautan verifikasi akan dikirim. Tautan berlaku selama 30 menit.</p>');
 }
 
+async function recoverAffiliate(db, request, env, url) {
+  if (request.method === 'GET' || request.method === 'HEAD') return page('Pulihkan akses dasbor', `
+    <p>Masukkan email yang Anda gunakan untuk mendaftar. Kami akan mengirim tautan untuk membuat kode akses dasbor baru.</p>
+    <p>Kode afiliasi, riwayat rujukan, dan komisi tetap tersimpan pada akun Anda. Pemulihan tidak membuat akun baru.</p>
+    <form method="post" action="${affiliateRoot}/recover"><label for="recover-email">Email akun afiliasi</label>
+    <input id="recover-email" name="email" type="email" maxlength="254" autocomplete="email" required>
+    <button type="submit">Kirim tautan pemulihan</button></form>
+    <p><a href="${affiliateRoot}#masuk">Kembali ke masuk</a></p>`);
+  if (request.method !== 'POST') return page('Metode tidak didukung', '', 405);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+  if (!env.RESEND_API_KEY) return page('Pemulihan belum tersedia', '<p>Hubungi tim DagangOS untuk bantuan.</p>', 503);
+  const raw = await request.text();
+  if (raw.length > 2048) return page('Permintaan tidak valid', '', 413);
+  const email = (new URLSearchParams(raw).get('email') || '').trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return page('Periksa email', `<p>Masukkan alamat email yang valid.</p><a href="${affiliateRoot}/recover">Coba lagi</a>`, 400);
+  const ip = request.headers.get('CF-Connecting-IP');
+  if (!ip || ip.length > 64) return page('Pemulihan belum tersedia', '<p>Silakan coba lagi nanti.</p>', 503);
+  const now = Date.now(), emailKey = await emailHash(email);
+  await db.batch([
+    statement(db, 'DELETE FROM affiliate_enrollment_limits WHERE created_at < ?', now - day),
+    statement(db, 'DELETE FROM affiliate_verification_requests WHERE expires_at < ?', now - day),
+  ]);
+  if (!await enrollmentLimit(db, `ip:${ip}`, now, 20) || !await enrollmentLimit(db, `email:${emailKey}`, now, 3)) return page('Terlalu banyak permintaan', '<p>Tunggu satu jam sebelum mencoba lagi.</p>', 429);
+  const account = await statement(db, 'SELECT name FROM affiliates WHERE email_hash = ? AND active = 1', emailKey).first();
+  if (account) {
+    const token = hex(crypto.getRandomValues(new Uint8Array(32)));
+    // Recovery tokens are domain-separated from signup tokens so they cannot create accounts.
+    await statement(db, `INSERT INTO affiliate_verification_requests
+      (token_hash, email_hash, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,
+      await hash(`recovery:${token}`), emailKey, account.name, now, now + 30 * 60000).run();
+    const verifyUrl = `${url.origin}${affiliateRoot}/recover/verify/${token}`;
+    try {
+      const sent = await fetch('https://api.resend.com/emails', { method:'POST', redirect:'manual', signal:AbortSignal.timeout(10000),
+        headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`, 'Content-Type':'application/json'},
+        body:JSON.stringify({from:'DagangOS <contact@dagangos.com>',to:[email],subject:'Pulihkan akses afiliasi DagangOS',
+          text:`Untuk memulihkan akses dasbor afiliasi, buka tautan ini dalam 30 menit:\n\n${verifyUrl}\n\nKode afiliasi dan komisi tetap tersimpan. Jika Anda tidak meminta ini, abaikan email ini.`}) });
+      if (!sent.ok) console.error('Affiliate recovery email failed', { status: sent.status });
+    } catch { console.error('Affiliate recovery email failed', { type: 'network' }); }
+  }
+  return page('Periksa email Anda', `<p>Jika email terhubung dengan akun afiliasi aktif, tautan pemulihan akan dikirim dan berlaku selama 30 menit.</p>
+    <p>Periksa folder spam. Jika belum menerima email, coba lagi atau <a href="mailto:contact@dagangos.com">hubungi tim DagangOS</a>.</p>`);
+}
+
+async function verifyAffiliateRecovery(db, request, url, token) {
+  if (!token && request.method === 'POST') {
+    if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+    const raw = await request.text();
+    if (raw.length > 256) return page('Permintaan tidak valid', '', 413);
+    token = new URLSearchParams(raw).get('token');
+  }
+  if (!accessPattern.test(token || '')) return page('Tautan tidak valid', `<a href="${affiliateRoot}/recover">Minta tautan baru</a>`, 404);
+  const tokenHash = await hash(`recovery:${token}`), now = Date.now();
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    const pending = await statement(db, `SELECT token_hash FROM affiliate_verification_requests
+      WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?`, tokenHash, now).first();
+    const response = pending ? page('Pulihkan akses dasbor', `<p>Konfirmasi untuk membuat kode akses baru. Kode afiliasi dan komisi Anda tetap sama.</p>
+      <form method="post" action="${affiliateRoot}/recover/verify"><input type="hidden" name="token" value="${token}"><button type="submit">Buat kode akses baru</button></form>`)
+      : page('Tautan kedaluwarsa', `<p>Minta tautan pemulihan baru.</p><a href="${affiliateRoot}/recover">Minta tautan baru</a>`, 410);
+    response.headers.set('Referrer-Policy', 'origin');
+    return response;
+  }
+  if (request.method !== 'POST') return page('Metode tidak didukung', '', 405);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+  const pending = await statement(db, `UPDATE affiliate_verification_requests SET consumed_at = ?
+    WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ? RETURNING email_hash`, now, tokenHash, now).first();
+  if (!pending) return page('Tautan kedaluwarsa', `<a href="${affiliateRoot}/recover">Minta tautan baru</a>`, 410);
+  const access = hex(crypto.getRandomValues(new Uint8Array(32)));
+  const account = await statement(db, 'UPDATE affiliates SET access_hash = ? WHERE email_hash = ? AND active = 1 RETURNING code',
+    await hash(access), pending.email_hash).first();
+  if (!account) return page('Akun dalam peninjauan', '<p>Hubungi tim DagangOS untuk bantuan.</p>', 403);
+  await statement(db, 'UPDATE affiliate_verification_requests SET consumed_at = ? WHERE email_hash = ? AND consumed_at IS NULL', now, pending.email_hash).run();
+  const response = page('Akses berhasil dipulihkan', `<p>Ini akun yang sama. Kode afiliasi Anda tetap <strong>${escape(account.code)}</strong>, dan riwayat serta komisi Anda tetap tersimpan.</p>
+    <p>Simpan kode akses dasbor baru ini di tempat aman. Kode akses sebelumnya tidak lagi berlaku.</p>
+    <label for="new-access">Kode akses dasbor baru</label><div class="affiliate-copy"><input id="new-access" value="${access}" readonly><button type="button" data-copy-for="new-access" hidden>Salin</button></div><span class="affiliate-copy-status" aria-live="polite"></span>
+    <p><a href="${affiliateRoot}">Buka dasbor</a></p>`);
+  response.headers.append('Set-Cookie', cookie(sessionCookie, access, affiliateRoot));
+  return response;
+}
+
 async function verifyAffiliate(db, request, url, token) {
   if (!token && request.method === 'POST') {
     if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
@@ -547,7 +625,7 @@ async function verifyAffiliate(db, request, url, token) {
   const response = page('Email terverifikasi', `<p>Akun afiliasi siap digunakan. Kode afiliasi Anda: <strong>${escape(account.code)}</strong>.</p>
     <p>Simpan kode akses dasbor ini di tempat aman. Kode akses berbeda dari kode afiliasi dan hanya ditampilkan sekarang.</p>
     <label for="new-access">Kode akses dasbor</label><div class="affiliate-copy"><input id="new-access" value="${access}" readonly><button type="button" data-copy-for="new-access" hidden>Salin</button></div><span class="affiliate-copy-status" aria-live="polite"></span>
-    <p>Jika kode akses hilang, verifikasi email yang sama kembali untuk membuat kode akses baru.</p><p><a href="${affiliateRoot}">Buka dasbor</a></p>`);
+    <p>Jika kode akses hilang, gunakan <a href="${affiliateRoot}/recover">pemulihan kode akses</a>.</p><p><a href="${affiliateRoot}">Buka dasbor</a></p>`);
   response.headers.append('Set-Cookie', cookie(sessionCookie, access, affiliateRoot));
   return response;
 }
@@ -642,6 +720,8 @@ async function affiliateRequest(request, env, url, path, admin) {
   if (admin) return operatorApi(request, env, path);
   const db = env.AFFILIATE_DB;
   if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
+  if (path === `${affiliateRoot}/recover`) return recoverAffiliate(db, request, env, url);
+  if (path === `${affiliateRoot}/recover/verify` || path.startsWith(`${affiliateRoot}/recover/verify/`)) return verifyAffiliateRecovery(db, request, url, path.slice(`${affiliateRoot}/recover/verify/`.length));
   if (path === `${affiliateRoot}/verify` || path.startsWith(`${affiliateRoot}/verify/`)) return verifyAffiliate(db, request, url, path.slice(`${affiliateRoot}/verify/`.length));
   if (path === `${affiliateRoot}/bank`) return requestBankChange(db, request, env, url);
   if (path === `${affiliateRoot}/bank/verify` || path.startsWith(`${affiliateRoot}/bank/verify/`)) return verifyBankChange(db, request, url, path.slice(`${affiliateRoot}/bank/verify/`.length));
@@ -654,7 +734,7 @@ async function affiliateRequest(request, env, url, path, admin) {
     const account = accessPattern.test(token || '') && await statement(db,
       'SELECT id FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first();
     return account ? redirect(affiliateRoot, cookie(sessionCookie, token, affiliateRoot))
-      : page('Kode akses tidak valid', `<p><a href="${affiliateRoot}">Coba lagi</a></p>`, 401);
+      : page('Kode akses tidak valid', `<p><a href="${affiliateRoot}#masuk">Coba lagi</a> atau <a href="${affiliateRoot}/recover">pulihkan akses melalui email</a>.</p>`, 401);
   }
   if (!['GET', 'HEAD'].includes(request.method)) return page('Metode tidak didukung', `<a href="${affiliateRoot}">Kembali</a>`, 405);
   if (path === affiliateRoot) return affiliateHome(db, request, env);
@@ -664,7 +744,7 @@ async function affiliateRequest(request, env, url, path, admin) {
   if (productPattern.test(product || '')) return visitProduct(db, request, code, product);
   const account = !product && await statement(db, 'SELECT id FROM affiliates WHERE code = ? AND active = 1', code).first();
   if (!account) return page('Tautan rujukan tidak ditemukan', '<a href="/produk">Lihat produk DagangOS</a>', 404);
-  const products = (await activeProducts(db)).filter(item => item.mode !== 'upcoming');
+  const products = (await activeProducts(db)).filter(item => item.mode === 'subscription');
   return page('Pilih produk DagangOS', `<ul>${products.map(item => `<li><a href="${affiliateRoot}/${code}/${item.id}">${escape(item.name)}</a></li>`).join('')}</ul>`);
 }
 

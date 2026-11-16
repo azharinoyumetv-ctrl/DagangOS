@@ -94,7 +94,7 @@ test('one affiliate account serves current and future products and keeps dashboa
   const { db, fetch, createAccount, accessCode } = await setup(t);
   assert.equal((await createAccount('OTHER123', 'other@example.test', false)).status, 403);
   assert.equal((await createAccount('promote01', 'unique@example.test')).status, 409);
-  await db.prepare("INSERT INTO affiliate_products (id, name, destination, mode) VALUES ('future-app', 'Future & App', '/produk', 'tracking')").run();
+  await db.prepare("INSERT INTO affiliate_products (id, name, destination, mode) VALUES ('future-app', 'Future & App', '/produk', 'subscription')").run();
   const legacy = await fetch('/affiliate');
   assert.equal(legacy.status, 308);
   assert.equal(legacy.headers.get('Location'), '/affiliate-program');
@@ -107,6 +107,7 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.match(publicPage, /action="\/affiliate-program\/register"/);
   assert.match(publicPage, /Sudah punya akun\? Masuk/);
   assert.match(publicPage, /Kode ini berbeda dari kode afiliasi/);
+  assert.match(publicPage, /href="\/affiliate-program\/recover">Lupa kode akses dasbor\?/);
   assert.match(publicPage, /href="\/kebijakan-privasi"/);
   assert.match(publicPage, /Kode akses dasbor/);
   assert.match(publicPage, /Rp 149\.000/);
@@ -132,10 +133,8 @@ test('one affiliate account serves current and future products and keeps dashboa
   const dashboardResponse = await fetch('/affiliate-program', { headers: { Cookie: cookie } });
   const dashboard = await dashboardResponse.text();
   assert.match(dashboard, /PROMOTE01 &lt;operator entry&gt;/);
-  assert.match(dashboard, /DagangOS Web/);
-  assert.match(dashboard, /Program komisi dalam persiapan/);
+  assert.doesNotMatch(dashboard, /DagangOS Web|LaundryOS|AutoCareOS|SalonOS/);
   assert.doesNotMatch(dashboard, /affiliate-program\/PROMOTE01\/web/);
-  assert.match(dashboard, /LaundryOS/);
   assert.match(dashboard, /dagangos\.com\/affiliate-program\/PROMOTE01\/future-app/);
   assert.match(dashboard, /data-copy-for="link-geraina"/);
   assert.doesNotMatch(dashboard, /affiliate@example|merchant@example/);
@@ -189,6 +188,86 @@ test('email verification creates an affiliate once and can recover dashboard acc
   assert.match(await recovered.text(), new RegExp(code));
   assert.match(await (await fetch('/affiliate-program', { headers: { Cookie: oldCookie } })).text(), /Kode akses dasbor/);
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 2);
+  mock.assertNoPendingInterceptors();
+});
+
+test('dedicated email recovery preserves the affiliate account, earnings and bank details', async t => {
+  const { fetch, db, mock, accessCode } = await setup(t, 'merchant_product', 90);
+  const affiliate = await db.prepare("SELECT id, code, name, email_hash, created_at FROM affiliates WHERE code = 'PROMOTE01'").first();
+  const orderId = `DG-geraina-${'a'.repeat(32)}`;
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES (?,?,'geraina',?,?,?,'pilot-1','starter','monthly',149000,149000,134100,?,'settled',?)`)
+    .bind(orderId,'geraina:fixture-owner',ownerId,storeId,affiliate.id,Date.now()+1000,new Date().toISOString()).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,'geraina','commission',14900,?)")
+    .bind(orderId,affiliate.id,Date.now()).run();
+  await db.prepare("INSERT INTO affiliate_visits (id,affiliate_id,product_id,visited_at) VALUES (?,?, 'geraina',?)")
+    .bind('33333333-3333-4333-8333-333333333333',affiliate.id,Date.now()).run();
+  await db.prepare("INSERT INTO affiliate_bank_destinations VALUES (?,'ID_BCA','1234','fixture','fixture',?)").bind(affiliate.id,Date.now()).run();
+  const before = await db.prepare("SELECT id, code, name, email_hash, created_at FROM affiliates WHERE id = ?").bind(affiliate.id).first();
+  const login = await fetch('/affiliate-program/login', {method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const oldCookie = login.headers.get('Set-Cookie').split(';')[0];
+  const messages = [];
+  mock.get('https://api.resend.com').intercept({path:'/emails',method:'POST'}).reply(options => {
+    messages.push(new Response(options.body).json());
+    return {statusCode:200,data:{id:'email-fixture'},responseOptions:headers};
+  });
+  const recover = email => fetch('/affiliate-program/recover',{method:'POST',
+    headers:{Origin:origin,'CF-Connecting-IP':'192.0.2.22'},body:new URLSearchParams({email}).toString()});
+  const form = await (await fetch('/affiliate-program/recover')).text();
+  assert.match(form, /Pemulihan tidak membuat akun baru/);
+  const unknown = await recover('missing@example.test');
+  const sent = await recover('AFFILIATE@example.test');
+  assert.equal(unknown.status,200);
+  assert.equal(await unknown.text(),await sent.text());
+  assert.equal(messages.length,1);
+  const recoveryPath = new URL((await messages[0]).text.match(/https:\/\/\S+/)[0]).pathname;
+  const recoveryToken = recoveryPath.split('/').pop();
+  assert.equal((await fetch(`/affiliate-program/verify/${recoveryToken}`)).status,410);
+  assert.equal((await fetch(recoveryPath)).status,200);
+  const body = new URLSearchParams({token:recoveryToken}).toString();
+  assert.equal((await fetch('/affiliate-program/recover/verify',{method:'POST',headers:{Origin:'https://evil.test'},body})).status,403);
+  const restored = await fetch('/affiliate-program/recover/verify',{method:'POST',headers:{Origin:origin},body});
+  assert.equal(restored.status,200);
+  assert.match(await restored.text(), /Kode afiliasi Anda tetap <strong>PROMOTE01<\/strong>/);
+  assert.equal((await fetch('/affiliate-program/recover/verify',{method:'POST',headers:{Origin:origin},body})).status,410);
+  assert.deepEqual(await db.prepare("SELECT id, code, name, email_hash, created_at FROM affiliates WHERE id = ?").bind(affiliate.id).first(),before);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliates').first('n'),1);
+  assert.equal(await db.prepare('SELECT SUM(amount) AS n FROM affiliate_ledger WHERE affiliate_id = ?').bind(affiliate.id).first('n'),14900);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_visits WHERE affiliate_id = ?').bind(affiliate.id).first('n'),1);
+  assert.equal(await db.prepare('SELECT last_four FROM affiliate_bank_destinations WHERE affiliate_id = ?').bind(affiliate.id).first('last_four'),'1234');
+  const dashboard = await (await fetch('/affiliate-program',{headers:{Cookie:restored.headers.get('Set-Cookie').split(';')[0]}})).text();
+  assert.match(dashboard,/PROMOTE01/);
+  assert.match(dashboard,/Rp 14\.900/);
+  assert.doesNotMatch(await (await fetch('/affiliate-program',{headers:{Cookie:oldCookie}})).text(),/Halo, PROMOTE01/);
+  mock.assertNoPendingInterceptors();
+});
+
+test('recovery rejects expired links and never creates accounts for unknown or inactive emails', async t => {
+  const {fetch, db, mock} = await setup(t, 'merchant_product', 90);
+  const messages = [];
+  mock.get('https://api.resend.com').intercept({path:'/emails',method:'POST'}).reply(options => {
+    messages.push(new Response(options.body).json());
+    return {statusCode:200,data:{id:'email-fixture'},responseOptions:headers};
+  }).times(2);
+  const recover = email => fetch('/affiliate-program/recover',{method:'POST',
+    headers:{Origin:origin,'CF-Connecting-IP':'192.0.2.24'},body:new URLSearchParams({email}).toString()});
+  assert.equal((await recover('affiliate@example.test')).status,200);
+  const path = new URL((await messages[0]).text.match(/https:\/\/\S+/)[0]).pathname;
+  await db.prepare('UPDATE affiliate_verification_requests SET expires_at = ?').bind(Date.now()-1).run();
+  assert.equal((await fetch(path)).status,410);
+  assert.equal((await fetch('/affiliate-program/recover/verify',{method:'POST',headers:{Origin:origin},
+    body:new URLSearchParams({token:path.split('/').pop()}).toString()})).status,410);
+  assert.equal((await recover('affiliate@example.test')).status,200);
+  const pendingPath = new URL((await messages[1]).text.match(/https:\/\/\S+/)[0]).pathname;
+  await db.prepare("UPDATE affiliates SET active = 0 WHERE code = 'PROMOTE01'").run();
+  assert.equal((await fetch('/affiliate-program/recover/verify',{method:'POST',headers:{Origin:origin},
+    body:new URLSearchParams({token:pendingPath.split('/').pop()}).toString()})).status,403);
+  const inactive = await recover('affiliate@example.test');
+  const unknown = await recover('nobody@example.test');
+  assert.equal(await inactive.text(),await unknown.text());
+  assert.equal(messages.length,2);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliates').first('n'),1);
   mock.assertNoPendingInterceptors();
 });
 
