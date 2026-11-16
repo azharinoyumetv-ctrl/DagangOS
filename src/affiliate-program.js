@@ -301,11 +301,12 @@ async function affiliateHome(db, request, env, status = 200) {
       <label for="email">Email</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email">
       <button type="submit">Kirim tautan verifikasi</button></form>` : `<p>Untuk bergabung, hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a>.</p>`}${payoutInfo}`, status);
   }
-  const [products, visits, ledger] = await Promise.all([
+  const [products, visits, ledger, bank] = await Promise.all([
     activeProducts(db),
     statement(db, 'SELECT product_id, COUNT(*) AS visits FROM affiliate_visits WHERE affiliate_id = ? GROUP BY product_id', account.id).all(),
     statement(db, `SELECT product_id, SUM(amount) AS total, SUM(kind = 'commission') AS conversions
       FROM affiliate_ledger WHERE affiliate_id = ? GROUP BY product_id`, account.id).all(),
+    env.AFFILIATE_BANK_KEY ? statement(db, 'SELECT bank_code, last_four FROM affiliate_bank_destinations WHERE affiliate_id = ?', account.id).first() : null,
   ]);
   const stats = new Map(ledger.results.map(row => [row.product_id, row]));
   const traffic = new Map(visits.results.map(row => [row.product_id, row.visits]));
@@ -322,7 +323,102 @@ async function affiliateHome(db, request, env, status = 200) {
   }).join('');
   return page('Dasbor Afiliasi', `<div class="account"><p>${escape(account.name)} · Kode afiliasi <strong>${account.code}</strong></p>
     <form method="post" action="${affiliateRoot}/logout"><button type="submit">Keluar</button></form></div>
-    ${payoutInfo}<div class="products">${cards}</div>`);
+    ${payoutInfo}<div class="products">${cards}</div>
+    ${env.AFFILIATE_BANK_KEY ? `<section><h2>Rekening komisi</h2>
+      <p>${bank ? `Rekening tersimpan: ${escape(bank.bank_code)} ···· ${escape(bank.last_four)}.` : 'Belum ada rekening tersimpan.'}
+      Rekening dan komisi perlu ditinjau sebelum pembayaran dapat dilakukan.</p>
+      <form method="post" action="${affiliateRoot}/bank"><label for="bank-email">Email akun afiliasi</label>
+      <input id="bank-email" name="email" type="email" maxlength="254" required>
+      <label for="bank-code">Bank</label><select id="bank-code" name="bank" required>
+      <option value="ID_BCA">BCA</option><option value="ID_BRI">BRI</option><option value="ID_BNI">BNI</option>
+      <option value="ID_MANDIRI">Mandiri</option><option value="ID_PERMATA">Permata</option></select>
+      <label for="bank-name">Nama pemilik rekening</label><input id="bank-name" name="account_name" maxlength="100" required autocomplete="off">
+      <label for="bank-number">Nomor rekening</label><input id="bank-number" name="account_number" maxlength="24" inputmode="numeric" required autocomplete="off">
+      <button type="submit">Verifikasi rekening melalui email</button></form></section>` : ''}`);
+}
+
+async function sessionAccount(db, request) {
+  const token = cookieValue(request, sessionCookie);
+  return accessPattern.test(token || '') ? statement(db,
+    'SELECT id, email_hash FROM affiliates WHERE access_hash = ? AND active = 1', await hash(token)).first() : null;
+}
+
+async function encryptBankDetails(keyText, affiliateId, details) {
+  let bytes;
+  try { bytes = Uint8Array.from(atob(keyText), character => character.charCodeAt(0)); } catch { throw new Error('Invalid bank key'); }
+  if (bytes.length !== 32) throw new Error('Invalid bank key');
+  const key = await crypto.subtle.importKey('raw', bytes, 'AES-GCM', false, ['encrypt']);
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({name:'AES-GCM', iv:nonce, additionalData:new TextEncoder().encode(affiliateId)}, key,
+    new TextEncoder().encode(JSON.stringify(details)));
+  return { nonce:hex(nonce), encrypted:hex(new Uint8Array(encrypted)) };
+}
+
+async function requestBankChange(db, request, env, url) {
+  if (request.method !== 'POST') return redirect(affiliateRoot);
+  if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+  const account = await sessionAccount(db, request);
+  if (!account) return page('Masuk terlebih dahulu', `<a href="${affiliateRoot}">Masuk</a>`, 401);
+  if (!env.AFFILIATE_BANK_KEY || !env.RESEND_API_KEY) return page('Rekening belum tersedia', '<p>Silakan coba lagi nanti.</p>', 503);
+  const raw = await request.text();
+  if (raw.length > 2048) return page('Permintaan tidak valid', '', 413);
+  const form = new URLSearchParams(raw);
+  const email = (form.get('email') || '').trim().toLowerCase();
+  const bank = form.get('bank');
+  const name = (form.get('account_name') || '').trim();
+  const number = (form.get('account_number') || '').trim();
+  if (email.length > 254 || await emailHash(email) !== account.email_hash || !['ID_BCA','ID_BRI','ID_BNI','ID_MANDIRI','ID_PERMATA'].includes(bank)
+    || !name || name.length > 100 || /[\x00-\x1f\x7f]/.test(name) || !/^[0-9]{6,24}$/.test(number)) {
+    return page('Periksa data rekening', `<p>Pastikan email, bank, nama, dan nomor rekening benar.</p><a href="${affiliateRoot}">Kembali</a>`, 400);
+  }
+  const now=Date.now();
+  if (!await enrollmentLimit(db, `bank:${account.id}`, now, 3)) return page('Terlalu banyak permintaan', '<p>Tunggu satu jam sebelum mencoba lagi.</p>', 429);
+  await statement(db, 'DELETE FROM affiliate_bank_change_requests WHERE expires_at < ?', now - day).run();
+  const details = await encryptBankDetails(env.AFFILIATE_BANK_KEY, account.id, {name, number});
+  const token=hex(crypto.getRandomValues(new Uint8Array(32)));
+  await statement(db, `INSERT INTO affiliate_bank_change_requests
+    (token_hash, affiliate_id, bank_code, last_four, encrypted_details, nonce, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, await hash(token), account.id, bank, number.slice(-4), details.encrypted, details.nonce, now, now + 30*60000).run();
+  const response=await fetch('https://api.resend.com/emails', {method:'POST', redirect:'manual', signal:AbortSignal.timeout(10000),
+    headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`, 'Content-Type':'application/json'},
+    body:JSON.stringify({from:'DagangOS <contact@dagangos.com>',to:[email],subject:'Verifikasi rekening afiliasi DagangOS',
+      text:`Untuk memverifikasi perubahan rekening afiliasi, buka tautan ini pada browser yang sama dalam 30 menit:\n\n${url.origin}${affiliateRoot}/bank/verify/${token}\n\nJika Anda tidak meminta perubahan, abaikan email ini.`})});
+  if (!response.ok) return page('Email belum dapat dikirim', '<p>Silakan coba lagi nanti.</p>', 503);
+  return page('Periksa email Anda', '<p>Buka tautan verifikasi rekening di browser ini dalam 30 menit.</p>');
+}
+
+async function verifyBankChange(db, request, url, token) {
+  const account = await sessionAccount(db, request);
+  if (!account) return page('Masuk terlebih dahulu', `<a href="${affiliateRoot}">Masuk</a>`, 401);
+  if (!token && request.method === 'POST') {
+    if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', '', 403);
+    const raw=await request.text();if(raw.length>256)return page('Permintaan tidak valid','',413);
+    token=new URLSearchParams(raw).get('token');
+  }
+  if (!accessPattern.test(token || '')) return page('Tautan tidak valid', '', 404);
+  const tokenHash=await hash(token);const now=Date.now();
+  if (request.method==='GET' || request.method==='HEAD') {
+    const pending=await statement(db, `SELECT token_hash FROM affiliate_bank_change_requests
+      WHERE token_hash = ? AND affiliate_id = ? AND consumed_at IS NULL AND expires_at > ?`, tokenHash, account.id, now).first();
+    const response=pending ? page('Verifikasi rekening', `<p>Konfirmasi perubahan rekening untuk akun afiliasi ini.</p>
+      <form method="post" action="${affiliateRoot}/bank/verify"><input type="hidden" name="token" value="${token}"><button type="submit">Simpan rekening</button></form>`)
+      : page('Tautan kedaluwarsa', `<p>Minta tautan baru di dasbor.</p><a href="${affiliateRoot}">Kembali</a>`, 410);
+    response.headers.set('Referrer-Policy','origin');return response;
+  }
+  if(request.method!=='POST')return page('Metode tidak didukung','',405);
+  if(request.headers.get('Origin')!==url.origin)return page('Permintaan tidak valid','',403);
+  const results=await db.batch([
+    statement(db, `INSERT INTO affiliate_bank_destinations (affiliate_id, bank_code, last_four, encrypted_details, nonce, updated_at)
+      SELECT affiliate_id, bank_code, last_four, encrypted_details, nonce, ? FROM affiliate_bank_change_requests
+      WHERE token_hash = ? AND affiliate_id = ? AND consumed_at IS NULL AND expires_at > ?
+      ON CONFLICT(affiliate_id) DO UPDATE SET bank_code=excluded.bank_code, last_four=excluded.last_four,
+        encrypted_details=excluded.encrypted_details, nonce=excluded.nonce, updated_at=excluded.updated_at`, now, tokenHash, account.id, now),
+    statement(db, `UPDATE affiliate_bank_change_requests SET consumed_at = ? WHERE affiliate_id = ? AND consumed_at IS NULL
+      AND EXISTS (SELECT 1 FROM affiliate_bank_change_requests WHERE token_hash = ? AND affiliate_id = ? AND consumed_at IS NULL AND expires_at > ?)`,
+      now, account.id, tokenHash, account.id, now),
+  ]);
+  return results[0].meta.changes === 1 ? page('Rekening tersimpan', `<p>Rekening Anda tersimpan dan menunggu peninjauan.</p><a href="${affiliateRoot}">Kembali ke dasbor</a>`)
+    : page('Tautan kedaluwarsa', `<p>Minta tautan baru di dasbor.</p><a href="${affiliateRoot}">Kembali</a>`, 410);
 }
 
 async function enrollmentLimit(db, bucket, now, maximum) {
@@ -479,6 +575,8 @@ async function affiliateRequest(request, env, url, path, admin) {
   const db = env.AFFILIATE_DB;
   if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
   if (path === `${affiliateRoot}/verify` || path.startsWith(`${affiliateRoot}/verify/`)) return verifyAffiliate(db, request, url, path.slice(`${affiliateRoot}/verify/`.length));
+  if (path === `${affiliateRoot}/bank`) return requestBankChange(db, request, env, url);
+  if (path === `${affiliateRoot}/bank/verify` || path.startsWith(`${affiliateRoot}/bank/verify/`)) return verifyBankChange(db, request, url, path.slice(`${affiliateRoot}/bank/verify/`.length));
   if (path === `${affiliateRoot}/login` || path === `${affiliateRoot}/logout`) {
     if (request.method !== 'POST') return redirect(affiliateRoot);
     if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid', `<a href="${affiliateRoot}">Kembali</a>`, 403);

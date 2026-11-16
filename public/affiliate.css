@@ -12,6 +12,7 @@ a { color: #194bb2; }
 p { max-width: 54ch; }
 label { display: block; font-size: .875rem; font-weight: 650; margin-bottom: .35rem; }
 input { display: block; width: 100%; max-width: 30rem; padding: .65rem; background: #fff; border: 1px solid #8297bd; border-radius: .5rem; font: inherit; color: inherit; }
+select { display: block; width: 100%; max-width: 30rem; padding: .65rem; background: #fff; border: 1px solid #8297bd; border-radius: .5rem; font: inherit; color: inherit; }
 button { border: 0; border-radius: .5rem; background: #194bb2; color: #fff; font: inherit; font-weight: 700; padding: .65rem 1rem; margin-top: .75rem; cursor: pointer; }
 :focus-visible { outline: 3px solid #235de0; outline-offset: 3px; }
 .account { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin-bottom: 1.5rem; }

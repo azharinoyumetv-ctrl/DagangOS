@@ -12,7 +12,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -40,6 +40,7 @@ async function setup(t, scope, conversionDays = null) {
     bindings: {
       AFFILIATE_CHECKOUT: 'on', AFFILIATE_ADMIN_TOKEN: 'operator-fixture',
       RESEND_API_KEY: 'mail-fixture',
+      AFFILIATE_BANK_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       SUBSCRIPTION_SIGNING_KEY: signingKey, XENDIT_SECRET_KEY: 'gateway-fixture',
       XENDIT_WEBHOOK_TOKEN: 'webhook-fixture', GERAINA_BACKEND_ORIGIN: 'geraina.test', BACKEND_ORIGIN: 'dapuros.test',
     },
@@ -181,6 +182,40 @@ test('enrollment rejects cross-site requests, expired links, and repeated email 
   assert.equal((await fetch(verification)).status, 410);
   assert.equal((await fetch('/affiliate-program/verify', { method: 'POST', headers: { Origin: origin }, body: new URLSearchParams({token: verification.split('/').pop()}).toString() })).status, 410);
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 1);
+  mock.assertNoPendingInterceptors();
+});
+
+test('bank destination is encrypted and saved only after same-session email verification', async t => {
+  const { fetch, db, mock, accessCode } = await setup(t, 'merchant_product', 90);
+  const login = await fetch('/affiliate-program/login', {method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const cookie=login.headers.get('Set-Cookie').split(';')[0];
+  const messages=[];
+  mock.get('https://api.resend.com').intercept({path:'/emails',method:'POST'}).reply(options=>{
+    messages.push(new Response(options.body).json());
+    return {statusCode:200,data:{id:'test'},responseOptions:headers};
+  });
+  const fields={email:'affiliate@example.test',bank:'ID_BCA',account_name:'Ayu Test',account_number:'1234567890'};
+  const submitBank=(fields,cookieValue=cookie)=>fetch('/affiliate-program/bank',{method:'POST',
+    headers:{Origin:origin,Cookie:cookieValue},body:new URLSearchParams(fields).toString()});
+  assert.equal((await submitBank({...fields,email:'other@example.test'})).status,400);
+  assert.equal((await submitBank(fields)).status,200);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_bank_destinations').first('count'),0);
+  const pending=await db.prepare('SELECT * FROM affiliate_bank_change_requests').first();
+  assert.doesNotMatch(JSON.stringify(pending),/1234567890|Ayu Test/);
+  const link=new URL((await messages[0]).text.match(/https:\/\/\S+/)[0]).pathname;
+  assert.equal((await fetch(link)).status,401);
+  const confirmBody=new URLSearchParams({token:link.split('/').pop()}).toString();
+  assert.equal((await fetch('/affiliate-program/bank/verify',{method:'POST',headers:{Origin:'https://evil.test',Cookie:cookie},body:confirmBody})).status,403);
+  const confirm=()=>fetch('/affiliate-program/bank/verify',{method:'POST',headers:{Origin:origin,Cookie:cookie},body:confirmBody});
+  assert.equal((await confirm()).status,200);
+  assert.equal((await confirm()).status,410);
+  const row=await db.prepare('SELECT * FROM affiliate_bank_destinations').first();
+  assert.equal(row.bank_code,'ID_BCA');assert.equal(row.last_four,'7890');
+  assert.doesNotMatch(JSON.stringify(row),/1234567890|Ayu Test/);
+  const key=await crypto.subtle.importKey('raw',new Uint8Array(32),'AES-GCM',false,['decrypt']);
+  const decrypted=await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(row.nonce,'hex'),additionalData:new TextEncoder().encode(row.affiliate_id)},key,Buffer.from(row.encrypted_details,'hex'));
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(decrypted)),{name:'Ayu Test',number:'1234567890'});
+  assert.match(await (await fetch('/affiliate-program',{headers:{Cookie:cookie}})).text(),/ID_BCA ···· 7890/);
   mock.assertNoPendingInterceptors();
 });
 

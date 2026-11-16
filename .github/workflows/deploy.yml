@@ -141,6 +141,7 @@ jobs:
           XENDIT_WEBHOOK_TOKEN: ${{ secrets.XENDIT_WEBHOOK_TOKEN }}
           SUBSCRIPTION_SIGNING_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          AFFILIATE_BANK_KEY: ${{ secrets.AFFILIATE_BANK_KEY }}
         run: node scripts/deploy-subscription-secret.mjs
 
   e2e-geraina:
