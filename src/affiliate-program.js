@@ -1131,8 +1131,13 @@ async function disputeWebhook(request, env) {
   const raw=await request.text();
   if (raw.length>32768) return json({error:'Invalid event'},413);
   let event;try {event=JSON.parse(raw);} catch {return json({error:'Invalid event'},400);}
-  if (!/^dispute\.(action_required|under_review|won|lost|due_date_approaching)$/.test(event?.event || '')
+  const eventName=typeof event?.event === 'string' ? event.event.toLowerCase().replace(/^dispute_/, 'dispute.') : '';
+  if (!/^dispute\.(action_required|under_review|won|lost|due_date_approaching)$/.test(eventName)
     || !/^mi-dspt-[a-zA-Z0-9-]{8,100}$/.test(event?.id || '')) return json({error:'Invalid event'},400);
+  // The authenticated dashboard test uses a public example reference. Events
+  // explicitly outside our order namespace do not need a provider lookup.
+  if (typeof event.reference_id === 'string' && event.reference_id &&
+      !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(event.reference_id)) return json({status:'not_applicable'});
   const disputePath=`/v1/disputes/${encodeURIComponent(event.id)}`;
   let verified;
   try { verified=await xenditRequest({XENDIT_SECRET_KEY:env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY},disputePath); }
@@ -1142,7 +1147,8 @@ async function disputeWebhook(request, env) {
     verified=await xenditRequest({XENDIT_SECRET_KEY:env.XENDIT_SECRET_KEY},disputePath);
   }
   const updatedAt=Date.parse(verified?.updated_at), dueAt=verified?.due_date ? Date.parse(verified.due_date) : null;
-  if (verified?.id !== event.id || !['ACTION_REQUIRED','UNDER_REVIEW','WON','LOST'].includes(verified.status)
+  const verifiedStatus=verified?.status === 'PENDING_ACTION' ? 'ACTION_REQUIRED' : verified?.status;
+  if (verified?.id !== event.id || !['ACTION_REQUIRED','UNDER_REVIEW','WON','LOST'].includes(verifiedStatus)
     || typeof verified.payment_id !== 'string' || !verified.payment_id || typeof verified.reference_id !== 'string'
     || !Number.isFinite(updatedAt) || (dueAt !== null && !Number.isFinite(dueAt))) return json({error:'Unverified dispute'},502);
   if (verified.currency !== 'IDR' || !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(verified.reference_id)) return json({status:'not_applicable'});
@@ -1160,7 +1166,7 @@ async function disputeWebhook(request, env) {
       due_at=excluded.due_at,recorded_at=excluded.recorded_at
       WHERE affiliate_disputes.order_id=excluded.order_id AND affiliate_disputes.payment_id=excluded.payment_id
         AND excluded.updated_at > affiliate_disputes.updated_at`,
-    verified.id,verified.reference_id,verified.payment_id,verified.status,updatedAt,dueAt,Date.now()),
+    verified.id,verified.reference_id,verified.payment_id,verifiedStatus,updatedAt,dueAt,Date.now()),
     statement(db, `UPDATE affiliate_acquisitions SET settlement_verified_at=0 WHERE order_id=?
       AND EXISTS (SELECT 1 FROM affiliate_disputes WHERE id=? AND order_id=? AND status <> 'WON')`,
     verified.reference_id,verified.id,verified.reference_id),

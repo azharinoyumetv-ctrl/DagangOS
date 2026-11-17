@@ -881,13 +881,16 @@ test('provider-confirmed disputes hold payouts and stale or unauthenticated even
   const send=(token='webhook-fixture')=>fetch('/api/affiliate/webhooks/disputes',{method:'POST',headers:{'x-callback-token':token},
     body:JSON.stringify({event:'dispute.action_required',id})});
   assert.equal((await send('wrong-token')).status,403);
+  const dashboardTest=await fetch('/api/affiliate/webhooks/disputes',{method:'POST',headers:{'x-callback-token':'webhook-fixture'},
+    body:JSON.stringify({event:'DISPUTE_ACTION_REQUIRED',id,reference_id:'ref-123456',currency:'USD'})});
+  assert.deepEqual(await dashboardTest.json(),{status:'not_applicable'});
   const payload={id,reference_id:order,payment_id:'py-fixture',currency:'IDR',status:'ACTION_REQUIRED',updated_at:'2026-11-17T01:00:00.000Z'};
   const provider=mock.get('https://api.xendit.co');
   provider.intercept({path:`/v1/disputes/${id}`}).reply(200,{...payload,reference_id:'unrelated-project'},headers);
   assert.deepEqual(await (await send()).json(),{status:'not_applicable'});
   provider.intercept({path:`/v1/disputes/${id}`}).reply(200,{...payload,reference_id:`DG-geraina-${'c'.repeat(32)}`},headers);
   assert.equal((await send()).status,503);
-  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,payload,headers);
+  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,{...payload,status:'PENDING_ACTION'},headers);
   assert.equal((await send()).status,200);
   assert.equal(await db.prepare('SELECT status FROM affiliate_disputes WHERE id=?').bind(id).first('status'),'ACTION_REQUIRED');
   assert.equal(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'),0);
