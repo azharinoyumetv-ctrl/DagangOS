@@ -7,6 +7,7 @@ import { proposeAffiliatePayout, reviewAffiliatePayout } from '../src/affiliate-
 import { executeApprovedPayout, reconcilePayout } from '../src/affiliate-payout-execute.js';
 import { runAffiliatePayoutBatch } from '../src/affiliate-payout-scheduler.js';
 import { findPayout, getPayout } from '../src/affiliate-payout-provider.js';
+import { observeAcquisition } from '../src/affiliate-program.js';
 
 const affiliateId = '11111111-1111-4111-8111-111111111111';
 const now = Date.parse('2026-11-25T08:00:00.000Z');
@@ -134,6 +135,29 @@ test('execution rechecks bank changes after approval and records a successful tr
   assert.deepEqual(await executeApprovedPayout(db, env, id, now, send), {status:'not_approved'});
   assert.equal(calls, 1);
   assert.equal(await proposeAffiliatePayout(db, affiliateId, now), null);
+});
+
+test('an approved payout is held when the provider reports a refund in progress', async t => {
+  const db=await setup(t);
+  const paidAt=now-31*day;
+  const order=await commission(db,1,149000,paidAt);
+  const key=new Uint8Array(32), iv=new Uint8Array(12);
+  const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(affiliateId)},
+    await crypto.subtle.importKey('raw',key,'AES-GCM',false,['encrypt']),new TextEncoder().encode(JSON.stringify({name:'Test Owner',number:'1234567890'})));
+  await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details=?,nonce=? WHERE affiliate_id=?')
+    .bind(Buffer.from(cipher).toString('hex'),Buffer.from(iv).toString('hex'),affiliateId).run();
+  const id=await proposeAffiliatePayout(db,affiliateId,now);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now),true);
+  const invoice={external_id:order,amount:134100,paid_amount:134100,currency:'IDR',status:'SETTLED',paid_at:new Date(paidAt).toISOString()};
+  const transaction={id:'txn-refund-test',reference_id:order,type:'PAYMENT',currency:'IDR',amount:134100,cashflow:'MONEY_IN',
+    status:'SUCCESSFUL',settlement_status:'SETTLED',refund_status:'PENDING',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
+  await observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,transaction);
+  let sends=0;
+  const env={AFFILIATE_PAYOUTS:'on',AFFILIATE_BANK_KEY:Buffer.from(key).toString('base64'),AFFILIATE_XENDIT_KEY:'fixture'};
+  const send=async()=>{sends++;return {id:'disb-fixture-1234',status:'SUCCEEDED'};};
+  assert.deepEqual(await executeApprovedPayout(db,env,id,now,send),{status:'not_eligible'});
+  assert.equal(sends,0);
+  assert.equal(await db.prepare('SELECT status FROM affiliate_payouts WHERE id=?').bind(id).first('status'),'approved');
 });
 
 test('an uncertain transfer is reconciled by reference without submitting a second payment', async t => {

@@ -173,10 +173,14 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
       UPDATE affiliate_acquisitions SET state = ?, paid_at = COALESCE(paid_at, ?)
       WHERE order_id = ? AND state IN ('requested', 'paid')
     `, settled ? 'settled' : 'paid', paidAt, order)];
+    // A settled payment can still be refunded or reversed. Do not mark it
+    // payout-verifiable unless the provider explicitly reports no such activity.
+    const cleanTransaction = transaction?.refund_status === 'NONE' && transaction?.amount_refunded_successfully === 0
+      && transaction?.reversal_status === 'NONE' && transaction?.reversal_amount_successful === 0;
     if (successfulTransaction
       && ['SETTLED', 'EARLY_SETTLED'].includes(transaction.settlement_status)) records.push(statement(db, `
       UPDATE affiliate_acquisitions SET settlement_verified_at = ? WHERE order_id = ? AND state = 'settled'
-    `, Date.now(), order));
+    `, cleanTransaction ? Date.now() : 0, order));
     if (settled) records.push(statement(db, `
       INSERT INTO affiliate_ledger (order_id, affiliate_id, product_id, kind, amount, provider_reference, recorded_at)
       SELECT sale.order_id, sale.affiliate_id, sale.product_id, 'commission', ?, ?, ?

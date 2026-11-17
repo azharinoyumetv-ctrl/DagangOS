@@ -684,7 +684,7 @@ test('DapurOS uses its own list price and QR reconciliation requires matching se
   });
   const query = `/transactions?types=PAYMENT&reference_id=${order.orderId}&currency=IDR&limit=10`;
   const transaction = { id: 'txn_qr_fixture', reference_id: order.orderId, type: 'PAYMENT', currency: 'IDR',
-    amount: 224100, cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED' };
+    amount: 224100, cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED', refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0 };
   const affiliateAuth = { authorization: `Basic ${Buffer.from('affiliate-fixture:').toString('base64')}` };
   xendit.intercept({ path: query, headers: affiliateAuth }).reply(200, { has_more: false, data: [{ ...transaction, amount: 1 }] }, headers);
   assert.equal((await (await reconcile()).json()).acquisitionState, 'paid');
@@ -707,7 +707,7 @@ test('provider SUCCESSFUL transaction only credits after settlement and becomes 
     .bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now).run();
   const invoice = {external_id:order, amount:134100, paid_amount:134100, currency:'IDR', status:'PAID', paid_at:new Date(now).toISOString()};
   const transaction = {id:'txn_fixture', reference_id:order, type:'PAYMENT', currency:'IDR', amount:134100,
-    cashflow:'MONEY_IN', status:'SUCCESSFUL', settlement_status:'PENDING'};
+    cashflow:'MONEY_IN', status:'SUCCESSFUL', settlement_status:'PENDING', refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
   let acquisition = await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first();
   await observeAcquisition(db, acquisition, invoice, transaction);
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_ledger').first('n'), 0);
@@ -715,6 +715,29 @@ test('provider SUCCESSFUL transaction only credits after settlement and becomes 
   await observeAcquisition(db, acquisition, invoice, {...transaction, settlement_status:'SETTLED'});
   assert.equal(await db.prepare('SELECT amount FROM affiliate_ledger WHERE order_id = ?').bind(order).first('amount'), 14900);
   assert.ok(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first('settlement_verified_at'));
+});
+
+test('a provider refund in progress prevents a previously verified commission from being paid out', async t => {
+  const {db}=await setup(t,'merchant_product',90);
+  const affiliateId=await db.prepare("SELECT id FROM affiliates WHERE code='PROMOTE01'").first('id');
+  const now=Date.now(), paidAt=new Date(now-40*86400000).toISOString(), order=`DG-geraina-${'f'.repeat(32)}`;
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at,settlement_verified_at)
+    VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?,?)`)
+    .bind(order,order,ownerId,storeId,affiliateId,now,paidAt,now-1000).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,'geraina','commission',14900,?)")
+    .bind(order,affiliateId,now).run();
+  const invoice={external_id:order,amount:134100,paid_amount:134100,currency:'IDR',status:'SETTLED',paid_at:paidAt};
+  const transaction={id:'txn-refund-fixture',reference_id:order,type:'PAYMENT',currency:'IDR',amount:134100,cashflow:'MONEY_IN',
+    status:'SUCCESSFUL',settlement_status:'SETTLED',refund_status:'PENDING',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
+  for (const changed of [{}, {refund_status:'PARTIAL',amount_refunded_successfully:10000},
+    {refund_status:'FULL',amount_refunded_successfully:134100}, {refund_status:undefined}, {refund_status:'NONE',reversal_status:'PENDING'}]) {
+    await observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,{...transaction,...changed});
+    assert.equal(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'),0);
+  }
+  await observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,{...transaction,refund_status:'NONE'});
+  assert.ok(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'));
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_ledger WHERE order_id=?').bind(order).first('n'),1);
 });
 
 test('opt-in paid development invoice is matched to the affiliate ledger without early commission',
@@ -834,7 +857,7 @@ test('payout flow: settled Geraina and DapurOS commissions, authenticated review
       status: 'SETTLED', paid_at: new Date(payoutNow - 31 * 86400000).toISOString() };
     await observeAcquisition(db, await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first(), invoice,
       { id: `txn-${i}`, reference_id: order, type: 'PAYMENT', currency: 'IDR', amount: 134100,
-        cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED' });
+        cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED', refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0 });
   }
   // Exercise a future payout day without waiting 30 days in the test.
   await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(payoutNow).run();
