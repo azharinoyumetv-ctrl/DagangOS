@@ -1062,9 +1062,19 @@ test('payout flow: settled Geraina and DapurOS commissions, authenticated review
   assert.equal(list.payouts.length, 1);
   assert.equal(list.payouts[0].amount, 149000);
   assert.equal(list.payouts[0].accountName, 'Test Affiliate');
+  assert.equal(list.payouts[0].destinationCurrent,true);
+  assert.ok(list.payouts[0].reviewNotes.some(note=>note.includes('Verify identity')));
   const id = list.payouts[0].id;
+  await db.prepare('UPDATE affiliate_bank_destinations SET updated_at=updated_at+1 WHERE affiliate_id=?').bind(affiliateId).run();
+  const changedBank=await (await admin({action:'list'})).json();
+  assert.equal(changedBank.payouts[0].destinationCurrent,false);
+  assert.ok(changedBank.payouts[0].reviewNotes.some(note=>note.includes('Bank destination changed')));
+  await db.prepare('UPDATE affiliate_bank_destinations SET updated_at=updated_at-1 WHERE affiliate_id=?').bind(affiliateId).run();
   assert.equal((await admin({action:'approve', id, reviewer:'owner'})).status, 400);
   assert.equal((await admin({action:'approve', id, reviewer:'owner', identityVerified:true, bankOwnershipVerified:true})).status, 200);
+  const approved=await (await admin({action:'list'})).json();
+  assert.equal(approved.payouts[0].checksRemaining,10);
+  assert.ok(approved.payouts[0].reviewNotes.some(note=>note.includes('provider checks')));
   const provider = mock.get('https://api.xendit.co');
   for(let i=0;i<10;i++) {
     const product=i%2?'dapuros':'geraina',order=`DG-${product}-${i.toString(16).repeat(32)}`;

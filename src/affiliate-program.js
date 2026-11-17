@@ -1,6 +1,6 @@
 import { equalToken, findInvoice, verifiedInvoiceStatus, xenditRequest } from './xendit-payments.js';
 import { subscriptionBackendHost } from './subscription-products.js';
-import { reviewAffiliatePayout, availableSql } from './affiliate-payout-review.js';
+import { reviewAffiliatePayout, availableSql, cutoff } from './affiliate-payout-review.js';
 import { decryptDestination } from './affiliate-payout-execute.js';
 import { AFFILIATE_AGREEMENT_VERSION, AFFILIATE_AGREEMENT_PATH, AFFILIATE_AGREEMENT_BODY } from './affiliate-terms.js';
 
@@ -1067,21 +1067,39 @@ async function operatorApi(request, env, path) {
   if (path === '/api/affiliate/admin/payouts') {
     if (data?.action === 'list') {
       if (!env.AFFILIATE_BANK_KEY) return json({ error: 'Payout review unavailable' }, 503);
+      const {paidBy}=await cutoff(db,Date.now());
       const rows = (await db.prepare(`SELECT p.*, a.name AS affiliate_name, a.code AS affiliate_code,
         (SELECT COUNT(*) FROM affiliate_disputes dispute JOIN affiliate_acquisitions sale ON sale.order_id=dispute.order_id
           WHERE sale.affiliate_id=p.affiliate_id AND dispute.status <> 'WON'
             AND NOT (dispute.status='LOST' AND EXISTS (SELECT 1 FROM affiliate_dispute_reviews review
               WHERE review.dispute_id=dispute.id AND review.provider_updated_at=dispute.updated_at))) AS open_disputes,
-        EXISTS (SELECT 1 FROM affiliate_agreement_acceptances agreement WHERE agreement.affiliate_id=p.affiliate_id AND agreement.version=?) AS agreement_accepted
+        EXISTS (SELECT 1 FROM affiliate_agreement_acceptances agreement WHERE agreement.affiliate_id=p.affiliate_id AND agreement.version=?) AS agreement_accepted,
+        EXISTS (SELECT 1 FROM affiliate_bank_destinations b WHERE b.affiliate_id=p.affiliate_id
+          AND b.updated_at=p.destination_updated_at AND b.bank_code=p.bank_code AND b.last_four=p.last_four
+          AND b.encrypted_details=p.encrypted_details AND b.nonce=p.nonce) AS destination_current,
+        (SELECT COUNT(*) FROM affiliate_ledger c JOIN affiliate_acquisitions s ON s.order_id=c.order_id
+          LEFT JOIN affiliate_payout_preflight_checks checked ON checked.payout_id=p.id AND checked.order_id=s.order_id
+          WHERE c.affiliate_id=p.affiliate_id AND c.kind='commission' AND s.paid_at<=?
+            AND NOT EXISTS (SELECT 1 FROM affiliate_ledger r WHERE r.order_id=c.order_id AND r.kind='reversal')
+            AND (checked.checked_at IS NULL OR checked.checked_at<? OR s.settlement_verified_at<checked.checked_at OR s.state<>'settled')) AS checks_remaining
         FROM affiliate_payouts p JOIN affiliates a ON a.id = p.affiliate_id
-        WHERE p.status IN ('proposed', 'approved', 'submitted', 'unknown') ORDER BY p.created_at LIMIT 100`).bind(AFFILIATE_AGREEMENT_VERSION).all()).results;
+        WHERE p.status IN ('proposed', 'approved', 'submitted', 'unknown') ORDER BY p.created_at LIMIT 100`).bind(AFFILIATE_AGREEMENT_VERSION,paidBy,Date.now()-7200000).all()).results;
       const payouts = [];
       for (const row of rows) {
         const destination = await decryptDestination(env.AFFILIATE_BANK_KEY, row);
+        const reviewNotes=[];
+        if (!row.agreement_accepted) reviewNotes.push('Affiliate has not accepted the current agreement.');
+        if (!row.destination_current) reviewNotes.push('Bank destination changed; cancel and review a new proposal.');
+        if (row.open_disputes) reviewNotes.push(`${row.open_disputes} dispute(s) require review.`);
+        if (row.status==='proposed') reviewNotes.push('Verify identity and ownership of the exact bank account before approval.');
+        if (row.status==='approved' && row.checks_remaining) reviewNotes.push(`${row.checks_remaining} payment(s) need current provider checks before transfer.`);
+        if (row.status==='unknown') reviewNotes.push('Transfer outcome is uncertain; do not submit a replacement.');
+        if (row.status==='submitted') reviewNotes.push('Transfer submitted; awaiting provider outcome.');
         payouts.push({ id: row.id, affiliate: row.affiliate_name, code: row.affiliate_code,
           amount: row.amount, status: row.status, bank: row.bank_code,
           accountName: destination.accountName, accountLastFour: row.last_four, createdAt: row.created_at, openDisputes:row.open_disputes,
-          agreementAccepted:row.agreement_accepted === 1 });
+          agreementAccepted:row.agreement_accepted === 1, destinationCurrent:row.destination_current === 1,
+          checksRemaining:row.checks_remaining, reviewNotes });
       }
       return json({ payouts });
     }
