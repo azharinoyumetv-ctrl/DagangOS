@@ -64,7 +64,14 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
             AND NOT EXISTS (SELECT 1 FROM affiliate_ledger rev WHERE rev.order_id = c.order_id AND rev.kind = 'reversal')
             AND (s.state <> 'settled' OR s.settlement_verified_at < ? OR s.settlement_verified_at < s.reconciled_at)
         )
-    )`).bind(now, payoutId, AFFILIATE_AGREEMENT_VERSION, paidBy, monthStart, monthEnd, paidBy, now - 7200000).run();
+        AND NOT EXISTS (
+          SELECT 1 FROM affiliate_ledger c JOIN affiliate_acquisitions s ON s.order_id=c.order_id
+          LEFT JOIN affiliate_payout_preflight_checks checked ON checked.order_id=s.order_id AND checked.payout_id=affiliate_payouts.id
+          WHERE c.affiliate_id=a.id AND c.kind='commission' AND s.paid_at <= ?
+            AND NOT EXISTS (SELECT 1 FROM affiliate_ledger rev WHERE rev.order_id=c.order_id AND rev.kind='reversal')
+            AND (checked.checked_at IS NULL OR checked.checked_at < ? OR s.settlement_verified_at < checked.checked_at)
+        )
+    )`).bind(now, payoutId, AFFILIATE_AGREEMENT_VERSION, paidBy, monthStart, monthEnd, paidBy, now - 7200000, paidBy, now - 7200000).run();
   if (!claimed.meta.changes) return { status: 'not_eligible' };
   let result;
   try {

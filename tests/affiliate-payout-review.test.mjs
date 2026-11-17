@@ -4,14 +4,28 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { Miniflare } from 'miniflare';
 import { proposeAffiliatePayout, reviewAffiliatePayout } from '../src/affiliate-payout-review.js';
-import { executeApprovedPayout, reconcilePayout } from '../src/affiliate-payout-execute.js';
+import { executeApprovedPayout as productionExecutePayout, reconcilePayout } from '../src/affiliate-payout-execute.js';
 import { runAffiliatePayoutBatch } from '../src/affiliate-payout-scheduler.js';
 import { findPayout, getPayout } from '../src/affiliate-payout-provider.js';
 import { observeAcquisition } from '../src/affiliate-program.js';
+import { verifyPayoutFresh } from '../src/affiliate-payout-preflight.js';
+import { findInvoice, xenditRequest } from '../src/xendit-payments.js';
 
 const affiliateId = '11111111-1111-4111-8111-111111111111';
 const now = Date.parse('2026-11-25T08:00:00.000Z');
 const day = 86400000;
+
+// Existing execution tests isolate the final atomic claim from provider reads.
+// Dedicated preflight tests exercise how these rows are created.
+async function executeApprovedPayout(db,env,id,at,send) {
+  await db.prepare(`INSERT INTO affiliate_payout_preflight_checks (payout_id,order_id,checked_at)
+    SELECT p.id,s.order_id,s.settlement_verified_at FROM affiliate_payouts p
+    JOIN affiliate_acquisitions s ON s.affiliate_id=p.affiliate_id
+    JOIN affiliate_ledger c ON c.order_id=s.order_id AND c.kind='commission'
+    WHERE p.id=? AND s.settlement_verified_at>0
+    ON CONFLICT(payout_id,order_id) DO UPDATE SET checked_at=excluded.checked_at`).bind(id).run();
+  return productionExecutePayout(db,env,id,at,send);
+}
 
 async function setup(t, withAgreement = true) {
   const stateRoot = resolve('.wrangler');
@@ -22,7 +36,7 @@ async function setup(t, withAgreement = true) {
   t.after(async () => { await worker.dispose(); if (dirname(resolve(state)) === stateRoot) await rm(state, {recursive: true, force: true}); });
   const db = await worker.getD1Database('DB');
   for (const file of ['0001_affiliate_program.sql','0002_affiliate_attributions.sql','0003_affiliate_payout_policy.sql',
-    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql','0011_affiliate_code_registry.sql','0012_affiliate_review_attestations.sql','0013_affiliate_disputes.sql','0014_affiliate_wait_14_days.sql','0015_affiliate_agreements.sql','0016_affiliate_email_signals.sql']) {
+    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql','0011_affiliate_code_registry.sql','0012_affiliate_review_attestations.sql','0013_affiliate_disputes.sql','0014_affiliate_wait_14_days.sql','0015_affiliate_agreements.sql','0016_affiliate_email_signals.sql','0017_affiliate_payout_preflight.sql']) {
     const sql = await readFile(`migrations/${file}`, 'utf8');
     await db.exec(sql.replace(/^--.*$/gm, '').trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
   }
@@ -88,6 +102,83 @@ test('payout approval requires the affiliate to accept the current agreement', a
   assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,checks),true);
 });
 
+test('payout preflight replaces stale evidence and fails closed on provider problems', async t => {
+  const db=await setup(t),order=await commission(db,1,149000,now-15*day);
+  const id=await proposeAffiliatePayout(db,affiliateId,now);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,{identityVerified:true,bankOwnershipVerified:true}),true);
+  const env={XENDIT_SECRET_KEY:'fixture',AFFILIATE_XENDIT_KEY:'fixture'};
+  const fresh=async()=>db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at=? WHERE order_id=?').bind(Date.now(),order).run();
+  const empty=async()=>({data:[],pagination:{has_more:false,next_cursor:null}});
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile:fresh,list:empty}),{ok:true});
+  // Simulate an interrupted invocation after checking but before claiming.
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile:async()=>{throw Error('offline');},list:empty}),{ok:false,reason:'provider_unavailable'});
+  assert.equal(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'),0);
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile:async()=>{},list:empty}),{ok:false,reason:'payment_unverified'});
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile:fresh,list:async()=>({data:[],pagination:{has_more:true}})}),{ok:false,reason:'disputes_unverified'});
+  const dispute={id:'mi-dspt-12345678',reference_id:order,payment_id:'py-test',status:'ACTION_REQUIRED',updated_at:'2026-11-17T01:00:00Z'};
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile:fresh,list:async()=>({data:[dispute],pagination:{has_more:false}})}),{ok:true});
+  assert.equal(await db.prepare('SELECT status FROM affiliate_disputes WHERE id=?').bind(dispute.id).first('status'),'ACTION_REQUIRED');
+});
+
+test('a payout with more than one batch of sales can finish its checks', async t => {
+  const db=await setup(t);
+  for(let i=0;i<13;i++) await commission(db,i,14900,now-15*day);
+  const id=await proposeAffiliatePayout(db,affiliateId,now);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,{identityVerified:true,bankOwnershipVerified:true}),true);
+  let calls=0;
+  const reconcile=async (_db,_env,sale)=>{calls++;await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at=? WHERE order_id=?').bind(Date.now(),sale.order_id).run();};
+  const list=async()=>({data:[],pagination:{has_more:false}});
+  const env={XENDIT_SECRET_KEY:'x',AFFILIATE_XENDIT_KEY:'y'};
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile,list}),{ok:false,reason:'checking'});
+  assert.equal(calls,12);
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile,list:async()=>{throw Error('provider offline');}}),{ok:false,reason:'provider_unavailable'});
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_payout_preflight_checks WHERE payout_id=?').bind(id).first('n'),12);
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,now,{reconcile,list}),{ok:true});
+  assert.equal(calls,14);
+});
+
+test('dispute preflight falls back once to the payment key when the affiliate key lacks access', async t => {
+  const db=await setup(t);
+  await commission(db,1,74500,now-15*day);
+  await commission(db,2,74500,now-15*day);
+  const id=await proposeAffiliatePayout(db,affiliateId,now);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,{identityVerified:true,bankOwnershipVerified:true}),true);
+  const original=globalThis.fetch, keys=[];
+  t.after(()=>{globalThis.fetch=original;});
+  globalThis.fetch=async (_url,options)=>{
+    const key=atob(options.headers.Authorization.slice(6)).slice(0,-1); keys.push(key);
+    return new Response(JSON.stringify(key==='affiliate' ? {error:'forbidden'} : {data:[],pagination:{has_more:false}}),{status:key==='affiliate'?403:200});
+  };
+  const reconcile=async (_db,_env,sale)=>db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at=? WHERE order_id=?').bind(Date.now(),sale.order_id).run();
+  assert.deepEqual(await verifyPayoutFresh(db,{XENDIT_SECRET_KEY:'payment',AFFILIATE_XENDIT_KEY:'affiliate'},id,now,{reconcile}),{ok:true});
+  assert.deepEqual(keys,['affiliate','payment','payment']);
+});
+
+test('opt-in fresh payout preflight reads settled sandbox payments and disputes',
+  {skip:process.env.AFFILIATE_REAL_PREFLIGHT !== '1',timeout:120000}, async t => {
+  const key=process.env.XENDIT_API_SANDBOX||'';
+  if(!key.startsWith('xnd_development_')) throw Error('Development key required');
+  const db=await setup(t), env={XENDIT_SECRET_KEY:key,AFFILIATE_XENDIT_KEY:key};
+  for(const [product,list,paid] of [['geraina',149000,134100],['dapuros',249000,224100]]) {
+    const {reference:order}=JSON.parse(await readFile(`tmp/affiliate-sandbox-invoice-va-${product}.json`,'utf8'));
+    const invoice=await findInvoice(env,order);
+    const query=new URLSearchParams({types:'PAYMENT',reference_id:order,currency:'IDR',limit:'10'});
+    const transactions=await xenditRequest(env,`/transactions?${query}`);
+    assert.equal(transactions.has_more,false);
+    const matching=transactions.data.filter(x=>x.reference_id===order);
+    assert.equal(matching.length,1);assert.equal(matching[0].settlement_status,'SETTLED');
+    await db.prepare(`INSERT INTO affiliate_acquisitions (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state)
+      VALUES (?,?,?,?,?,?,'pilot','starter','monthly',?,?,?,?, 'requested')`).bind(order,order,product,order,order,affiliateId,list,list,paid,Date.now()).run();
+    await observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,matching[0]);
+  }
+  const future=Date.now()+16*day;
+  await db.prepare('UPDATE affiliate_payout_policy SET minimum_idr=1 WHERE id=1').run();
+  const id=await proposeAffiliatePayout(db,affiliateId,future);
+  assert.ok(id);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',future,{identityVerified:true,bankOwnershipVerified:true}),true);
+  assert.deepEqual(await verifyPayoutFresh(db,env,id,future),{ok:true});
+});
+
 test('review fails after a destination change or commission reversal and cancellation releases the reservation', async t => {
   const db = await setup(t);
   const order = await commission(db, 1, 149000, now - 31 * day);
@@ -123,6 +214,9 @@ test('execution requires approval and the 25th, claims once, and preserves an un
     throw new Error('network outcome unknown'); };
   assert.deepEqual(await executeApprovedPayout(db, env, id, now, send), {status:'not_approved'});
   assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
+  await db.prepare('DELETE FROM affiliate_payout_preflight_checks WHERE payout_id=?').bind(id).run();
+  assert.deepEqual(await productionExecutePayout(db, env, id, now, send), {status:'not_eligible'});
+  assert.equal(requests,0);
   assert.deepEqual(await executeApprovedPayout(db, env, id, now - day, send), {status:'not_due'});
   const results = await Promise.all([executeApprovedPayout(db, env, id, now, send), executeApprovedPayout(db, env, id, now, send)]);
   assert.equal(requests, 1);

@@ -13,7 +13,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql', '0012_affiliate_review_attestations.sql', '0013_affiliate_disputes.sql', '0014_affiliate_wait_14_days.sql', '0015_affiliate_agreements.sql', '0016_affiliate_email_signals.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql', '0012_affiliate_review_attestations.sql', '0013_affiliate_disputes.sql', '0014_affiliate_wait_14_days.sql', '0015_affiliate_agreements.sql', '0016_affiliate_email_signals.sql', '0017_affiliate_payout_preflight.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -23,7 +23,7 @@ async function setup(t, scope, conversionDays = null) {
   await mkdir(stateRoot, { recursive: true });
   const state = await mkdtemp(join(stateRoot, 'affiliate-test-'));
   const filenames = ['src/subscription-checkout.js', 'src/xendit-payments.js', 'src/affiliate-program.js', 'src/subscription-products.js',
-    'src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js', 'src/affiliate-payout-scheduler.js', 'src/affiliate-terms.js'];
+    'src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js', 'src/affiliate-payout-scheduler.js', 'src/affiliate-payout-preflight.js', 'src/affiliate-terms.js'];
   const worker = new Miniflare({
     modules: [
       { type: 'ESModule', path: resolve('affiliate-test-worker.mjs'), contents: `
@@ -1066,6 +1066,14 @@ test('payout flow: settled Geraina and DapurOS commissions, authenticated review
   assert.equal((await admin({action:'approve', id, reviewer:'owner'})).status, 400);
   assert.equal((await admin({action:'approve', id, reviewer:'owner', identityVerified:true, bankOwnershipVerified:true})).status, 200);
   const provider = mock.get('https://api.xendit.co');
+  for(let i=0;i<10;i++) {
+    const product=i%2?'dapuros':'geraina',order=`DG-${product}-${i.toString(16).repeat(32)}`;
+    const invoice={external_id:order,id:`invoice-${i}`,amount:134100,paid_amount:134100,currency:'IDR',status:'SETTLED',paid_at:new Date(payoutNow-31*86400000).toISOString()};
+    const transaction={id:`txn-${i}`,reference_id:order,type:'PAYMENT',currency:'IDR',amount:134100,cashflow:'MONEY_IN',status:'SUCCESS',settlement_status:'SETTLED',refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
+    provider.intercept({path:`/v2/invoices?external_id=${order}&limit=10`}).reply(200,[invoice],headers);
+    provider.intercept({path:`/transactions?types=PAYMENT&reference_id=${order}&currency=IDR&limit=10`}).reply(200,{data:[transaction],has_more:false},headers);
+    provider.intercept({path:`/v1/disputes?search=${order}&limit=100`}).reply(200,{data:[],pagination:{has_more:false,next_cursor:null}},headers);
+  }
   const payout = { id: 'disb-test-payout-1234', reference_id: `affiliate-${id}`, currency: 'IDR', amount: 149000, status: 'REQUESTED' };
   provider.intercept({path:'/v2/payouts', method:'POST'}).reply(200, payout, headers);
   provider.intercept({path:'/v2/payouts/disb-test-payout-1234', method:'GET'}).reply(200, {...payout, status:'SUCCEEDED'}, headers);

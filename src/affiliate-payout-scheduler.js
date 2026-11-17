@@ -1,5 +1,6 @@
 import { prepareAffiliatePayouts } from './affiliate-payout-review.js';
 import { executeApprovedPayout, reconcilePayout } from './affiliate-payout-execute.js';
+import { verifyPayoutFresh } from './affiliate-payout-preflight.js';
 
 // Separate gates allow review to be prepared without authorizing live sends.
 export async function runAffiliatePayoutBatch(env, now = Date.now()) {
@@ -9,10 +10,18 @@ export async function runAffiliatePayoutBatch(env, now = Date.now()) {
   if (env.AFFILIATE_PAYOUTS !== 'on' || !env.AFFILIATE_XENDIT_KEY) return result;
   const policy = await db.prepare('SELECT payout_day FROM affiliate_payout_policy WHERE id = 1').first();
   if (policy && new Date(now + 7 * 3600000).getUTCDate() === policy.payout_day) {
-    const approved = await db.prepare("SELECT id FROM affiliate_payouts WHERE status = 'approved' ORDER BY reconciled_at, created_at LIMIT 2").all();
+    // Keep fresh checks and sends within the invocation's provider-request budget.
+    const approved = await db.prepare("SELECT id FROM affiliate_payouts WHERE status = 'approved' ORDER BY reconciled_at, created_at LIMIT 1").all();
     for (const row of approved.results) {
       await db.prepare("UPDATE affiliate_payouts SET reconciled_at = ? WHERE id = ? AND status = 'approved'").bind(now, row.id).run();
-      try { const outcome = await executeApprovedPayout(db, env, row.id, now); if (outcome.status !== 'not_eligible') result.executed++; }
+      try {
+        const verified = await verifyPayoutFresh(db, env, row.id, now);
+        if (!verified.ok) { if (verified.reason !== 'checking') result.failed++; continue; }
+        let outcome;
+        try { outcome = await executeApprovedPayout(db, env, row.id, now); }
+        finally { await db.prepare('DELETE FROM affiliate_payout_preflight_checks WHERE payout_id=?').bind(row.id).run(); }
+        if (!['not_eligible','not_approved','not_due','disabled'].includes(outcome.status)) result.executed++;
+      }
       catch { result.failed++; }
     }
   }

@@ -239,7 +239,7 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
   return { status: 'pending', paidAt: null };
 }
 
-async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
+export async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
   const orderId = acquisition.order_id;
   const invoice = await findInvoice(env, orderId);
   let transaction = null;

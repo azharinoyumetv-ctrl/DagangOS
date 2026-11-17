@@ -137,7 +137,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          for file in migrations/0012_affiliate_review_attestations.sql migrations/0013_affiliate_disputes.sql migrations/0015_affiliate_agreements.sql migrations/0016_affiliate_email_signals.sql; do
+          for file in migrations/0012_affiliate_review_attestations.sql migrations/0013_affiliate_disputes.sql migrations/0015_affiliate_agreements.sql migrations/0016_affiliate_email_signals.sql migrations/0017_affiliate_payout_preflight.sql; do
             npx wrangler d1 execute dagangos-affiliate-production --remote --yes --file "$file"
           done
 
