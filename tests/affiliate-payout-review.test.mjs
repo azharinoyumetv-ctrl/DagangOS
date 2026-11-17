@@ -13,7 +13,7 @@ const affiliateId = '11111111-1111-4111-8111-111111111111';
 const now = Date.parse('2026-11-25T08:00:00.000Z');
 const day = 86400000;
 
-async function setup(t) {
+async function setup(t, withAgreement = true) {
   const stateRoot = resolve('.wrangler');
   await mkdir(stateRoot, { recursive: true });
   const state = await mkdtemp(join(stateRoot, 'payout-review-test-'));
@@ -22,12 +22,13 @@ async function setup(t) {
   t.after(async () => { await worker.dispose(); if (dirname(resolve(state)) === stateRoot) await rm(state, {recursive: true, force: true}); });
   const db = await worker.getD1Database('DB');
   for (const file of ['0001_affiliate_program.sql','0002_affiliate_attributions.sql','0003_affiliate_payout_policy.sql',
-    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql','0011_affiliate_code_registry.sql']) {
+    '0004_affiliate_enrollment.sql','0005_affiliate_reconciliation.sql','0006_affiliate_bank_details.sql','0007_affiliate_payout_review.sql','0008_affiliate_payout_review_audit.sql','0009_affiliate_payout_month.sql','0010_affiliate_payout_completion.sql','0011_affiliate_code_registry.sql','0012_affiliate_review_attestations.sql','0013_affiliate_disputes.sql','0014_affiliate_wait_14_days.sql','0015_affiliate_agreements.sql','0016_affiliate_email_signals.sql']) {
     const sql = await readFile(`migrations/${file}`, 'utf8');
     await db.exec(sql.replace(/^--.*$/gm, '').trim().replace(/;\n\n/g, ';\u0000').replace(/\n/g, ' ').replace(/\u0000/g, '\n'));
   }
   await db.prepare('INSERT INTO affiliates (id, code, name, email_hash, access_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(affiliateId, 'PROMOTE01', 'Test', 'email-hash', 'access-hash', now).run();
+  if (withAgreement) await db.prepare("INSERT INTO affiliate_agreement_acceptances VALUES (?,'2026-11-17-v1',?,'signup')").bind(affiliateId,now).run();
   await db.prepare('INSERT INTO affiliate_bank_destinations VALUES (?, ?, ?, ?, ?, ?)')
     .bind(affiliateId, 'ID_BCA', '1234', 'ciphertext', 'nonce', now - day).run();
   return db;
@@ -45,19 +46,46 @@ async function commission(db, number, amount, paidAt, product = 'geraina') {
   return order;
 }
 
+test('the 14-day policy migration is idempotent and does not overwrite a later policy change', async t => {
+  const db=await setup(t);
+  assert.equal(await db.prepare('SELECT wait_days FROM affiliate_payout_policy WHERE id=1').first('wait_days'),14);
+  await db.prepare('UPDATE affiliate_payout_policy SET wait_days=30 WHERE id=1').run();
+  const sql=await readFile('migrations/0014_affiliate_wait_14_days.sql','utf8');
+  await db.exec(sql.replace(/^--.*$/gm,'').trim().replace(/;\n\n/g,';\u0000').replace(/\n/g,' ').replace(/\u0000/g,'\n'));
+  assert.equal(await db.prepare('SELECT wait_days FROM affiliate_payout_policy WHERE id=1').first('wait_days'),30);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_policy_changes').first('n'),1);
+});
+
 test('only matured commission above the threshold can be reserved, and concurrent proposals cannot duplicate it', async t => {
   const db = await setup(t);
-  await commission(db, 1, 148999, now - 31 * day);
-  await commission(db, 2, 50000, now - 29 * day);
+  await commission(db, 1, 148999, now - 15 * day);
+  await commission(db, 2, 50000, now - 13 * day);
   assert.equal(await proposeAffiliatePayout(db, affiliateId, now), null);
-  await commission(db, 3, 1, now - 30 * day, 'dapuros');
+  await commission(db, 3, 1, now - 14 * day, 'dapuros');
   const results = await Promise.all([proposeAffiliatePayout(db, affiliateId, now), proposeAffiliatePayout(db, affiliateId, now)]);
   assert.equal(results.filter(Boolean).length, 1);
   const row = await db.prepare('SELECT amount, status, last_four FROM affiliate_payouts').first();
   assert.deepEqual(row, { amount: 149000, status: 'proposed', last_four: '1234' });
-  assert.equal(await reviewAffiliatePayout(db, results.find(Boolean), 'owner', 'approve', now), true);
   assert.equal(await reviewAffiliatePayout(db, results.find(Boolean), 'owner', 'approve', now), false);
+  assert.equal(await reviewAffiliatePayout(db, results.find(Boolean), 'owner', 'approve', now,
+    {identityVerified:true,bankOwnershipVerified:false}), false);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_payout_review_attestations').first('n'),0);
+  assert.equal(await reviewAffiliatePayout(db, results.find(Boolean), 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
+  assert.deepEqual(await db.prepare('SELECT reviewer,identity_verified,bank_ownership_verified FROM affiliate_payout_review_attestations').first(),
+    {reviewer:'owner',identity_verified:1,bank_ownership_verified:1});
+  await assert.rejects(db.prepare('DELETE FROM affiliate_payout_review_attestations').run());
+  assert.equal(await reviewAffiliatePayout(db, results.find(Boolean), 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), false);
   await assert.rejects(db.prepare("UPDATE affiliate_payouts SET status = 'succeeded' WHERE id = ?").bind(results.find(Boolean)).run());
+});
+
+test('payout approval requires the affiliate to accept the current agreement', async t => {
+  const db=await setup(t,false);
+  await commission(db,1,149000,now-15*day);
+  const id=await proposeAffiliatePayout(db,affiliateId,now);
+  const checks={identityVerified:true,bankOwnershipVerified:true};
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,checks),false);
+  await db.prepare("INSERT INTO affiliate_agreement_acceptances VALUES (?,'2026-11-17-v1',?,'dashboard')").bind(affiliateId,now).run();
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,checks),true);
 });
 
 test('review fails after a destination change or commission reversal and cancellation releases the reservation', async t => {
@@ -65,11 +93,11 @@ test('review fails after a destination change or commission reversal and cancell
   const order = await commission(db, 1, 149000, now - 31 * day);
   const id = await proposeAffiliatePayout(db, affiliateId, now);
   await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details = ? WHERE affiliate_id = ?').bind('changed', affiliateId).run();
-  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now), false);
+  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), false);
   await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details = ? WHERE affiliate_id = ?').bind('ciphertext', affiliateId).run();
   await db.prepare(`INSERT INTO affiliate_ledger (order_id, affiliate_id, product_id, kind, amount, recorded_at)
     VALUES (?, ?, 'geraina', 'reversal', -149000, ?)`).bind(order, affiliateId, now).run();
-  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now), false);
+  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), false);
   assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'cancel', now), true);
   assert.equal(await proposeAffiliatePayout(db, affiliateId, now), null);
   await assert.rejects(db.prepare('DELETE FROM affiliate_payouts WHERE id = ?').bind(id).run());
@@ -94,7 +122,7 @@ test('execution requires approval and the 25th, claims once, and preserves an un
     assert.equal(payout.accountName, 'Test Owner'); assert.equal(payout.accountNumber, '1234567890');
     throw new Error('network outcome unknown'); };
   assert.deepEqual(await executeApprovedPayout(db, env, id, now, send), {status:'not_approved'});
-  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   assert.deepEqual(await executeApprovedPayout(db, env, id, now - day, send), {status:'not_due'});
   const results = await Promise.all([executeApprovedPayout(db, env, id, now, send), executeApprovedPayout(db, env, id, now, send)]);
   assert.equal(requests, 1);
@@ -114,7 +142,7 @@ test('execution rechecks bank changes after approval and records a successful tr
   await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details = ?, nonce = ? WHERE affiliate_id = ?')
     .bind(hex(cipher), hex(iv), affiliateId).run();
   const id = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   const env = { AFFILIATE_PAYOUTS:'on', AFFILIATE_BANK_KEY:Buffer.from(key).toString('base64'), AFFILIATE_XENDIT_KEY:'fixture' };
   let calls = 0;
   const send = async () => { calls++; return {id:'disb-fixture-1234', status:'SUCCEEDED'}; };
@@ -147,7 +175,7 @@ test('an approved payout is held when the provider reports a refund in progress'
   await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details=?,nonce=? WHERE affiliate_id=?')
     .bind(Buffer.from(cipher).toString('hex'),Buffer.from(iv).toString('hex'),affiliateId).run();
   const id=await proposeAffiliatePayout(db,affiliateId,now);
-  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now),true);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,{identityVerified:true,bankOwnershipVerified:true}),true);
   const invoice={external_id:order,amount:134100,paid_amount:134100,currency:'IDR',status:'SETTLED',paid_at:new Date(paidAt).toISOString()};
   const transaction={id:'txn-refund-test',reference_id:order,type:'PAYMENT',currency:'IDR',amount:134100,cashflow:'MONEY_IN',
     status:'SUCCESSFUL',settlement_status:'SETTLED',refund_status:'PENDING',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
@@ -160,11 +188,30 @@ test('an approved payout is held when the provider reports a refund in progress'
   assert.equal(await db.prepare('SELECT status FROM affiliate_payouts WHERE id=?').bind(id).first('status'),'approved');
 });
 
+test('an approved payout cannot be sent while an affiliate dispute is unresolved', async t => {
+  const db=await setup(t),order=await commission(db,1,149000,now-15*day);
+  const key=new Uint8Array(32),iv=new Uint8Array(12);
+  const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(affiliateId)},
+    await crypto.subtle.importKey('raw',key,'AES-GCM',false,['encrypt']),new TextEncoder().encode(JSON.stringify({name:'Test',number:'1234567890'})));
+  await db.prepare('UPDATE affiliate_bank_destinations SET encrypted_details=?,nonce=? WHERE affiliate_id=?')
+    .bind(Buffer.from(cipher).toString('hex'),Buffer.from(iv).toString('hex'),affiliateId).run();
+  const id=await proposeAffiliatePayout(db,affiliateId,now);
+  assert.equal(await reviewAffiliatePayout(db,id,'owner','approve',now,{identityVerified:true,bankOwnershipVerified:true}),true);
+  await db.prepare("INSERT INTO affiliate_disputes VALUES ('dispute-fixture',?,'payment-fixture','ACTION_REQUIRED',?,NULL,?)").bind(order,now,now).run();
+  const env={AFFILIATE_PAYOUTS:'on',AFFILIATE_BANK_KEY:Buffer.from(key).toString('base64'),AFFILIATE_XENDIT_KEY:'fixture'};
+  let sends=0;const send=async()=>{sends++;return {id:'disb-fixture-1234',status:'SUCCEEDED'};};
+  assert.deepEqual(await executeApprovedPayout(db,env,id,now,send),{status:'not_eligible'});
+  assert.equal(sends,0);
+  await db.prepare("UPDATE affiliate_disputes SET status='WON' WHERE id='dispute-fixture'").run();
+  assert.deepEqual(await executeApprovedPayout(db,env,id,now,send),{status:'succeeded'});
+  assert.equal(sends,1);
+});
+
 test('an uncertain transfer is reconciled by reference without submitting a second payment', async t => {
   const db = await setup(t);
   await commission(db, 1, 149000, now - 31 * day);
   const id = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, id, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   await db.prepare("UPDATE affiliate_payouts SET status = 'unknown' WHERE id = ?").bind(id).run();
   const row = await db.prepare('SELECT * FROM affiliate_payouts WHERE id = ?').bind(id).first();
   const find = async (_key, query) => {
@@ -180,7 +227,7 @@ test('an approval can be cancelled before sending and both decisions remain in t
   const db = await setup(t);
   await commission(db, 1, 149000, now - 31 * day);
   const id = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, id, 'reviewer1', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, id, 'reviewer1', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   assert.equal(await reviewAffiliatePayout(db, id, 'reviewer2', 'cancel', now + 1000), true);
   assert.deepEqual((await db.prepare('SELECT action, reviewer FROM affiliate_payout_review_events WHERE payout_id = ? ORDER BY id')
     .bind(id).all()).results, [{action:'approved', reviewer:'reviewer1'}, {action:'cancelled', reviewer:'reviewer2'}]);
@@ -200,11 +247,11 @@ test('a second successful payout is held until the following month', async t => 
   let sends = 0;
   const send = async () => ({id:`disb-fixture-${++sends}-1234`, status:'SUCCEEDED'});
   const first = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, first, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, first, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   assert.deepEqual(await executeApprovedPayout(db, env, first, now, send), {status:'succeeded'});
   await commission(db, 2, 149000, now - 31 * day, 'dapuros');
   const second = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, second, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, second, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   assert.deepEqual(await executeApprovedPayout(db, env, second, now, send), {status:'not_eligible'});
   assert.equal(sends, 1);
   const nextMonth = Date.parse('2026-12-25T08:00:00.000Z');
@@ -224,14 +271,14 @@ test('a payout completed in a later month blocks another payout in that completi
     .bind(Buffer.from(cipher).toString('hex'), Buffer.from(iv).toString('hex'), affiliateId).run();
   const env = {AFFILIATE_PAYOUTS:'on', AFFILIATE_BANK_KEY:Buffer.from(key).toString('base64'), AFFILIATE_XENDIT_KEY:'fixture'};
   const first = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, first, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, first, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   assert.deepEqual(await executeApprovedPayout(db, env, first, now, async () => ({id:'disb-delayed-1234', status:'REQUESTED'})), {status:'submitted'});
   const submitted = await db.prepare('SELECT * FROM affiliate_payouts WHERE id = ?').bind(first).first();
   const decFirst = Date.parse('2026-12-01T08:00:00.000Z');
   assert.deepEqual(await reconcilePayout(db, 'fixture', submitted, async () => ({id:'disb-delayed-1234', status:'SUCCEEDED'}), undefined, decFirst), {status:'succeeded'});
   await commission(db, 2, 149000, now - 31 * day, 'dapuros');
   const second = await proposeAffiliatePayout(db, affiliateId, now);
-  assert.equal(await reviewAffiliatePayout(db, second, 'owner', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, second, 'owner', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   const dec25 = Date.parse('2026-12-25T08:00:00.000Z');
   await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(dec25).run();
   let sends = 0;
@@ -258,7 +305,7 @@ test('opt-in Xendit development-mode payout from local review through provider r
     AFFILIATE_BANK_KEY:Buffer.from(key).toString('base64'), AFFILIATE_XENDIT_KEY:sandboxKey};
   assert.equal((await runAffiliatePayoutBatch({...env, AFFILIATE_PAYOUTS:'off'}, now)).prepared, 1);
   const id = await db.prepare("SELECT id FROM affiliate_payouts WHERE status = 'proposed'").first('id');
-  assert.equal(await reviewAffiliatePayout(db, id, 'sandbox-reviewer', 'approve', now), true);
+  assert.equal(await reviewAffiliatePayout(db, id, 'sandbox-reviewer', 'approve', now,{identityVerified:true,bankOwnershipVerified:true}), true);
   const result = await runAffiliatePayoutBatch(env, now);
   assert.equal(result.executed, 1);
   assert.equal(result.failed, 0);

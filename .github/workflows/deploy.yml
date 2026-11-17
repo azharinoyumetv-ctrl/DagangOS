@@ -123,6 +123,21 @@ jobs:
       - name: Verify Worker public routing
         run: npm test
 
+      - name: Verify affiliate dispute read access
+        env:
+          XENDIT_SECRET_KEY: ${{ secrets.XENDIT_SECRET_KEY }}
+          AFFILIATE_XENDIT_KEY: ${{ secrets.AFFILIATE_XENDIT_KEY }}
+        run: node scripts/check-affiliate-dispute-access.mjs
+
+      - name: Apply additive affiliate safety tables
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for file in migrations/0012_affiliate_review_attestations.sql migrations/0013_affiliate_disputes.sql migrations/0015_affiliate_agreements.sql migrations/0016_affiliate_email_signals.sql; do
+            npx wrangler d1 execute dagangos-affiliate-production --remote --yes --file "$file"
+          done
+
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
@@ -145,6 +160,15 @@ jobs:
           AFFILIATE_XENDIT_KEY: ${{ secrets.AFFILIATE_XENDIT_KEY }}
           AFFILIATE_ADMIN_TOKEN: ${{ secrets.AFFILIATE_ADMIN_TOKEN }}
         run: node scripts/deploy-subscription-secret.mjs
+
+      - name: Apply owner-approved 14-day payout policy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler d1 execute dagangos-affiliate-production --remote --yes --file migrations/0014_affiliate_wait_14_days.sql
+          npx wrangler d1 execute dagangos-affiliate-production --remote --json --command "SELECT COUNT(*) AS applied FROM affiliate_policy_changes WHERE id='wait-14-days-2026-11-17'" > affiliate-policy-check.json
+          node -e "const x=require('./affiliate-policy-check.json'); if(x[0]?.results?.[0]?.applied!==1) throw new Error('14-day policy change was not applied'); console.log('14-day policy change recorded.');"
 
       - name: Check affiliate provider read permissions
         continue-on-error: true

@@ -3,12 +3,30 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: List payouts, then approve or cancel a specific payout ID
+        description: Review payouts or provider disputes
         required: true
         type: choice
-        options: [list, approve, cancel]
+        options: [list, approve, cancel, disputes, release_dispute, reverse_dispute]
       payout_id:
         description: Payout ID (required for approve or cancel)
+        required: false
+        type: string
+      identity_verified:
+        description: I verified the affiliate identity independently
+        required: true
+        default: false
+        type: boolean
+      bank_ownership_verified:
+        description: I verified ownership of this exact bank destination independently
+        required: true
+        default: false
+        type: boolean
+      dispute_id:
+        description: Dispute ID for a lost dispute review
+        required: false
+        type: string
+      dispute_reason:
+        description: Reason for the dispute decision (10–500 characters)
         required: false
         type: string
 permissions:
@@ -26,4 +44,8 @@ jobs:
           AFFILIATE_ADMIN_TOKEN: ${{ secrets.AFFILIATE_ADMIN_TOKEN }}
           PAYOUT_ACTION: ${{ inputs.action }}
           PAYOUT_ID: ${{ inputs.payout_id }}
+          IDENTITY_VERIFIED: ${{ inputs.identity_verified }}
+          BANK_OWNERSHIP_VERIFIED: ${{ inputs.bank_ownership_verified }}
+          DISPUTE_ID: ${{ inputs.dispute_id }}
+          DISPUTE_REASON: ${{ inputs.dispute_reason }}
         run: node scripts/affiliate-payout-review.mjs

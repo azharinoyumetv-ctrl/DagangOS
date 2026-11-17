@@ -1,8 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {payoutBalance,payoutCanExecute} from '../src/affiliate-payout-policy.js';
 const day=86400000;const now=Date.parse('2026-12-25T02:00:00Z');
-const acquisitions=Array.from({length:10},(_,i)=>({orderId:`order-${i}`,commission:14900,reversed:0,paidAt:new Date(now-30*day).toISOString()}));
-const calc=overrides=>payoutBalance({acquisitions,payouts:[],waitDays:30,asOf:now,...overrides});
-test('ten matured Starter referrals reach the threshold only after 30 days',()=>{
+const acquisitions=Array.from({length:10},(_,i)=>({orderId:`order-${i}`,commission:14900,reversed:0,paidAt:new Date(now-14*day).toISOString()}));
+const calc=overrides=>payoutBalance({acquisitions,payouts:[],waitDays:14,asOf:now,...overrides});
+test('ten matured Starter referrals reach the threshold only after 14 days',()=>{
  assert.equal(calc().available,149000);assert.equal(calc({asOf:now-1}).available,0);assert.equal(calc({asOf:now-1}).pending,149000);
  assert.equal(payoutCanExecute({balance:calc().available,minimum:149000,payoutDay:25,approved:true,asOf:now}),true);
  assert.equal(payoutCanExecute({balance:134100,minimum:149000,payoutDay:25,approved:true,asOf:now}),false);

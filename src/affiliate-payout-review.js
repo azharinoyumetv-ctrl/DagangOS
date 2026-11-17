@@ -1,3 +1,4 @@
+import { AFFILIATE_AGREEMENT_VERSION } from './affiliate-terms.js';
 // This module only reserves and reviews money already earned. It never sends a
 // transfer. Execution must recheck the balance and destination atomically.
 const DAY = 86400000;
@@ -52,12 +53,13 @@ export async function prepareAffiliatePayouts(db, now = Date.now(), limit = 10) 
 
 // Approval is tied to the bank snapshot and rechecks the available balance.
 // All earlier reservations, including this proposal, are included in the sum.
-export async function reviewAffiliatePayout(db, payoutId, reviewer, decision, now = Date.now()) {
+export async function reviewAffiliatePayout(db, payoutId, reviewer, decision, now = Date.now(), checks = {}) {
   if (!idPattern.test(payoutId || '') || typeof reviewer !== 'string' || !/^[a-zA-Z0-9@._-]{1,100}$/.test(reviewer)
     || !['approve', 'cancel'].includes(decision)) throw new Error('Invalid review');
+  if (decision === 'approve' && (checks.identityVerified !== true || checks.bankOwnershipVerified !== true)) return false;
   const { paidBy } = await cutoff(db, now);
   const approved = decision === 'approve';
-  const result = await statement(db, `
+  const update = statement(db, `
     UPDATE affiliate_payouts SET status = ?, reviewed_at = ?, reviewer = ?
     WHERE id = ? AND (status = 'proposed' OR (? = 0 AND status = 'approved'))
       AND (? = 0 OR EXISTS (
@@ -66,9 +68,20 @@ export async function reviewAffiliatePayout(db, payoutId, reviewer, decision, no
           AND b.updated_at = affiliate_payouts.destination_updated_at
           AND b.bank_code = affiliate_payouts.bank_code AND b.last_four = affiliate_payouts.last_four
           AND b.encrypted_details = affiliate_payouts.encrypted_details AND b.nonce = affiliate_payouts.nonce
+          AND EXISTS (SELECT 1 FROM affiliate_agreement_acceptances agreement WHERE agreement.affiliate_id=a.id AND agreement.version=?)
+          AND NOT EXISTS (SELECT 1 FROM affiliate_disputes dispute JOIN affiliate_acquisitions disputed_sale
+            ON disputed_sale.order_id=dispute.order_id WHERE disputed_sale.affiliate_id=a.id AND dispute.status <> 'WON'
+              AND NOT (dispute.status='LOST' AND EXISTS (SELECT 1 FROM affiliate_dispute_reviews review
+                WHERE review.dispute_id=dispute.id AND review.provider_updated_at=dispute.updated_at)))
           AND (${availableSql}) >= 0
       ))
-  `, approved ? 'approved' : 'cancelled', now, reviewer, payoutId, Number(approved), Number(approved), paidBy).run();
+  `, approved ? 'approved' : 'cancelled', now, reviewer, payoutId, Number(approved), Number(approved), AFFILIATE_AGREEMENT_VERSION, paidBy);
+  const result = approved ? (await db.batch([update, statement(db, `
+    INSERT INTO affiliate_payout_review_attestations (payout_id, reviewer, reviewed_at, identity_verified, bank_ownership_verified)
+    SELECT id, reviewer, reviewed_at, 1, 1 FROM affiliate_payouts
+    WHERE id = ? AND status = 'approved' AND reviewer = ? AND reviewed_at = ?
+    ON CONFLICT (payout_id) DO NOTHING
+  `, payoutId, reviewer, now)]))[0] : await update.run();
   // D1 includes the audit trigger's insert in the change count.
   return result.meta.changes > 0;
 }

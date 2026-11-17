@@ -13,7 +13,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql', '0012_affiliate_review_attestations.sql', '0013_affiliate_disputes.sql', '0014_affiliate_wait_14_days.sql', '0015_affiliate_agreements.sql', '0016_affiliate_email_signals.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -23,7 +23,7 @@ async function setup(t, scope, conversionDays = null) {
   await mkdir(stateRoot, { recursive: true });
   const state = await mkdtemp(join(stateRoot, 'affiliate-test-'));
   const filenames = ['src/subscription-checkout.js', 'src/xendit-payments.js', 'src/affiliate-program.js', 'src/subscription-products.js',
-    'src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js', 'src/affiliate-payout-scheduler.js'];
+    'src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js', 'src/affiliate-payout-scheduler.js', 'src/affiliate-terms.js'];
   const worker = new Miniflare({
     modules: [
       { type: 'ESModule', path: resolve('affiliate-test-worker.mjs'), contents: `
@@ -68,6 +68,7 @@ async function setup(t, scope, conversionDays = null) {
   const enrolled = await createAccount('PROMOTE01', 'affiliate@example.test');
   assert.equal(enrolled.status, 201, await enrolled.clone().text());
   const { accessCode } = await enrolled.json();
+  await db.prepare("INSERT INTO affiliate_agreement_acceptances SELECT id,'2026-11-17-v1',?,'signup' FROM affiliates WHERE code='PROMOTE01'").bind(Date.now()).run();
   return { fetch, db, mock, createAccount, accessCode };
 }
 
@@ -112,7 +113,7 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.match(publicPage, /Kode akses dasbor/);
   assert.match(publicPage, /Rp 149\.000/);
   assert.match(publicPage, /tanggal 25/);
-  assert.match(publicPage, /masa tunggu 30 hari/);
+  assert.match(publicPage, /masa tunggu 14 hari/);
   assert.match(publicPage, /Pembayaran diproses setelah peninjauan/);
   const login = await fetch('/affiliate-program/login', { method: 'POST', headers: { Origin: origin }, body: new URLSearchParams({ access: accessCode }).toString() });
   assert.equal(login.status, 303);
@@ -249,7 +250,7 @@ test('affiliates can customize a code without losing history or breaking old ref
     await db.exec(`DROP TRIGGER ${name}`);
   }
   await db.exec('DROP TABLE affiliate_code_registry');
-  const upgrade=migrations[migrations.length-1].replace(/^--.*$/gm,'').trim().replace(/;\n\n/g,';\u0000').replace(/\n/g,' ').replace(/\u0000/g,'\n');
+  const upgrade=(await readFile('migrations/0011_affiliate_code_registry.sql','utf8')).replace(/^--.*$/gm,'').trim().replace(/;\n\n/g,';\u0000').replace(/\n/g,' ').replace(/\u0000/g,'\n');
   await db.exec(upgrade);
   await db.exec(upgrade);
   assert.equal(await db.prepare('SELECT affiliate_id FROM affiliate_code_registry WHERE code = ?').bind('PROMOTE01').first('affiliate_id'),id);
@@ -431,7 +432,7 @@ test('email verification creates an affiliate once and can recover dashboard acc
   }).times(2);
   const register = () => fetch('/affiliate-program/register', { method: 'POST',
     headers: { Origin: origin, 'CF-Connecting-IP': '192.0.2.10' },
-    body: new URLSearchParams({ name: 'Mitra Testing', email: 'test@example.test' }).toString() });
+    body: new URLSearchParams({ name: 'Mitra Testing', email: 'test@example.test',agreement:'yes',agreement_version:'2026-11-17-v1' }).toString() });
   const initialRegistration = await register();
   assert.equal(initialRegistration.status, 200, `${await initialRegistration.clone().text()} mocked messages=${messages.length}`);
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 1);
@@ -447,6 +448,9 @@ test('email verification creates an affiliate once and can recover dashboard acc
   assert.match(body, /data-copy-for="new-access"/);
   assert.match(body, /Kode akses berbeda dari kode afiliasi/);
   const code = body.match(/Kode afiliasi Anda: <strong>([A-F0-9]+)<\/strong>/)[1];
+  assert.deepEqual(await db.prepare(`SELECT agreement.version, agreement.source FROM affiliate_agreement_acceptances agreement
+    JOIN affiliates a ON a.id=agreement.affiliate_id WHERE a.code=?`).bind(code).first(),
+    {version:'2026-11-17-v1',source:'signup'});
   const oldCookie = created.headers.get('Set-Cookie').split(';')[0];
   assert.match(await (await fetch('/affiliate-program', { headers: { Cookie: oldCookie } })).text(), new RegExp(code));
   assert.equal((await fetch('/affiliate-program/verify', { method: 'POST', headers: { Origin: origin }, body: verifyBody })).status, 410);
@@ -457,6 +461,48 @@ test('email verification creates an affiliate once and can recover dashboard acc
   assert.match(await recovered.text(), new RegExp(code));
   assert.match(await (await fetch('/affiliate-program', { headers: { Cookie: oldCookie } })).text(), /Kode akses dasbor/);
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliates').first('count'), 2);
+  mock.assertNoPendingInterceptors();
+});
+
+test('existing affiliates can accept versioned terms without losing their account or earnings', async t => {
+  const {fetch,db,createAccount}=await setup(t,'merchant_product',90);
+  const terms=await fetch('/affiliate-program/ketentuan/2026-11-17-v1');
+  assert.equal(terms.status,200);assert.match(await terms.text(),/masa tunggu 14 hari/);
+  const withoutAgreement=await fetch('/affiliate-program/register',{method:'POST',headers:{Origin:origin,'CF-Connecting-IP':'192.0.2.42'},
+    body:new URLSearchParams({name:'Mitra',email:'mitra@example.test'}).toString()});
+  assert.equal(withoutAgreement.status,400);
+  const account=await (await createAccount('LEGACY99','legacy@example.test')).json();
+  const id=await db.prepare("SELECT id FROM affiliates WHERE code='LEGACY99'").first('id');
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES ('legacy-order','legacy-order','geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?)`)
+    .bind(ownerId,storeId,id,Date.now(),new Date().toISOString()).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES ('legacy-order',?,'geraina','commission',14900,?)").bind(id,Date.now()).run();
+  const login=await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:account.accessCode}).toString()});
+  const cookie=login.headers.get('Set-Cookie').split(';')[0];
+  assert.match(await (await fetch('/affiliate-program',{headers:{Cookie:cookie}})).text(),/Baca dan setujui ketentuan/);
+  const accept=(site,version)=>fetch('/affiliate-program/agreement/accept',{method:'POST',headers:{Origin:site,Cookie:cookie},body:new URLSearchParams({version}).toString()});
+  assert.equal((await accept('https://evil.test','2026-11-17-v1')).status,403);
+  assert.equal((await accept(origin,'outdated')).status,400);
+  assert.equal((await accept(origin,'2026-11-17-v1')).status,303);
+  assert.equal((await accept(origin,'2026-11-17-v1')).status,303);
+  assert.deepEqual(await db.prepare('SELECT version,source FROM affiliate_agreement_acceptances WHERE affiliate_id=?').bind(id).first(),
+    {version:'2026-11-17-v1',source:'dashboard'});
+  await assert.rejects(db.prepare('DELETE FROM affiliate_agreement_acceptances WHERE affiliate_id=?').bind(id).run());
+  const dashboard=await (await fetch('/affiliate-program',{headers:{Cookie:cookie}})).text();
+  assert.match(dashboard,/LEGACY99/);assert.match(dashboard,/Rp 14\.900/);
+});
+
+test('expired signup requests and their consent drafts can be cleaned up safely', async t => {
+  const {fetch,db,mock}=await setup(t,'merchant_product',90);
+  mock.get('https://api.resend.com').intercept({path:'/emails',method:'POST'}).reply(200,{id:'fixture-mail'},headers).times(2);
+  const register=email=>fetch('/affiliate-program/register',{method:'POST',headers:{Origin:origin,'CF-Connecting-IP':'192.0.2.88'},
+    body:new URLSearchParams({name:'Test',email,agreement:'yes',agreement_version:'2026-11-17-v1'}).toString()});
+  assert.equal((await register('old@example.test')).status,200);
+  await db.prepare('UPDATE affiliate_verification_requests SET expires_at=?').bind(Date.now()-2*86400000).run();
+  assert.equal((await register('new@example.test')).status,200);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_verification_requests').first('n'),1);
+  assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_signup_agreements').first('n'),1);
   mock.assertNoPendingInterceptors();
 });
 
@@ -549,7 +595,7 @@ test('enrollment rejects cross-site requests, expired links, and repeated email 
   }).times(3);
   const registration = originHeader => fetch('/affiliate-program/register', { method: 'POST',
     headers: { Origin: originHeader, 'CF-Connecting-IP': '192.0.2.11' },
-    body: new URLSearchParams({ name: 'Partner', email: 'partner@example.test' }).toString() });
+    body: new URLSearchParams({ name: 'Partner', email: 'partner@example.test',agreement:'yes',agreement_version:'2026-11-17-v1' }).toString() });
   assert.equal((await registration('https://evil.test')).status, 403);
   for (let i = 0; i < 3; i++) assert.equal((await registration(origin)).status, 200);
   assert.equal((await registration(origin)).status, 429);
@@ -661,6 +707,32 @@ test('a self-referral stays full price and the global acquisition slot blocks a 
   mock.assertNoPendingInterceptors();
 });
 
+test('common Gmail aliases cannot earn self-referral discounts, while other domains keep distinct addresses', async t => {
+  const {fetch,db,mock,createAccount}=await setup(t,'merchant_product',90);
+  assert.equal((await createAccount('GMAIL123','Fi.Rst@gmail.com')).status,201);
+  const referral=await fetch('/affiliate/GMAIL123/geraina');
+  const cookie=referral.headers.get('Set-Cookie').split(';')[0];
+  const order=cart('geraina','monthly','a');
+  const api=backend(mock,order,{email:'first+merchant@googlemail.com',times:2});
+  api.intercept({path:`/api/subscriptions/orders/${order.orderId}/reference`,method:'POST'}).reply(200,{ok:true},headers);
+  mock.get('https://api.xendit.co').intercept({path:'/v2/invoices',method:'POST'}).reply(201,
+    {external_id:order.orderId,amount:149000,currency:'IDR',invoice_url:paymentUrl},headers);
+  const selfQuote=await submit(fetch,order,cookie);
+  assert.equal(selfQuote.status,200);
+  assert.match(await selfQuote.text(),/Kode afiliasi tidak dapat digunakan/);
+  assert.equal((await submit(fetch,order,cookie,{proceed_without_referral:'yes'})).headers.get('Location'),paymentUrl);
+  assert.deepEqual(await db.prepare('SELECT affiliate_id,charged_amount FROM affiliate_acquisitions WHERE order_id=?').bind(order.orderId).first(),
+    {affiliate_id:null,charged_amount:149000});
+  assert.equal((await createAccount('OTHER123','first@other.example')).status,201);
+  const next=cart('dapuros','monthly','b');
+  const nextReferral=await fetch('/affiliate/OTHER123/dapuros');
+  backend(mock,next,{email:'first+merchant@other.example'});
+  const quote=await submit(fetch,next,nextReferral.headers.get('Set-Cookie').split(';')[0]);
+  assert.equal(quote.status,200);
+  assert.match(await quote.text(),/Rp 224\.100/);
+  mock.assertNoPendingInterceptors();
+});
+
 test('DapurOS uses its own list price and QR reconciliation requires matching settlement evidence', async t => {
   const { fetch, db, mock } = await setup(t, 'merchant_product');
   const { headers: referralHeaders } = await fetch('/affiliate/PROMOTE01/dapuros');
@@ -684,7 +756,8 @@ test('DapurOS uses its own list price and QR reconciliation requires matching se
   });
   const query = `/transactions?types=PAYMENT&reference_id=${order.orderId}&currency=IDR&limit=10`;
   const transaction = { id: 'txn_qr_fixture', reference_id: order.orderId, type: 'PAYMENT', currency: 'IDR',
-    amount: 224100, cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED', refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0 };
+    amount: 224100, cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED',
+    refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0 };
   const affiliateAuth = { authorization: `Basic ${Buffer.from('affiliate-fixture:').toString('base64')}` };
   xendit.intercept({ path: query, headers: affiliateAuth }).reply(200, { has_more: false, data: [{ ...transaction, amount: 1 }] }, headers);
   assert.equal((await (await reconcile()).json()).acquisitionState, 'paid');
@@ -707,7 +780,8 @@ test('provider SUCCESSFUL transaction only credits after settlement and becomes 
     .bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now).run();
   const invoice = {external_id:order, amount:134100, paid_amount:134100, currency:'IDR', status:'PAID', paid_at:new Date(now).toISOString()};
   const transaction = {id:'txn_fixture', reference_id:order, type:'PAYMENT', currency:'IDR', amount:134100,
-    cashflow:'MONEY_IN', status:'SUCCESSFUL', settlement_status:'PENDING', refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
+    cashflow:'MONEY_IN', status:'SUCCESSFUL', settlement_status:'PENDING',
+    refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
   let acquisition = await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first();
   await observeAcquisition(db, acquisition, invoice, transaction);
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_ledger').first('n'), 0);
@@ -731,13 +805,36 @@ test('a provider refund in progress prevents a previously verified commission fr
   const transaction={id:'txn-refund-fixture',reference_id:order,type:'PAYMENT',currency:'IDR',amount:134100,cashflow:'MONEY_IN',
     status:'SUCCESSFUL',settlement_status:'SETTLED',refund_status:'PENDING',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0};
   for (const changed of [{}, {refund_status:'PARTIAL',amount_refunded_successfully:10000},
-    {refund_status:'FULL',amount_refunded_successfully:134100}, {refund_status:undefined}, {refund_status:'NONE',reversal_status:'PENDING'}]) {
+    {refund_status:undefined}, {refund_status:'NONE',reversal_status:'PENDING'}]) {
     await observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,{...transaction,...changed});
     assert.equal(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'),0);
   }
   await observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,{...transaction,refund_status:'NONE'});
   assert.ok(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'));
   assert.equal(await db.prepare('SELECT COUNT(*) AS n FROM affiliate_ledger WHERE order_id=?').bind(order).first('n'),1);
+});
+
+test('a completed annual partial refund preserves the first-month commission, while a full refund reverses it', async t => {
+  const {db}=await setup(t,'merchant_product',90);
+  const affiliateId=await db.prepare("SELECT id FROM affiliates WHERE code='PROMOTE01'").first('id');
+  const now=Date.now(),paidAt=new Date(now-15*86400000).toISOString(),order=`DG-geraina-${'a'.repeat(32)}`;
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES (?,?,'geraina',?,?,?,'pilot','starter','yearly',1490000,149000,1341000,?,'settled',?)`)
+    .bind(order,order,ownerId,storeId,affiliateId,now,paidAt).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,'geraina','commission',14900,?)")
+    .bind(order,affiliateId,now).run();
+  const invoice={external_id:order,amount:1341000,paid_amount:1341000,currency:'IDR',status:'SETTLED',paid_at:paidAt};
+  const transaction={id:'txn-annual-refund',reference_id:order,type:'PAYMENT',currency:'IDR',amount:1341000,cashflow:'MONEY_IN',
+    status:'SUCCESSFUL',settlement_status:'SETTLED',refund_status:'PARTIAL',amount_refunded_successfully:500000,reversal_status:'NONE',reversal_amount_successful:0};
+  const observe=async change=>observeAcquisition(db,await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first(),invoice,{...transaction,...change});
+  assert.equal((await observe({})).status,'paid');
+  assert.ok(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'));
+  assert.deepEqual((await db.prepare('SELECT kind,amount FROM affiliate_ledger WHERE order_id=?').bind(order).all()).results,[{kind:'commission',amount:14900}]);
+  assert.equal((await observe({refund_status:'FULL',amount_refunded_successfully:1341000})).status,'refunded');
+  assert.equal((await observe({refund_status:'FULL',amount_refunded_successfully:1341000})).status,'refunded');
+  assert.deepEqual((await db.prepare('SELECT kind,amount FROM affiliate_ledger WHERE order_id=? ORDER BY kind').bind(order).all()).results,
+    [{kind:'commission',amount:14900},{kind:'reversal',amount:-14900}]);
 });
 
 test('opt-in paid development invoice is matched to the affiliate ledger without early commission',
@@ -771,6 +868,71 @@ test('opt-in paid development invoice is matched to the affiliate ledger without
     assert.equal(sale.state, 'settled');
     assert.equal(await db.prepare('SELECT amount FROM affiliate_ledger').first('amount'), 14900);
   } else throw new Error('Unexpected settlement status');
+});
+
+test('provider-confirmed disputes hold payouts and stale or unauthenticated events cannot restore an old status', async t => {
+  const {fetch,db,mock}=await setup(t,'merchant_product',90);
+  const affiliateId=await db.prepare("SELECT id FROM affiliates WHERE code='PROMOTE01'").first('id');
+  const now=Date.now(),order=`DG-geraina-${'b'.repeat(32)}`,id='mi-dspt-12345678-aaaa-bbbb-cccc-123456789012';
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at,settlement_verified_at)
+    VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?,?)`)
+    .bind(order,order,ownerId,storeId,affiliateId,now,new Date(now-15*86400000).toISOString(),now).run();
+  const send=(token='webhook-fixture')=>fetch('/api/affiliate/webhooks/disputes',{method:'POST',headers:{'x-callback-token':token},
+    body:JSON.stringify({event:'dispute.action_required',id})});
+  assert.equal((await send('wrong-token')).status,403);
+  const payload={id,reference_id:order,payment_id:'py-fixture',currency:'IDR',status:'ACTION_REQUIRED',updated_at:'2026-11-17T01:00:00.000Z'};
+  const provider=mock.get('https://api.xendit.co');
+  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,{...payload,reference_id:'unrelated-project'},headers);
+  assert.deepEqual(await (await send()).json(),{status:'not_applicable'});
+  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,{...payload,reference_id:`DG-geraina-${'c'.repeat(32)}`},headers);
+  assert.equal((await send()).status,503);
+  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,payload,headers);
+  assert.equal((await send()).status,200);
+  assert.equal(await db.prepare('SELECT status FROM affiliate_disputes WHERE id=?').bind(id).first('status'),'ACTION_REQUIRED');
+  assert.equal(await db.prepare('SELECT settlement_verified_at FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('settlement_verified_at'),0);
+  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,{...payload,status:'WON',updated_at:'2026-11-17T02:00:00.000Z'},headers);
+  assert.equal((await send()).status,200);
+  provider.intercept({path:`/v1/disputes/${id}`}).reply(200,payload,headers);
+  assert.equal((await send()).status,200);
+  assert.equal(await db.prepare('SELECT status FROM affiliate_disputes WHERE id=?').bind(id).first('status'),'WON');
+  const auth=key=>({authorization:`Basic ${Buffer.from(`${key}:`).toString('base64')}`});
+  provider.intercept({path:`/v1/disputes/${id}`,headers:auth('affiliate-fixture')}).reply(403,{error:'forbidden'},headers);
+  provider.intercept({path:`/v1/disputes/${id}`,headers:auth('gateway-fixture')})
+    .reply(200,{...payload,status:'LOST',updated_at:'2026-11-17T03:00:00.000Z'},headers);
+  assert.equal((await send()).status,200);
+  assert.equal(await db.prepare('SELECT status FROM affiliate_disputes WHERE id=?').bind(id).first('status'),'LOST');
+  const admin=(body,token='operator-fixture')=>fetch('/api/affiliate/admin/disputes',{method:'POST',headers:{Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
+  assert.equal((await admin({action:'list'},'wrong')).status,403);
+  assert.equal((await (await admin({action:'list'})).json()).disputes.length,1);
+  assert.equal((await admin({action:'release',id,reviewer:'owner',reason:'short'})).status,400);
+  assert.equal((await admin({action:'release',id,reviewer:'owner',reason:'Reviewed the provider outcome'})).status,200);
+  assert.equal((await admin({action:'release',id,reviewer:'owner',reason:'Reviewed the provider outcome'})).status,409);
+  assert.equal((await (await admin({action:'list'})).json()).disputes.length,0);
+  await assert.rejects(db.prepare('DELETE FROM affiliate_dispute_reviews WHERE dispute_id=?').bind(id).run());
+  await assert.rejects(db.prepare('DELETE FROM affiliate_disputes WHERE id=?').bind(id).run());
+  mock.assertNoPendingInterceptors();
+});
+
+test('finance can reverse a commission once after reviewing a lost dispute', async t => {
+  const {fetch,db}=await setup(t,'merchant_product',90);
+  const affiliateId=await db.prepare("SELECT id FROM affiliates WHERE code='PROMOTE01'").first('id');
+  const now=Date.now(), order=`DG-geraina-${'c'.repeat(32)}`, id='mi-dspt-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?)`)
+    .bind(order,order,ownerId,storeId,affiliateId,now,new Date(now-15*86400000).toISOString()).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,'geraina','commission',14900,?)").bind(order,affiliateId,now).run();
+  await db.prepare("INSERT INTO affiliate_disputes VALUES (?,?,'py-fixture','ACTION_REQUIRED',?,NULL,?)").bind(id,order,now,now).run();
+  const review=()=>fetch('/api/affiliate/admin/disputes',{method:'POST',headers:{Authorization:'Bearer operator-fixture'},
+    body:JSON.stringify({action:'reverse',id,reviewer:'finance',reason:'Full chargeback confirmed by provider'})});
+  assert.equal((await review()).status,409);
+  await db.prepare("UPDATE affiliate_disputes SET status='LOST',updated_at=updated_at+1 WHERE id=?").bind(id).run();
+  assert.equal((await review()).status,200);
+  assert.equal((await review()).status,409);
+  assert.deepEqual((await db.prepare('SELECT kind,amount FROM affiliate_ledger WHERE order_id=? ORDER BY kind').bind(order).all()).results,
+    [{kind:'commission',amount:14900},{kind:'reversal',amount:-14900}]);
+  assert.equal(await db.prepare('SELECT state FROM affiliate_acquisitions WHERE order_id=?').bind(order).first('state'),'reversed');
 });
 
 test('scheduled reconciliation retries paid sales independently and records a settled commission once', async t => {
@@ -831,6 +993,32 @@ test('scheduled reconciliation reverses a commission when a settled transaction 
   mock.assertNoPendingInterceptors();
 });
 
+test('a full payment reversal after payout is reconciled once and carried as a balance adjustment', async t => {
+  const {fetch, db, accessCode} = await setup(t, 'merchant_product', 90);
+  const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code='PROMOTE01'").first('id');
+  const now = Date.now(), paidAt = new Date(now - 40 * 86400000).toISOString();
+  const order = `DG-geraina-${'e'.repeat(32)}`;
+  await db.prepare(`INSERT INTO affiliate_acquisitions
+    (order_id,scope_key,product_id,owner_id,store_id,affiliate_id,policy_version,tier,period,list_amount,monthly_amount,charged_amount,quote_expires,state,paid_at)
+    VALUES (?,?,'geraina',?,?,?,'pilot','starter','monthly',149000,149000,134100,?,'settled',?)`)
+    .bind(order, `scope:${order}`, ownerId, storeId, affiliateId, now, paidAt).run();
+  await db.prepare("INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,recorded_at) VALUES (?,?,'geraina','commission',14900,?)")
+    .bind(order, affiliateId, now).run();
+  await db.prepare(`INSERT INTO affiliate_payouts (id,affiliate_id,amount,bank_code,last_four,encrypted_details,nonce,destination_updated_at,created_at,status)
+    VALUES ('paid-fixture',?,14900,'ID_BCA','1234','cipher','nonce',?,?,'succeeded')`).bind(affiliateId,now,now).run();
+  const invoice = {external_id:order, amount:134100, paid_amount:134100, currency:'IDR', status:'SETTLED', paid_at:paidAt};
+  const transaction = {id:'txn-reversed', reference_id:order, type:'PAYMENT', currency:'IDR', amount:134100,
+    cashflow:'MONEY_IN', status:'REVERSED', settlement_status:'SETTLED'};
+  const acquisition = await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id=?').bind(order).first();
+  for (let i=0;i<2;i++) assert.equal((await observeAcquisition(db, acquisition, invoice, transaction)).status, 'refunded');
+  assert.deepEqual((await db.prepare('SELECT kind,amount FROM affiliate_ledger WHERE order_id=? ORDER BY kind').bind(order).all()).results,
+    [{kind:'commission',amount:14900},{kind:'reversal',amount:-14900}]);
+  const login = await fetch('/affiliate-program/login',{method:'POST',headers:{Origin:origin},body:new URLSearchParams({access:accessCode}).toString()});
+  const html = await (await fetch('/affiliate-program',{headers:{Cookie:login.headers.get('Set-Cookie').split(';')[0]}})).text();
+  assert.match(html,/Saldo untuk peninjauan<\/span><strong>Rp 0/);
+  assert.match(html,/Saldo untuk peninjauan masih kurang Rp 14\.900/);
+});
+
 test('payout flow: settled Geraina and DapurOS commissions, authenticated review, scheduled transfer and status reconciliation', async t => {
   const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
   const affiliateId = await db.prepare("SELECT id FROM affiliates WHERE code = 'PROMOTE01'").first('id');
@@ -857,7 +1045,8 @@ test('payout flow: settled Geraina and DapurOS commissions, authenticated review
       status: 'SETTLED', paid_at: new Date(payoutNow - 31 * 86400000).toISOString() };
     await observeAcquisition(db, await db.prepare('SELECT * FROM affiliate_acquisitions WHERE order_id = ?').bind(order).first(), invoice,
       { id: `txn-${i}`, reference_id: order, type: 'PAYMENT', currency: 'IDR', amount: 134100,
-        cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED', refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0 });
+        cashflow: 'MONEY_IN', status: 'SUCCESS', settlement_status: 'SETTLED',
+        refund_status:'NONE',amount_refunded_successfully:0,reversal_status:'NONE',reversal_amount_successful:0 });
   }
   // Exercise a future payout day without waiting 30 days in the test.
   await db.prepare('UPDATE affiliate_acquisitions SET settlement_verified_at = ?').bind(payoutNow).run();
@@ -871,7 +1060,8 @@ test('payout flow: settled Geraina and DapurOS commissions, authenticated review
   assert.equal(list.payouts[0].amount, 149000);
   assert.equal(list.payouts[0].accountName, 'Test Affiliate');
   const id = list.payouts[0].id;
-  assert.equal((await admin({action:'approve', id, reviewer:'owner'})).status, 200);
+  assert.equal((await admin({action:'approve', id, reviewer:'owner'})).status, 400);
+  assert.equal((await admin({action:'approve', id, reviewer:'owner', identityVerified:true, bankOwnershipVerified:true})).status, 200);
   const provider = mock.get('https://api.xendit.co');
   const payout = { id: 'disb-test-payout-1234', reference_id: `affiliate-${id}`, currency: 'IDR', amount: 149000, status: 'REQUESTED' };
   provider.intercept({path:'/v2/payouts', method:'POST'}).reply(200, payout, headers);

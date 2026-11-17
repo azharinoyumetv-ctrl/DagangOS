@@ -1,0 +1,13 @@
+// The text and version travel together. Publish a new version when these
+// program terms change; never rewrite an already accepted version.
+export const AFFILIATE_AGREEMENT_VERSION = '2026-11-17-v1';
+export const AFFILIATE_AGREEMENT_PATH = `/affiliate-program/ketentuan/${AFFILIATE_AGREEMENT_VERSION}`;
+export const AFFILIATE_AGREEMENT_BODY = `
+  <p>Versi 17 November 2026 · PT DagangOS Digital Indonesia</p>
+  <h2>Produk dan rujukan</h2><p>Program ini berlaku untuk Geraina dan DapurOS yang ditampilkan pada dasbor afiliasi. Anda dapat membagikan kode atau tautan produk kepada calon pelanggan. Uji coba gratis tidak menghasilkan komisi.</p>
+  <h2>Diskon dan komisi</h2><p>Pelanggan yang memenuhi syarat menerima diskon 10% pada pembelian pertama yang memenuhi syarat. Untuk pembayaran pertama yang memenuhi syarat dan telah terkonfirmasi, komisi afiliasi satu kali adalah 10% dari harga standar satu bulan paket yang dibeli, termasuk jika pelanggan memilih paket tahunan. Pembaruan dan perubahan paket tidak menghasilkan komisi tambahan. Satu pelanggan dapat menghasilkan satu komisi untuk pembelian pertama yang memenuhi syarat pada setiap produk.</p>
+  <h2>Masa rujukan</h2><p>Tautan rujukan berlaku 30 hari sebelum pendaftaran. Rujukan yang tersimpan berlaku untuk pembayaran pertama yang memenuhi syarat dalam 90 hari sejak pendaftaran produk.</p>
+  <h2>Pembayaran komisi</h2><p>Komisi dapat diproses setelah pembayaran pelanggan terkonfirmasi, masa tunggu 14 hari, saldo mencapai Rp149.000, serta identitas dan kepemilikan rekening ditinjau. Pembayaran dijadwalkan setiap tanggal 25 waktu Indonesia Barat setelah persetujuan; kendala verifikasi atau pemrosesan dapat menunda pembayaran.</p>
+  <h2>Pengembalian dan sengketa</h2><p>Pengembalian sebagian atas pembayaran tahunan tidak mengurangi komisi pertama yang memenuhi syarat. Pembayaran yang dikembalikan seluruhnya atau dibalik dapat menyebabkan koreksi komisi. Komisi atau pembayaran dapat ditahan selama pengembalian atau sengketa diperiksa. Ketentuan ini tidak membatasi hak pelanggan menurut hukum atau kebijakan pengembalian yang berlaku.</p>
+  <h2>Akun dan bantuan</h2><p>Berikan data yang benar, jaga kerahasiaan akses dasbor, dan jangan membuat rujukan palsu atau menggunakan akun sendiri sebagai rujukan. Jika ada pertanyaan atau keberatan atas rujukan maupun pembayaran, hubungi <a href="mailto:contact@dagangos.com">contact@dagangos.com</a>.</p>
+  <p><a href="/kebijakan-privasi">Kebijakan Privasi</a> · <a href="/syarat-ketentuan">Syarat &amp; Ketentuan DagangOS</a> · <a href="/kebijakan-refund">Kebijakan pengembalian</a></p>`;

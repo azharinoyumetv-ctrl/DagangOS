@@ -2,6 +2,7 @@ import { equalToken, findInvoice, verifiedInvoiceStatus, xenditRequest } from '.
 import { subscriptionBackendHost } from './subscription-products.js';
 import { reviewAffiliatePayout, availableSql } from './affiliate-payout-review.js';
 import { decryptDestination } from './affiliate-payout-execute.js';
+import { AFFILIATE_AGREEMENT_VERSION, AFFILIATE_AGREEMENT_PATH, AFFILIATE_AGREEMENT_BODY } from './affiliate-terms.js';
 
 const day = 86400000;
 const affiliateRoot = '/affiliate-program';
@@ -15,6 +16,17 @@ const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', 
 const hex = bytes => Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
 const hash = async value => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))));
 const emailHash = email => hash(email.trim().toLowerCase());
+// Gmail/Googlemail dots and plus tags address the same mailbox. Never apply
+// these provider-specific rules to unrelated email domains.
+const emailSignalHash = email => {
+  let normalized=email.trim().toLowerCase();
+  const at=normalized.lastIndexOf('@');
+  const domain=normalized.slice(at+1);
+  if (at>0 && ['gmail.com','googlemail.com'].includes(domain)) {
+    normalized=`${normalized.slice(0,at).split('+')[0].replaceAll('.','')}@gmail.com`;
+  }
+  return hash(normalized);
+};
 const rupiah = amount => `Rp ${amount.toLocaleString('id-ID')}`;
 const cookieValue = (request, name) => request.headers.get('Cookie')?.split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`))?.slice(name.length + 1);
 const cookie = (name, value, path, maxAge) => `${name}=${value}; Path=${path}; Secure; HttpOnly; SameSite=Lax${maxAge === undefined ? '' : `; Max-Age=${maxAge}`}`;
@@ -45,23 +57,26 @@ async function referralCandidate(db, request, policy, product, code) {
   if (code) {
     const normalized = code.trim().toUpperCase();
     if (!codePattern.test(normalized)) return null;
-    return statement(db, `SELECT affiliate.id AS affiliate_id, affiliate.code, affiliate.email_hash, NULL AS visit_id
+    return statement(db, `SELECT affiliate.id AS affiliate_id, affiliate.code, affiliate.email_hash, signal.normalized_hash, NULL AS visit_id
       FROM affiliate_code_registry registry JOIN affiliates affiliate ON affiliate.id = registry.affiliate_id
+      LEFT JOIN affiliate_email_signals signal ON signal.affiliate_id=affiliate.id
       WHERE registry.code = ? AND affiliate.active = 1`, normalized).first();
   }
   const visitId = cookieValue(request, referralCookie(product));
   if (!uuidPattern.test(visitId || '')) return null;
   return statement(db, `
-    SELECT visit.id AS visit_id, visit.affiliate_id, affiliate.code, affiliate.email_hash
+    SELECT visit.id AS visit_id, visit.affiliate_id, affiliate.code, affiliate.email_hash, signal.normalized_hash
     FROM affiliate_visits visit JOIN affiliates affiliate ON affiliate.id = visit.affiliate_id
+    LEFT JOIN affiliate_email_signals signal ON signal.affiliate_id=affiliate.id
     WHERE visit.id = ? AND visit.product_id = ? AND visit.visited_at >= ? AND affiliate.active = 1
   `, visitId, product, Date.now() - policy.referral_days * day).first();
 }
 
 async function savedReferral(db, product, owner) {
   return statement(db, `
-    SELECT attribution.*, affiliate.code, affiliate.email_hash, affiliate.active
+    SELECT attribution.*, affiliate.code, affiliate.email_hash, affiliate.active, signal.normalized_hash
     FROM affiliate_attributions attribution JOIN affiliates affiliate ON affiliate.id = attribution.affiliate_id
+    LEFT JOIN affiliate_email_signals signal ON signal.affiliate_id=affiliate.id
     WHERE attribution.owner_id = ? AND attribution.product_id = ?
   `, owner, product).first();
 }
@@ -102,31 +117,33 @@ export async function acquisitionQuote(db, request, policy, cart, account, manua
     return { kind: ['paid', 'settled', 'reversed'].includes(previous.state) ? 'ineligible' : 'conflict', acquisition: previous };
   }
   const ownerEmailHash = await emailHash(account.email);
+  const ownerSignalHash = await emailSignalHash(account.email);
   const deadline = conversionDeadline(policy, account.affiliate_signup_at);
   let saved = await savedReferral(db, cart.module, ownerId);
   let referral = saved || await referralCandidate(db, request, policy, cart.module, manualCode);
   let error;
-  if (!saved && referral && referral.email_hash !== ownerEmailHash && policy.conversion_days) {
+  const selfReferral = referral && (referral.email_hash === ownerEmailHash || referral.normalized_hash === ownerSignalHash);
+  if (!saved && referral && !selfReferral && policy.conversion_days) {
     saved = await saveReferral(db, policy, cart.module, ownerId, referral, manualCode ? 'checkout_code' : 'checkout_link', deadline);
     if (!saved && deadline > now) return { kind: 'conflict' };
     if (!saved) { referral = null; error = 'Masa berlaku kode afiliasi sudah berakhir atau belum dapat diperiksa.'; }
     referral = saved;
   }
   if (saved && (!saved.active || saved.expires_at <= now)) error = 'Kode afiliasi yang tersimpan sudah tidak berlaku.';
-  if (!error && (referral?.email_hash === ownerEmailHash || manualCode && !referral)) error = 'Kode afiliasi tidak dapat digunakan.';
+  if (!error && (selfReferral || manualCode && !referral)) error = 'Kode afiliasi tidak dapat digunakan.';
   const referred = referral && !error;
   return { kind: 'new', code: referred ? referral.code : null, error, canEnterCode: Boolean(deadline > now && !saved), acquisition: {
     order_id: cart.orderId, scope_key: scopeKey, product_id: cart.module, owner_id: ownerId, store_id: account.store_id,
     affiliate_id: referred ? referral.affiliate_id : null, visit_id: referred ? referral.visit_id : null,
     policy_version: policy.version, tier: cart.tier, period: cart.period, list_amount: cart.amount,
     monthly_amount: cart.monthlyAmount, charged_amount: cart.amount - (referred ? tenPercent(cart.amount) : 0),
-    quote_expires: cart.expires, ownerEmailHash, savedAffiliateId: referred && saved ? referral.affiliate_id : '',
+    quote_expires: cart.expires, ownerEmailHash, ownerSignalHash, savedAffiliateId: referred && saved ? referral.affiliate_id : '',
   } };
 }
 
 export async function reserveAcquisition(db, acquisition) {
   const { order_id, scope_key, product_id, owner_id, store_id, affiliate_id, visit_id, policy_version,
-    tier, period, list_amount, monthly_amount, charged_amount, quote_expires, ownerEmailHash, savedAffiliateId } = acquisition;
+    tier, period, list_amount, monthly_amount, charged_amount, quote_expires, ownerEmailHash, ownerSignalHash, savedAffiliateId } = acquisition;
   const result = await statement(db, `
     INSERT INTO affiliate_acquisitions (order_id, scope_key, product_id, owner_id, store_id, affiliate_id, visit_id,
       policy_version, tier, period, list_amount, monthly_amount, charged_amount, quote_expires, state)
@@ -135,11 +152,12 @@ export async function reserveAcquisition(db, acquisition) {
       SELECT attribution.affiliate_id FROM affiliate_attributions attribution JOIN affiliates affiliate ON affiliate.id = attribution.affiliate_id
       WHERE attribution.owner_id = ? AND attribution.product_id = ?
         AND attribution.expires_at > ? AND affiliate.active = 1 AND affiliate.email_hash <> ?
+        AND NOT EXISTS (SELECT 1 FROM affiliate_email_signals signal WHERE signal.affiliate_id=affiliate.id AND signal.normalized_hash=?)
     ), '') = ?
     ON CONFLICT DO NOTHING
   `, order_id, scope_key, product_id, owner_id, store_id, affiliate_id, visit_id,
   policy_version, tier, period, list_amount, monthly_amount, charged_amount, quote_expires,
-  owner_id, product_id, Date.now(), ownerEmailHash, savedAffiliateId).run();
+  owner_id, product_id, Date.now(), ownerEmailHash, ownerSignalHash, savedAffiliateId).run();
   return result.meta.changes === 1;
 }
 
@@ -160,7 +178,8 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
     && transaction.currency === 'IDR' && transaction.amount === acquisition.charged_amount && transaction.cashflow === 'MONEY_IN'
     && typeof transaction.id === 'string' && transaction.id.length > 0
     && (!invoice.payment_id || invoice.payment_id === transaction.product_id);
-  if (matchingPayment && transaction.status === 'REVERSED') status = 'refunded';
+  if (matchingPayment && (transaction.status === 'REVERSED'
+    || transaction.refund_status === 'FULL' && transaction.amount_refunded_successfully === acquisition.charged_amount)) status = 'refunded';
   const evidence = matchingPayment ? transaction.id : invoice?.id ?? null;
   if (status === 'paid') {
     // Development-mode card payments have returned SUCCESSFUL even though the
@@ -175,7 +194,14 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
     `, settled ? 'settled' : 'paid', paidAt, order)];
     // A settled payment can still be refunded or reversed. Do not mark it
     // payout-verifiable unless the provider explicitly reports no such activity.
-    const cleanTransaction = transaction?.refund_status === 'NONE' && transaction?.amount_refunded_successfully === 0
+    const noRefund = transaction?.refund_status === 'NONE' && transaction?.amount_refunded_successfully === 0;
+    // The owner decided that a completed partial refund of an annual purchase
+    // leaves its original first-month commission unchanged. Pending, full,
+    // inconsistent, or monthly partial refunds remain held or reversed.
+    const completedAnnualPartial = acquisition.period === 'yearly' && transaction?.refund_status === 'PARTIAL'
+      && Number.isSafeInteger(transaction?.amount_refunded_successfully) && transaction.amount_refunded_successfully > 0
+      && transaction.amount_refunded_successfully < acquisition.charged_amount;
+    const cleanTransaction = (noRefund || completedAnnualPartial)
       && transaction?.reversal_status === 'NONE' && transaction?.reversal_amount_successful === 0;
     if (successfulTransaction
       && ['SETTLED', 'EARLY_SETTLED'].includes(transaction.settlement_status)) records.push(statement(db, `
@@ -277,7 +303,8 @@ async function trialReferral(request, env, url) {
   if (!response.ok) return json({ error: 'Akun pemilik belum dapat diperiksa.' }, response.status === 401 ? 401 : 503);
   const account = await response.json();
   if (account.role !== 'Owner' || account.is_store_owner !== true || account.current_module !== product || account.plan !== 'trial'
-    || !uuidPattern.test(account.id || '') || typeof account.email !== 'string' || candidate.email_hash === await emailHash(account.email)) {
+    || !uuidPattern.test(account.id || '') || typeof account.email !== 'string' || candidate.email_hash === await emailHash(account.email)
+    || candidate.normalized_hash === await emailSignalHash(account.email)) {
     return json({ error: 'Kode afiliasi tidak dapat digunakan untuk akun ini.' }, 422);
   }
   const deadline = conversionDeadline(policy, account.affiliate_signup_at);
@@ -477,6 +504,7 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
         <div class="affiliate-form-card">${env.RESEND_API_KEY ? `<h2>Daftar afiliasi</h2><p>Langkah pertama: verifikasi email Anda.</p>
         <form method="post" action="${affiliateRoot}/register"><label for="name">Nama</label><input id="name" name="name" maxlength="100" required autocomplete="name" placeholder="Nama lengkap">
         <label for="email">Email</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email" placeholder="nama@email.com">
+        <input type="hidden" name="agreement_version" value="${AFFILIATE_AGREEMENT_VERSION}"><label class="affiliate-agreement-check"><input type="checkbox" name="agreement" value="yes" required><span>Saya telah membaca dan menyetujui <a href="${AFFILIATE_AGREEMENT_PATH}">ketentuan program afiliasi</a>.</span></label>
         <button type="submit">Kirim tautan verifikasi <span aria-hidden="true">↗</span></button></form><p class="affiliate-form-note">Tautan verifikasi berlaku selama 30 menit. Periksa folder spam jika belum diterima. <a href="/kebijakan-privasi">Kebijakan Privasi</a></p>`
         : `<h2>Daftar afiliasi</h2><p>Pendaftaran online belum tersedia. Hubungi <a href="mailto:contact@dagangos.com">tim DagangOS</a> untuk bergabung.</p>`}
         <details id="masuk" class="affiliate-login"><summary>Sudah punya akun? Masuk</summary><p>Gunakan kode akses dasbor yang Anda simpan saat verifikasi. Kode ini berbeda dari kode afiliasi.</p><form method="post" action="${affiliateRoot}/login"><label for="access">Kode akses dasbor</label><input id="access" name="access" type="password" autocomplete="current-password" maxlength="64" required><button type="submit">Masuk ke dasbor</button></form><p class="affiliate-form-note"><a href="${affiliateRoot}/recover">Lupa kode akses dasbor?</a></p></details></div>
@@ -484,12 +512,17 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
   }
   const products = await activeProducts(db);
   const options = dashboardOptions(form, products);
-  const [visits, ledger, bank, finance] = await Promise.all([
+  const [visits, ledger, bank, finance, disputeCount, agreement] = await Promise.all([
     statement(db, 'SELECT product_id, COUNT(*) AS visits FROM affiliate_visits WHERE affiliate_id = ? GROUP BY product_id', account.id).all(),
     statement(db, `SELECT product_id, SUM(amount) AS total, SUM(kind = 'commission') AS conversions
       FROM affiliate_ledger WHERE affiliate_id = ? GROUP BY product_id`, account.id).all(),
     env.AFFILIATE_BANK_KEY ? statement(db, 'SELECT bank_code, last_four FROM affiliate_bank_destinations WHERE affiliate_id = ?', account.id).first() : null,
     affiliateFinance(db, account.id, payoutPolicy, options, account.created_at),
+    statement(db, `SELECT COUNT(*) AS count FROM affiliate_disputes dispute JOIN affiliate_acquisitions sale
+      ON sale.order_id=dispute.order_id WHERE sale.affiliate_id=? AND dispute.status <> 'WON'
+      AND NOT (dispute.status='LOST' AND EXISTS (SELECT 1 FROM affiliate_dispute_reviews review
+        WHERE review.dispute_id=dispute.id AND review.provider_updated_at=dispute.updated_at))`, account.id).first(),
+    statement(db, 'SELECT accepted_at FROM affiliate_agreement_acceptances WHERE affiliate_id=? AND version=?',account.id,AFFILIATE_AGREEMENT_VERSION).first(),
   ]);
   const stats = new Map(ledger.results.map(row => [row.product_id, row]));
   const traffic = new Map(visits.results.map(row => [row.product_id, row.visits]));
@@ -506,7 +539,9 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
   }).join('');
   const remaining = finance && payoutPolicy ? Math.max(0, payoutPolicy.minimum_idr - finance.available) : 0;
   const progress = finance && payoutPolicy ? Math.min(100, Math.floor(finance.available / payoutPolicy.minimum_idr * 100)) : 0;
-  const payoutGuidance = !finance ? 'Ketentuan pembayaran belum tersedia.'
+  const payoutGuidance = !agreement ? 'Baca dan setujui ketentuan program agar pembayaran dapat ditinjau.'
+    : disputeCount?.count ? 'Pembayaran sedang ditinjau. Hubungi tim DagangOS untuk informasi lebih lanjut.'
+    : !finance ? 'Ketentuan pembayaran belum tersedia.'
     : env.AFFILIATE_PAYOUT_REVIEW !== 'on' || env.AFFILIATE_PAYOUTS !== 'on' || !env.AFFILIATE_XENDIT_KEY ? 'Pembayaran otomatis belum aktif. Hubungi tim DagangOS untuk informasi lebih lanjut.'
     : !env.AFFILIATE_BANK_KEY ? 'Pengaturan rekening belum tersedia. Hubungi tim DagangOS.'
     : !bank ? 'Tambahkan rekening dan konfirmasikan perubahan melalui email.'
@@ -530,6 +565,7 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
       <div class="affiliate-side-help"><strong>Butuh bantuan?</strong><span>Tim DagangOS siap membantu.</span><a href="mailto:contact@dagangos.com">Hubungi kami ↗</a></div></aside>
     <div class="affiliate-workspace-content">
       <header class="affiliate-dash-header"><div><p class="affiliate-breadcrumb">DAGANGOS <span>/</span> AFILIASI</p><h1>Dasbor Afiliasi</h1><p>Selamat datang, ${escape(account.name)}.</p></div><form method="post" action="${affiliateRoot}/logout"><button type="submit" class="affiliate-logout">Keluar</button></form></header>
+      ${agreement ? '' : `<section class="affiliate-workspace-card"><h2>Ketentuan program afiliasi</h2><p>Baca dan setujui ketentuan agar pembayaran dapat ditinjau. Kode dan riwayat komisi Anda tetap tersimpan.</p><p><a href="${AFFILIATE_AGREEMENT_PATH}">Baca ketentuan program</a></p><form method="post" action="${affiliateRoot}/agreement/accept"><input type="hidden" name="version" value="${AFFILIATE_AGREEMENT_VERSION}"><button type="submit">Saya setuju dengan ketentuan</button></form></section>`}
       <div class="affiliate-code-strip"><div><span>KODE AFILIASI ANDA</span><strong>${escape(account.code)}</strong><small>Bagikan kode ini kepada calon pelanggan.</small></div><div class="affiliate-copy"><input id="affiliate-code" value="${escape(account.code)}" readonly aria-label="Kode afiliasi"><button type="button" data-copy-for="affiliate-code" hidden>Salin kode</button></div><span class="affiliate-copy-status" aria-live="polite"></span></div>
       <details class="affiliate-code-edit"><summary>Ubah kode afiliasi</summary><p>Pilih 8–24 huruf atau angka tanpa spasi. Kode dan tautan lama tetap berlaku, dan riwayat serta komisi tetap di akun ini.</p><form method="post" action="${affiliateRoot}/kode"><label for="custom-code">Kode baru</label><input id="custom-code" name="code" minlength="8" maxlength="24" pattern="[A-Za-z0-9]{8,24}" autocapitalize="characters" autocomplete="off" required><button type="submit">Simpan kode</button></form></details>
     ${finance ? `<section id="ringkasan" class="affiliate-finance" aria-labelledby="finance-heading"><div class="affiliate-block-head"><div><h2 id="finance-heading">Ringkasan komisi</h2><p>Semua waktu · ${finance.registrations} rujukan akun pernah tersimpan. Data diperbarui saat halaman dimuat.</p></div><span class="affiliate-live-badge">● Data akun</span></div>
@@ -719,6 +755,8 @@ async function requestBankChange(db, request, env, url) {
     || !name || name.length > 100 || /[\x00-\x1f\x7f]/.test(name) || !/^[0-9]{6,24}$/.test(number)) {
     return page('Periksa data rekening', `<p>Pastikan email, bank, nama, dan nomor rekening benar.</p><a href="${affiliateRoot}">Kembali</a>`, 400);
   }
+  await statement(db, `INSERT INTO affiliate_email_signals (affiliate_id,normalized_hash) VALUES (?,?)
+    ON CONFLICT (affiliate_id) DO UPDATE SET normalized_hash=excluded.normalized_hash`,account.id,await emailSignalHash(email)).run();
   const now=Date.now();
   if (!await enrollmentLimit(db, `bank:${account.id}`, now, 3)) return page('Terlalu banyak permintaan', '<p>Tunggu satu jam sebelum mencoba lagi.</p>', 429);
   await statement(db, 'DELETE FROM affiliate_bank_change_requests WHERE expires_at < ?', now - day).run();
@@ -786,6 +824,9 @@ async function registerAffiliate(db, request, env, url) {
   const form = new URLSearchParams(raw);
   const name = (form.get('name') || '').trim();
   const email = (form.get('email') || '').trim().toLowerCase();
+  if (form.get('agreement') !== 'yes' || form.get('agreement_version') !== AFFILIATE_AGREEMENT_VERSION) {
+    return page('Persetujuan diperlukan', `<p>Baca dan setujui <a href="${AFFILIATE_AGREEMENT_PATH}">ketentuan program afiliasi</a> untuk mendaftar.</p>`,400);
+  }
   if (!name || name.length > 100 || /[\x00-\x1f\x7f]/.test(name) || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return page('Periksa data pendaftaran', `<p>Masukkan nama dan alamat email yang valid.</p><a href="${affiliateRoot}">Kembali</a>`, 400);
   }
@@ -801,9 +842,13 @@ async function registerAffiliate(db, request, env, url) {
     return page('Terlalu banyak permintaan', '<p>Tunggu satu jam sebelum mencoba lagi.</p>', 429);
   }
   const token = hex(crypto.getRandomValues(new Uint8Array(32)));
-  await statement(db, `INSERT INTO affiliate_verification_requests
-    (token_hash, email_hash, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,
-  await hash(token), emailKey, name, now, now + 30 * 60000).run();
+  const tokenHash=await hash(token);
+  await db.batch([
+    statement(db, `INSERT INTO affiliate_verification_requests
+      (token_hash, email_hash, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,tokenHash,emailKey,name,now,now+30*60000),
+    statement(db, 'INSERT INTO affiliate_signup_agreements (token_hash,version,accepted_at) VALUES (?,?,?)',tokenHash,AFFILIATE_AGREEMENT_VERSION,now),
+    statement(db, 'INSERT INTO affiliate_signup_email_signals (token_hash,normalized_hash) VALUES (?,?)',tokenHash,await emailSignalHash(email)),
+  ]);
   const verifyUrl = `${url.origin}${affiliateRoot}/verify/${token}`;
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000),
@@ -839,8 +884,10 @@ async function recoverAffiliate(db, request, env, url) {
     statement(db, 'DELETE FROM affiliate_verification_requests WHERE expires_at < ?', now - day),
   ]);
   if (!await enrollmentLimit(db, `ip:${ip}`, now, 20) || !await enrollmentLimit(db, `email:${emailKey}`, now, 3)) return page('Terlalu banyak permintaan', '<p>Tunggu satu jam sebelum mencoba lagi.</p>', 429);
-  const account = await statement(db, 'SELECT name FROM affiliates WHERE email_hash = ? AND active = 1', emailKey).first();
+  const account = await statement(db, 'SELECT id,name FROM affiliates WHERE email_hash = ? AND active = 1', emailKey).first();
   if (account) {
+    await statement(db, `INSERT INTO affiliate_email_signals (affiliate_id,normalized_hash) VALUES (?,?)
+      ON CONFLICT (affiliate_id) DO UPDATE SET normalized_hash=excluded.normalized_hash`,account.id,await emailSignalHash(email)).run();
     const token = hex(crypto.getRandomValues(new Uint8Array(32)));
     // Recovery tokens are domain-separated from signup tokens so they cannot create accounts.
     await statement(db, `INSERT INTO affiliate_verification_requests
@@ -924,8 +971,14 @@ async function verifyAffiliate(db, request, url, token) {
   const code = hex(crypto.getRandomValues(new Uint8Array(8))).toUpperCase();
   const account = await statement(db, `INSERT INTO affiliates (id, code, name, email_hash, access_hash, created_at)
     VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(email_hash) DO UPDATE SET access_hash = excluded.access_hash
-    WHERE affiliates.active = 1 RETURNING code`, crypto.randomUUID(), code, pending.name, pending.email_hash, await hash(access), now).first();
+    WHERE affiliates.active = 1 RETURNING id, code`, crypto.randomUUID(), code, pending.name, pending.email_hash, await hash(access), now).first();
   if (!account) return page('Akun dalam peninjauan', '<p>Hubungi tim DagangOS untuk bantuan.</p>', 403);
+  await statement(db, `INSERT INTO affiliate_agreement_acceptances (affiliate_id,version,accepted_at,source)
+    SELECT ?,version,accepted_at,'signup' FROM affiliate_signup_agreements WHERE token_hash=?
+    ON CONFLICT (affiliate_id,version) DO NOTHING`,account.id,tokenHash).run();
+  await statement(db, `INSERT INTO affiliate_email_signals (affiliate_id,normalized_hash)
+    SELECT ?,normalized_hash FROM affiliate_signup_email_signals WHERE token_hash=?
+    ON CONFLICT (affiliate_id) DO UPDATE SET normalized_hash=excluded.normalized_hash`,account.id,tokenHash).run();
   const response = page('Email terverifikasi', `<p>Akun afiliasi siap digunakan. Kode afiliasi Anda: <strong>${escape(account.code)}</strong>.</p>
     <p>Simpan kode akses dasbor ini di tempat aman. Kode akses berbeda dari kode afiliasi dan hanya ditampilkan sekarang.</p>
     <label for="new-access">Kode akses dasbor</label><div class="affiliate-copy"><input id="new-access" value="${access}" readonly><button type="button" data-copy-for="new-access" hidden>Salin</button></div><span class="affiliate-copy-status" aria-live="polite"></span>
@@ -975,24 +1028,69 @@ async function operatorApi(request, env, path) {
   let data;
   try { data = JSON.parse(raw); } catch { return json({ error: 'Invalid JSON' }, 400); }
   const db = env.AFFILIATE_DB;
+  if (path === '/api/affiliate/admin/disputes') {
+    if (data?.action === 'list') {
+      const rows=await statement(db,`SELECT dispute.id,dispute.status,dispute.updated_at,dispute.due_at,
+        dispute.order_id,sale.product_id,affiliate.code AS affiliate_code
+        FROM affiliate_disputes dispute JOIN affiliate_acquisitions sale ON sale.order_id=dispute.order_id
+        JOIN affiliates affiliate ON affiliate.id=sale.affiliate_id
+        WHERE dispute.status <> 'WON' AND NOT (dispute.status='LOST' AND EXISTS (
+          SELECT 1 FROM affiliate_dispute_reviews review WHERE review.dispute_id=dispute.id AND review.provider_updated_at=dispute.updated_at))
+        ORDER BY COALESCE(dispute.due_at,dispute.updated_at),dispute.id LIMIT 100`).all();
+      return json({disputes:rows.results});
+    }
+    const reason=typeof data?.reason==='string'?data.reason.trim():'';
+    if (!['release','reverse'].includes(data?.action) || !/^mi-dspt-[a-zA-Z0-9-]{8,100}$/.test(data?.id || '')
+      || !/^[a-zA-Z0-9@._-]{1,100}$/.test(data?.reviewer || '') || reason.length<10 || reason.length>500 || /[\x00-\x1f\x7f]/.test(reason)) {
+      return json({error:'Invalid dispute review request'},400);
+    }
+    const now=Date.now();
+    const statements=[statement(db,`INSERT INTO affiliate_dispute_reviews (dispute_id,provider_updated_at,decision,reviewer,reason,reviewed_at)
+      SELECT id,updated_at,?,?,?,? FROM affiliate_disputes WHERE id=? AND status='LOST'
+      ON CONFLICT (dispute_id,provider_updated_at) DO NOTHING`,data.action,data.reviewer,reason,now,data.id)];
+    if (data.action === 'reverse') statements.push(
+      statement(db,`UPDATE affiliate_acquisitions SET state='reversed',settlement_verified_at=0
+        WHERE order_id=(SELECT order_id FROM affiliate_disputes WHERE id=?) AND state IN ('requested','paid','settled')
+          AND EXISTS (SELECT 1 FROM affiliate_dispute_reviews r JOIN affiliate_disputes d ON d.id=r.dispute_id
+            WHERE d.id=? AND d.status='LOST' AND r.provider_updated_at=d.updated_at AND r.decision='reverse' AND r.reviewer=? AND r.reviewed_at=?)`,
+      data.id,data.id,data.reviewer,now),
+      statement(db,`INSERT INTO affiliate_ledger (order_id,affiliate_id,product_id,kind,amount,provider_reference,recorded_at)
+        SELECT c.order_id,c.affiliate_id,c.product_id,'reversal',-c.amount,?,? FROM affiliate_ledger c
+        JOIN affiliate_disputes d ON d.order_id=c.order_id JOIN affiliate_acquisitions sale ON sale.order_id=c.order_id
+        JOIN affiliate_dispute_reviews r ON r.dispute_id=d.id AND r.provider_updated_at=d.updated_at
+        WHERE d.id=? AND d.status='LOST' AND r.decision='reverse' AND r.reviewer=? AND r.reviewed_at=?
+          AND c.kind='commission' AND sale.state='reversed' ON CONFLICT (order_id,kind) DO NOTHING`,
+      data.id,now,data.id,data.reviewer,now));
+    const results=await db.batch(statements);
+    return results[0].meta.changes ? json({status:'reviewed',decision:data.action}) : json({error:'Dispute changed or was already reviewed'},409);
+  }
   if (path === '/api/affiliate/admin/payouts') {
     if (data?.action === 'list') {
       if (!env.AFFILIATE_BANK_KEY) return json({ error: 'Payout review unavailable' }, 503);
-      const rows = (await db.prepare(`SELECT p.*, a.name AS affiliate_name, a.code AS affiliate_code
+      const rows = (await db.prepare(`SELECT p.*, a.name AS affiliate_name, a.code AS affiliate_code,
+        (SELECT COUNT(*) FROM affiliate_disputes dispute JOIN affiliate_acquisitions sale ON sale.order_id=dispute.order_id
+          WHERE sale.affiliate_id=p.affiliate_id AND dispute.status <> 'WON'
+            AND NOT (dispute.status='LOST' AND EXISTS (SELECT 1 FROM affiliate_dispute_reviews review
+              WHERE review.dispute_id=dispute.id AND review.provider_updated_at=dispute.updated_at))) AS open_disputes,
+        EXISTS (SELECT 1 FROM affiliate_agreement_acceptances agreement WHERE agreement.affiliate_id=p.affiliate_id AND agreement.version=?) AS agreement_accepted
         FROM affiliate_payouts p JOIN affiliates a ON a.id = p.affiliate_id
-        WHERE p.status IN ('proposed', 'approved', 'submitted', 'unknown') ORDER BY p.created_at LIMIT 100`).all()).results;
+        WHERE p.status IN ('proposed', 'approved', 'submitted', 'unknown') ORDER BY p.created_at LIMIT 100`).bind(AFFILIATE_AGREEMENT_VERSION).all()).results;
       const payouts = [];
       for (const row of rows) {
         const destination = await decryptDestination(env.AFFILIATE_BANK_KEY, row);
         payouts.push({ id: row.id, affiliate: row.affiliate_name, code: row.affiliate_code,
           amount: row.amount, status: row.status, bank: row.bank_code,
-          accountName: destination.accountName, accountLastFour: row.last_four, createdAt: row.created_at });
+          accountName: destination.accountName, accountLastFour: row.last_four, createdAt: row.created_at, openDisputes:row.open_disputes,
+          agreementAccepted:row.agreement_accepted === 1 });
       }
       return json({ payouts });
     }
     if (['approve', 'cancel'].includes(data?.action) && uuidPattern.test(data?.id || '')
       && /^[a-zA-Z0-9@._-]{1,100}$/.test(data?.reviewer || '')) {
-      const changed = await reviewAffiliatePayout(db, data.id, data.reviewer, data.action);
+      if (data.action === 'approve' && (data.identityVerified !== true || data.bankOwnershipVerified !== true)) {
+        return json({ error: 'Verify the affiliate identity and bank account ownership before approval' }, 400);
+      }
+      const changed = await reviewAffiliatePayout(db, data.id, data.reviewer, data.action, Date.now(), data);
       return json(changed ? { status: data.action === 'approve' ? 'approved' : 'cancelled' }
         : { error: 'Payout changed or is no longer eligible for review' }, changed ? 200 : 409);
     }
@@ -1018,12 +1116,73 @@ async function operatorApi(request, env, path) {
     ON CONFLICT DO NOTHING
   `, crypto.randomUUID(), code, name, await emailHash(email), await hash(token), Date.now(), code).run();
   if (!result.meta.changes) return json({ error: 'Code or email already registered' }, 409);
+  await statement(db, `INSERT INTO affiliate_email_signals (affiliate_id,normalized_hash)
+    SELECT id,? FROM affiliates WHERE email_hash=? ON CONFLICT (affiliate_id) DO UPDATE SET normalized_hash=excluded.normalized_hash`,
+  await emailSignalHash(email),await emailHash(email)).run();
   return json({ code, dashboard: `https://dagangos.com${affiliateRoot}`, accessCode: token }, 201);
+}
+
+// Authenticate delivery and independently read the provider's current state.
+// A delayed or duplicated webhook therefore cannot restore an older status.
+async function disputeWebhook(request, env) {
+  if (request.method !== 'POST') return json({error:'Method not allowed'},405);
+  if (!equalToken(request.headers.get('x-callback-token'), env.XENDIT_WEBHOOK_TOKEN)) return json({error:'Forbidden'},403);
+  if (!env.AFFILIATE_DB || !(env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY)) return json({error:'Unavailable'},503);
+  const raw=await request.text();
+  if (raw.length>32768) return json({error:'Invalid event'},413);
+  let event;try {event=JSON.parse(raw);} catch {return json({error:'Invalid event'},400);}
+  if (!/^dispute\.(action_required|under_review|won|lost|due_date_approaching)$/.test(event?.event || '')
+    || !/^mi-dspt-[a-zA-Z0-9-]{8,100}$/.test(event?.id || '')) return json({error:'Invalid event'},400);
+  const disputePath=`/v1/disputes/${encodeURIComponent(event.id)}`;
+  let verified;
+  try { verified=await xenditRequest({XENDIT_SECRET_KEY:env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY},disputePath); }
+  catch (error) {
+    if (!/\(HTTP (401|403)\)/.test(String(error?.message)) || !env.AFFILIATE_XENDIT_KEY || !env.XENDIT_SECRET_KEY
+      || env.AFFILIATE_XENDIT_KEY === env.XENDIT_SECRET_KEY) throw error;
+    verified=await xenditRequest({XENDIT_SECRET_KEY:env.XENDIT_SECRET_KEY},disputePath);
+  }
+  const updatedAt=Date.parse(verified?.updated_at), dueAt=verified?.due_date ? Date.parse(verified.due_date) : null;
+  if (verified?.id !== event.id || !['ACTION_REQUIRED','UNDER_REVIEW','WON','LOST'].includes(verified.status)
+    || typeof verified.payment_id !== 'string' || !verified.payment_id || typeof verified.reference_id !== 'string'
+    || !Number.isFinite(updatedAt) || (dueAt !== null && !Number.isFinite(dueAt))) return json({error:'Unverified dispute'},502);
+  if (verified.currency !== 'IDR' || !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(verified.reference_id)) return json({status:'not_applicable'});
+  const sale=await findAcquisition(env.AFFILIATE_DB,verified.reference_id);
+  // A DagangOS order may not have reached the affiliate ledger yet. Ask the
+  // provider to retry rather than losing a dispute before reconciliation.
+  if (!sale) return json({error:'Order not reconciled'},503);
+  if (!sale.affiliate_id) return json({status:'not_applicable'});
+  const db=env.AFFILIATE_DB;
+  const existing=await statement(db,'SELECT order_id,payment_id FROM affiliate_disputes WHERE id=?',verified.id).first();
+  if (existing && (existing.order_id !== verified.reference_id || existing.payment_id !== verified.payment_id)) return json({error:'Dispute reference mismatch'},409);
+  await db.batch([
+    statement(db, `INSERT INTO affiliate_disputes (id,order_id,payment_id,status,updated_at,due_at,recorded_at)
+      VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated_at=excluded.updated_at,
+      due_at=excluded.due_at,recorded_at=excluded.recorded_at
+      WHERE affiliate_disputes.order_id=excluded.order_id AND affiliate_disputes.payment_id=excluded.payment_id
+        AND excluded.updated_at > affiliate_disputes.updated_at`,
+    verified.id,verified.reference_id,verified.payment_id,verified.status,updatedAt,dueAt,Date.now()),
+    statement(db, `UPDATE affiliate_acquisitions SET settlement_verified_at=0 WHERE order_id=?
+      AND EXISTS (SELECT 1 FROM affiliate_disputes WHERE id=? AND order_id=? AND status <> 'WON')`,
+    verified.reference_id,verified.id,verified.reference_id),
+  ]);
+  return json({status:'recorded'});
 }
 
 async function affiliateRequest(request, env, url, path, admin) {
   if (admin) return operatorApi(request, env, path);
   const db = env.AFFILIATE_DB;
+  if (path === AFFILIATE_AGREEMENT_PATH && ['GET','HEAD'].includes(request.method)) return page('Ketentuan Program Afiliasi',AFFILIATE_AGREEMENT_BODY);
+  if (path === `${affiliateRoot}/agreement/accept`) {
+    if (request.method !== 'POST') return page('Metode tidak didukung','',405);
+    if (request.headers.get('Origin') !== url.origin) return page('Permintaan tidak valid','',403);
+    const account=await sessionAccount(db,request);
+    if (!account) return page('Masuk terlebih dahulu',`<a href="${affiliateRoot}">Masuk</a>`,401);
+    const raw=await request.text();
+    if (raw.length>256 || new URLSearchParams(raw).get('version') !== AFFILIATE_AGREEMENT_VERSION) return page('Ketentuan telah berubah',`<a href="${AFFILIATE_AGREEMENT_PATH}">Baca ketentuan terbaru</a>`,400);
+    await statement(db,`INSERT INTO affiliate_agreement_acceptances (affiliate_id,version,accepted_at,source)
+      VALUES (?,?,?,'dashboard') ON CONFLICT (affiliate_id,version) DO NOTHING`,account.id,AFFILIATE_AGREEMENT_VERSION,Date.now()).run();
+    return redirect(affiliateRoot);
+  }
   if ([`${affiliateRoot}/dashboard`, `${affiliateRoot}/export/aktivitas`, `${affiliateRoot}/export/pembayaran`].includes(path)) return affiliateDashboardAction(db, request, env, url, path);
   if (path.startsWith(`${affiliateRoot}/pembayaran/`)) return affiliatePayoutReceipt(db, request, path.slice(`${affiliateRoot}/pembayaran/`.length));
   if (path === `${affiliateRoot}/register`) return registerAffiliate(db, request, env, url);
@@ -1060,6 +1219,10 @@ async function affiliateRequest(request, env, url, path, admin) {
 export async function handleAffiliate(request, env) {
   const url = new URL(request.url);
   const requestedPath = url.pathname.replace(/\/$/, '');
+  if (requestedPath === '/api/affiliate/webhooks/disputes') {
+    try { return await disputeWebhook(request,env); }
+    catch { return json({error:'Dispute verification unavailable'},503); }
+  }
   if (requestedPath === legacyAffiliateRoot && ['GET', 'HEAD'].includes(request.method)) {
     return new Response(null, { status: 308, headers: { ...headers, Location: affiliateRoot + url.search } });
   }
@@ -1072,7 +1235,7 @@ export async function handleAffiliate(request, env) {
       return json({ error: 'Kode afiliasi belum dapat diperiksa.' }, 503);
     }
   }
-  const admin = ['/api/affiliate/admin/accounts', '/api/affiliate/admin/reconcile', '/api/affiliate/admin/payouts'].includes(path);
+  const admin = ['/api/affiliate/admin/accounts', '/api/affiliate/admin/reconcile', '/api/affiliate/admin/payouts', '/api/affiliate/admin/disputes'].includes(path);
   if (!admin && path !== affiliateRoot && !path.startsWith(`${affiliateRoot}/`)) return null;
   if (env.AFFILIATE_DB) {
     try {

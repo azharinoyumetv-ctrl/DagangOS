@@ -22,7 +22,7 @@ async function runtime(t) {
       { type: 'ESModule', path: resolve('src/subscription-checkout.js'), contents: `${source}\nexport default { fetch: handleSubscriptionCheckout };` },
       { type: 'ESModule', path: resolve('src/xendit-payments.js'), contents: await readFile('src/xendit-payments.js', 'utf8') },
       { type: 'ESModule', path: resolve('src/affiliate-program.js'), contents: await readFile('src/affiliate-program.js', 'utf8') },
-      ...await Promise.all(['src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js']
+      ...await Promise.all(['src/affiliate-payout-review.js', 'src/affiliate-payout-execute.js', 'src/affiliate-payout-provider.js', 'src/affiliate-terms.js']
         .map(async path => ({ type: 'ESModule', path: resolve(path), contents: await readFile(path, 'utf8') }))),
       { type: 'ESModule', path: resolve('src/subscription-products.js'), contents: await readFile('src/subscription-products.js', 'utf8') },
     ],

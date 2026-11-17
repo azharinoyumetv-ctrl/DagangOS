@@ -1,5 +1,6 @@
 import { availableSql, cutoff } from './affiliate-payout-review.js';
 import { createPayout, findPayout, getPayout } from './affiliate-payout-provider.js';
+import { AFFILIATE_AGREEMENT_VERSION } from './affiliate-terms.js';
 
 const idPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const bytes = hex => {
@@ -41,6 +42,16 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
         AND b.updated_at = affiliate_payouts.destination_updated_at
         AND b.bank_code = affiliate_payouts.bank_code AND b.last_four = affiliate_payouts.last_four
         AND b.encrypted_details = affiliate_payouts.encrypted_details AND b.nonce = affiliate_payouts.nonce
+        AND EXISTS (SELECT 1 FROM affiliate_agreement_acceptances agreement WHERE agreement.affiliate_id=a.id AND agreement.version=?)
+        AND EXISTS (SELECT 1 FROM affiliate_payout_review_attestations attestation
+          WHERE attestation.payout_id = affiliate_payouts.id AND attestation.reviewer = affiliate_payouts.reviewer
+            AND attestation.reviewed_at = affiliate_payouts.reviewed_at
+            AND attestation.identity_verified = 1 AND attestation.bank_ownership_verified = 1)
+        AND NOT EXISTS (SELECT 1 FROM affiliate_disputes dispute
+          JOIN affiliate_acquisitions disputed_sale ON disputed_sale.order_id = dispute.order_id
+          WHERE disputed_sale.affiliate_id = a.id AND dispute.status <> 'WON'
+            AND NOT (dispute.status='LOST' AND EXISTS (SELECT 1 FROM affiliate_dispute_reviews review
+              WHERE review.dispute_id=dispute.id AND review.provider_updated_at=dispute.updated_at)))
         AND (${availableSql}) >= 0
         AND NOT EXISTS (SELECT 1 FROM affiliate_payouts prior
           WHERE prior.affiliate_id = a.id AND prior.id <> affiliate_payouts.id
@@ -53,7 +64,7 @@ export async function executeApprovedPayout(db, env, payoutId, now = Date.now(),
             AND NOT EXISTS (SELECT 1 FROM affiliate_ledger rev WHERE rev.order_id = c.order_id AND rev.kind = 'reversal')
             AND (s.state <> 'settled' OR s.settlement_verified_at < ? OR s.settlement_verified_at < s.reconciled_at)
         )
-    )`).bind(now, payoutId, paidBy, monthStart, monthEnd, paidBy, now - 7200000).run();
+    )`).bind(now, payoutId, AFFILIATE_AGREEMENT_VERSION, paidBy, monthStart, monthEnd, paidBy, now - 7200000).run();
   if (!claimed.meta.changes) return { status: 'not_eligible' };
   let result;
   try {
