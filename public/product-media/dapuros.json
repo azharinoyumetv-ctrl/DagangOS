@@ -1,0 +1,3 @@
+[
+ {"id":"dapuros-receipt-phone","productId":"dapuros","type":"image","src":"/screenshots/dapuros/phone-checkout.png","poster":"/screenshots/dapuros/phone-checkout.png","headline":"Transaksi dan struk","description":"Tinjau rincian pembayaran pada aplikasi restoran.","alt":"Struk pembayaran tunai DapurOS pada ponsel dengan data uji","locale":"id-ID","order":1,"device":"phone","featureId":"pos","status":"published"}
+]

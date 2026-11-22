@@ -1,0 +1,4 @@
+[
+ {"id":"geraina-pos-tablet","productId":"geraina","type":"image","src":"/assets/geraina-android/tablet-landscape.png","poster":"/assets/geraina-android/tablet-landscape.png","headline":"Kasir di layar tablet","description":"Kelola katalog dan transaksi dalam satu tampilan.","alt":"Tampilan kasir Geraina pada tablet dengan produk contoh","locale":"id-ID","order":1,"device":"tablet","featureId":"pos","status":"published"},
+ {"id":"geraina-dashboard-phone","productId":"geraina","type":"image","src":"/assets/geraina-android/phone-dashboard.png","poster":"/assets/geraina-android/phone-dashboard.png","headline":"Ringkasan toko","description":"Lihat ringkasan aktivitas toko dari ponsel.","alt":"Ringkasan toko Geraina pada ponsel","locale":"id-ID","order":2,"device":"phone","featureId":"dashboard","status":"published"}
+]
