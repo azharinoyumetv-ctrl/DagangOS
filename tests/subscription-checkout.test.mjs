@@ -211,3 +211,19 @@ test('browser return parameters cannot fake payment and only backend activation 
   assert.match(html, /diaktifkan otomatis/);
   assert.doesNotMatch(html, /Aktivasi paket dilakukan oleh tim/);
 });
+
+test('pending order pages use the requested payment wording for both products', async t => {
+  let invoice;
+  t.mock.method(globalThis, 'fetch', async () => Response.json([invoice]));
+  for (const module of ['geraina', 'dapuros']) {
+    const chosen = { ...selection(module, 'starter', 'monthly'), provider: 'xendit',
+      orderId: `DG-${module}-${'b'.repeat(32)}`, expires: Date.now() + 3600000, ownerId, storeId };
+    invoice = { external_id: chosen.orderId, amount: chosen.amount, currency: 'IDR', status: 'PENDING', invoice_url: paymentUrl };
+    const response = await checkout(new Request(`https://dagangos.com/${module}/order?receipt=${await sign(chosen)}`), env);
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(html, /Lanjut ke pembayaran<\/a>/);
+    assert.ok(html.includes(`href="${paymentUrl}"`));
+    assert.doesNotMatch(html.replace(/<[^>]*>/g, ''), /Xendit/i);
+  }
+});
