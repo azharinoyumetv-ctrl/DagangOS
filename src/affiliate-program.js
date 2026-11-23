@@ -319,7 +319,7 @@ async function trialReferral(request, env, url) {
 function page(title, body, status = 200, landing = false, dashboard = false) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} | DagangOS</title>
-    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=code-20261117"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
+    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=tiga-ruang"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
     </head><body class="affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="DagangOS beranda"><img src="/assets/brand/dagangos-icon.png" alt=""><b>Dagang<span>OS</span></b></a>
@@ -487,13 +487,14 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
         <div class="affiliate-hero-copy"><span class="affiliate-kicker">PROGRAM AFILIASI DAGANGOS</span>
           <h1>Bertumbuh bersama <em>DagangOS.</em></h1>
           <p>Kenalkan Geraina dan DapurOS kepada pelaku usaha. Bagikan kode atau tautan Anda dan pantau hasil rujukan dalam satu dasbor.</p>
-          <div class="affiliate-actions"><a class="affiliate-button" href="#daftar">Mulai sebagai afiliasi <span aria-hidden="true">↗</span></a><a class="affiliate-button affiliate-button--quiet" href="#cara-kerja">Pelajari cara kerja</a></div>
-          <div class="affiliate-hero-meta"><span><b>01</b> Satu akun afiliasi</span><span><b>02</b> Geraina &amp; DapurOS</span><span><b>03</b> Pantau dalam satu dasbor</span></div>
+          <div class="affiliate-actions"><a class="affiliate-button" href="#daftar">Daftar Afiliasi</a><a class="affiliate-button affiliate-button--quiet" href="#masuk">Masuk ke Dasbor</a></div>
         </div>
-        <aside class="affiliate-hero-panel" aria-label="Sekilas program afiliasi"><span class="affiliate-panel-label">KEMITRAAN DAGANGOS <span>●</span></span>
-          <div class="affiliate-panel-icon"><img src="/assets/brand/dagangos-icon.png" alt=""></div>
-          <p>Rekomendasi yang membantu usaha berkembang.</p><div class="affiliate-panel-products"><span>Geraina POS</span><span>DapurOS</span></div>
-          <small>Bagikan produk yang sesuai dengan kebutuhan pelanggan Anda.</small>
+        <aside class="affiliate-hero-panel" aria-label="Produk dalam Program Afiliasi">
+          <h2>Produk yang bisa Anda bagikan</h2>
+          <div class="affiliate-showcase">
+            <a href="/geraina"><img src="/product-media/geraina/screens/desktop-web-pos.png" alt=""><strong>Geraina POS</strong><small>Toko &amp; retail</small></a>
+            <a href="/dapuros"><img src="/product-media/dapuros/screens/desktop-dapur.webp" alt=""><strong>DapurOS</strong><small>Restoran &amp; kafe</small></a>
+          </div>
         </aside>
       </section>
       <section id="cara-kerja" class="affiliate-section"><div class="affiliate-section-heading"><div><span class="affiliate-kicker">CARA KERJA</span><h2>Dari rekomendasi hingga komisi.</h2></div><p>Pendaftaran dimulai dengan verifikasi email. Komisi dihitung saat pembelian yang memenuhi syarat telah terverifikasi.</p></div>
@@ -563,13 +564,14 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
   const activeOptions = [['','Semua produk'], ...products.filter(item=>item.mode==='subscription').map(item=>[item.id,item.name])];
   return page('Dasbor Afiliasi', `<div class="affiliate-workspace">
     <aside class="affiliate-sidebar" aria-label="Navigasi dasbor"><div class="affiliate-side-brand"><span class="affiliate-side-mark">✦</span><div><strong>Mitra DagangOS</strong><small>Dasbor afiliasi</small></div></div>
-      <nav aria-label="Bagian dasbor">${finance ? '<a href="#ringkasan">◫ <span>Ringkasan</span></a><a href="#tren">◷ <span>Perkembangan</span></a>' : ''}<a href="#produk">◇ <span>Tautan produk</span></a>${finance ? '<a href="#aktivitas">≡ <span>Aktivitas rujukan</span></a><a href="#pembayaran">↗ <span>Pembayaran</span></a>' : ''}${env.AFFILIATE_BANK_KEY ? '<a href="#rekening">▣ <span>Rekening</span></a>' : ''}</nav>
+      <nav aria-label="Bagian dasbor"><a href="#produk">◇ <span>Tautan produk</span></a>${finance ? '<a href="#ringkasan">◫ <span>Ringkasan</span></a><a href="#tren">◷ <span>Perkembangan</span></a>' : ''}${finance ? '<a href="#aktivitas">≡ <span>Aktivitas rujukan</span></a><a href="#pembayaran">↗ <span>Pembayaran</span></a>' : ''}${env.AFFILIATE_BANK_KEY ? '<a href="#rekening">▣ <span>Rekening</span></a>' : ''}</nav>
       <div class="affiliate-side-help"><strong>Butuh bantuan?</strong><span>Tim DagangOS siap membantu.</span><a href="mailto:contact@dagangos.com">Hubungi kami ↗</a></div></aside>
     <div class="affiliate-workspace-content">
       <header class="affiliate-dash-header"><div><p class="affiliate-breadcrumb">DAGANGOS <span>/</span> AFILIASI</p><h1>Dasbor Afiliasi</h1><p>Selamat datang, ${escape(account.name)}.</p></div><form method="post" action="${affiliateRoot}/logout"><button type="submit" class="affiliate-logout">Keluar</button></form></header>
       ${agreement ? '' : `<section class="affiliate-workspace-card"><h2>Ketentuan program afiliasi</h2><p>Baca dan setujui ketentuan agar pembayaran dapat ditinjau. Kode dan riwayat komisi Anda tetap tersimpan.</p><p><a href="${AFFILIATE_AGREEMENT_PATH}">Baca ketentuan program</a></p><form method="post" action="${affiliateRoot}/agreement/accept"><input type="hidden" name="version" value="${AFFILIATE_AGREEMENT_VERSION}"><button type="submit">Saya setuju dengan ketentuan</button></form></section>`}
       <div class="affiliate-code-strip"><div><span>KODE AFILIASI ANDA</span><strong>${escape(account.code)}</strong><small>Bagikan kode ini kepada calon pelanggan.</small></div><div class="affiliate-copy"><input id="affiliate-code" value="${escape(account.code)}" readonly aria-label="Kode afiliasi"><button type="button" data-copy-for="affiliate-code" hidden>Salin kode</button></div><span class="affiliate-copy-status" aria-live="polite"></span></div>
       <details class="affiliate-code-edit"><summary>Ubah kode afiliasi</summary><p>Pilih 8–24 huruf atau angka tanpa spasi. Kode dan tautan lama tetap berlaku, dan riwayat serta komisi tetap di akun ini.</p><form method="post" action="${affiliateRoot}/kode"><label for="custom-code">Kode baru</label><input id="custom-code" name="code" minlength="8" maxlength="24" pattern="[A-Za-z0-9]{8,24}" autocapitalize="characters" autocomplete="off" required><button type="submit">Simpan kode</button></form></details>
+    <section id="produk"><div class="affiliate-block-head"><div><h2>Produk dan tautan rujukan</h2><p>Bagikan tautan produk atau kode afiliasi Anda. Kunjungan hanya menghitung pembukaan tautan, bukan penggunaan kode secara langsung.</p></div></div><div class="products">${cards || '<p>Belum ada program produk yang aktif.</p>'}</div></section>
     ${finance ? `<section id="ringkasan" class="affiliate-finance" aria-labelledby="finance-heading"><div class="affiliate-block-head"><div><h2 id="finance-heading">Ringkasan komisi</h2><p>Semua waktu · ${finance.registrations} rujukan akun pernah tersimpan. Data diperbarui saat halaman dimuat.</p></div><span class="affiliate-live-badge">● Data akun</span></div>
       <div class="affiliate-finance-grid">
         <div class="affiliate-kpi affiliate-kpi--primary"><span>Total komisi tercatat</span><strong>${rupiah(finance.earned)}</strong><small>Termasuk yang dibayar, setelah pembatalan</small></div>
@@ -584,7 +586,6 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
         ${env.AFFILIATE_BANK_KEY ? `<a class="affiliate-inline-action" href="#rekening">${bank ? 'Kelola rekening' : 'Tambahkan rekening'} ↗</a>` : ''}</div>
         <div class="affiliate-progress"><span>Saldo untuk peninjauan</span><strong>${rupiah(finance.available)}</strong><progress value="${progress}" max="100" aria-label="Kemajuan menuju ambang pembayaran"></progress><small>Minimum ${rupiah(payoutPolicy.minimum_idr)}</small></div></div></section>
       <section id="tren" class="affiliate-workspace-card">${dashboardTrend(finance,options)}</section>` : `<section><h2>Ringkasan komisi</h2><p>Informasi pembayaran belum tersedia. Hubungi tim DagangOS.</p></section>`}
-    <section id="produk"><div class="affiliate-block-head"><div><h2>Produk dan tautan rujukan</h2><p>Bagikan tautan produk atau kode afiliasi Anda. Kunjungan hanya menghitung pembukaan tautan, bukan penggunaan kode secara langsung.</p></div></div><div class="products">${cards || '<p>Belum ada program produk yang aktif.</p>'}</div></section>
     ${finance ? `<section id="aktivitas" class="affiliate-workspace-card"><div class="affiliate-block-head"><div><h2>Aktivitas rujukan</h2><p>Pembayaran yang belum selesai belum menghasilkan komisi.</p></div></div>
       <form method="post" action="${affiliateRoot}/dashboard#aktivitas" class="affiliate-history-form">
       ${hiddenDashboardFields(options,['product','state','search','activity_page'])}

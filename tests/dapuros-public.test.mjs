@@ -13,9 +13,9 @@ const env = {ASSETS:{async fetch(request) {
 const get = path => worker.fetch(new Request('https://dagangos.com'+path), env, {});
 
 test('main DagangOS product navigation opens the unified DapurOS page',async()=>{
-  const source=await readFile(new URL('../public/portal.js',import.meta.url),'utf8');
-  const target=source.match(/name: "DapurOS"[^\n]+?href: "([^"]+)"/)?.[1];
-  assert.equal(target,'/dapuros');
+  const home=await (await get('/')).text();
+  const target='/dapuros';
+  assert.match(home, /data-room="dapuros" href="\/dapuros"/);
   const response=await get(target);assert.equal(response.status,200);
   const body=await response.text();assert.match(body,/data-dapuros-public/);assert.match(body,/data-dapuros-hero/);
   assert.doesNotMatch(body,/<div id="root">/);

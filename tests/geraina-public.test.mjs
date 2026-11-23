@@ -13,9 +13,9 @@ const env = {ASSETS:{async fetch(request) {
 const get = path => worker.fetch(new Request('https://dagangos.com'+path), env, {});
 
 test('the existing main DagangOS product link reaches the unified Geraina page',async()=>{
-  const source=await readFile(new URL('../public/portal.js',import.meta.url),'utf8');
-  const target=source.match(/name: "Geraina POS"[^\n]+?href: "([^"]+)"/)?.[1];
-  assert.equal(target,'/geraina');
+  const home=await (await get('/')).text();
+  const target='/geraina';
+  assert.match(home, /data-room="geraina" href="\/geraina"/);
   const response=await get(target);assert.equal(response.status,200);
   const body=await response.text();assert.match(body,/data-geraina-public/);assert.match(body,/data-geraina-hero/);
   assert.doesNotMatch(body,/<div id="root">/);
