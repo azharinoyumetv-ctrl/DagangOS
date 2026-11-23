@@ -1,4 +1,4 @@
-import { equalToken, findInvoice, verifiedInvoiceStatus, xenditRequest } from './xendit-payments.js';
+import { equalToken, findCheckoutPayment, subscriptionReference, verifiedInvoiceStatus, xenditRequest } from './xendit-payments.js';
 import { subscriptionBackendHost } from './subscription-products.js';
 import { reviewAffiliatePayout, availableSql, cutoff } from './affiliate-payout-review.js';
 import { decryptDestination } from './affiliate-payout-execute.js';
@@ -174,7 +174,7 @@ export async function claimAcquisitionInvoice(db, orderId) {
 export async function observeAcquisition(db, acquisition, invoice, transaction = null) {
   const order = acquisition.order_id;
   let status = verifiedInvoiceStatus(invoice, { orderId: order, amount: acquisition.charged_amount });
-  const matchingPayment = status === 'paid' && transaction?.reference_id === order && transaction.type === 'PAYMENT'
+  const matchingPayment = status === 'paid' && transaction?.reference_id === (invoice.payment_reference || order) && transaction.type === 'PAYMENT'
     && transaction.currency === 'IDR' && transaction.amount === acquisition.charged_amount && transaction.cashflow === 'MONEY_IN'
     && typeof transaction.id === 'string' && transaction.id.length > 0
     && (!invoice.payment_id || invoice.payment_id === transaction.product_id);
@@ -241,15 +241,17 @@ export async function observeAcquisition(db, acquisition, invoice, transaction =
 
 export async function reconcileAcquisition(db, env, acquisition, verifySettlement) {
   const orderId = acquisition.order_id;
-  const invoice = await findInvoice(env, orderId);
+  const invoice = await findCheckoutPayment(env, { orderId, amount: acquisition.charged_amount }, db);
   let transaction = null;
   // A settled transaction can later be reversed even if the invoice remains
   // SETTLED, so continue checking it throughout reconciliation.
   if (['PAID', 'SETTLED'].includes(invoice?.status) && verifySettlement) {
-    const query = new URLSearchParams({ types: 'PAYMENT', reference_id: orderId, currency: 'IDR', limit: '10' });
+    const identity = invoice.payment_reference ? { product_id: invoice.payment_id } : { reference_id: orderId };
+    const reference = invoice.payment_reference || orderId;
+    const query = new URLSearchParams({ types: 'PAYMENT', ...identity, currency: 'IDR', limit: '10' });
     const transactions = await xenditRequest({ XENDIT_SECRET_KEY: env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY }, '/transactions?' + query);
     const records = transactions.has_more === false && Array.isArray(transactions.data)
-      ? transactions.data.filter(item => item.reference_id === orderId) : [];
+      ? transactions.data.filter(item => item.reference_id === reference && (!invoice.payment_reference || item.product_id === invoice.payment_id)) : [];
     if (records.length === 1) transaction = records[0];
   }
   const result = await observeAcquisition(db, acquisition, invoice, transaction);
@@ -1155,7 +1157,7 @@ async function disputeWebhook(request, env) {
   // The authenticated dashboard test uses a public example reference. Events
   // explicitly outside our order namespace do not need a provider lookup.
   if (typeof event.reference_id === 'string' && event.reference_id &&
-      !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(event.reference_id)) return json({status:'not_applicable'});
+      !subscriptionReference(event.reference_id)) return json({status:'not_applicable'});
   const disputePath=`/v1/disputes/${encodeURIComponent(event.id)}`;
   let verified;
   try { verified=await xenditRequest({XENDIT_SECRET_KEY:env.AFFILIATE_XENDIT_KEY || env.XENDIT_SECRET_KEY},disputePath); }
@@ -1169,25 +1171,30 @@ async function disputeWebhook(request, env) {
   if (verified?.id !== event.id || !['ACTION_REQUIRED','UNDER_REVIEW','WON','LOST'].includes(verifiedStatus)
     || typeof verified.payment_id !== 'string' || !verified.payment_id || typeof verified.reference_id !== 'string'
     || !Number.isFinite(updatedAt) || (dueAt !== null && !Number.isFinite(dueAt))) return json({error:'Unverified dispute'},502);
-  if (verified.currency !== 'IDR' || !/^DG-[a-z0-9-]+-[a-f0-9]{32}$/.test(verified.reference_id)) return json({status:'not_applicable'});
-  const sale=await findAcquisition(env.AFFILIATE_DB,verified.reference_id);
+  const orderId=subscriptionReference(verified.reference_id);
+  if (verified.currency !== 'IDR' || !orderId) return json({status:'not_applicable'});
+  const sale=await findAcquisition(env.AFFILIATE_DB,orderId);
   // A DagangOS order may not have reached the affiliate ledger yet. Ask the
   // provider to retry rather than losing a dispute before reconciliation.
   if (!sale) return json({error:'Order not reconciled'},503);
   if (!sale.affiliate_id) return json({status:'not_applicable'});
   const db=env.AFFILIATE_DB;
+  if (orderId !== verified.reference_id) {
+    const payment=await findCheckoutPayment(env,{orderId,amount:sale.charged_amount},db);
+    if (payment?.payment_reference !== verified.reference_id || payment.payment_id !== verified.payment_id) return json({error:'Dispute payment mismatch'},503);
+  }
   const existing=await statement(db,'SELECT order_id,payment_id FROM affiliate_disputes WHERE id=?',verified.id).first();
-  if (existing && (existing.order_id !== verified.reference_id || existing.payment_id !== verified.payment_id)) return json({error:'Dispute reference mismatch'},409);
+  if (existing && (existing.order_id !== orderId || existing.payment_id !== verified.payment_id)) return json({error:'Dispute reference mismatch'},409);
   await db.batch([
     statement(db, `INSERT INTO affiliate_disputes (id,order_id,payment_id,status,updated_at,due_at,recorded_at)
       VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated_at=excluded.updated_at,
       due_at=excluded.due_at,recorded_at=excluded.recorded_at
       WHERE affiliate_disputes.order_id=excluded.order_id AND affiliate_disputes.payment_id=excluded.payment_id
         AND excluded.updated_at > affiliate_disputes.updated_at`,
-    verified.id,verified.reference_id,verified.payment_id,verifiedStatus,updatedAt,dueAt,Date.now()),
+    verified.id,orderId,verified.payment_id,verifiedStatus,updatedAt,dueAt,Date.now()),
     statement(db, `UPDATE affiliate_acquisitions SET settlement_verified_at=0 WHERE order_id=?
       AND EXISTS (SELECT 1 FROM affiliate_disputes WHERE id=? AND order_id=? AND status <> 'WON')`,
-    verified.reference_id,verified.id,verified.reference_id),
+      orderId,verified.id,orderId),
   ]);
   return json({status:'recorded'});
 }

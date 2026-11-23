@@ -1,4 +1,4 @@
-import { createPaymentLink, findInvoice, verifiedInvoiceStatus, equalToken, invoiceUrl } from './xendit-payments.js';
+import { claimPaymentSession, createPaymentSession, createPaymentLink, findCheckoutPayment, findInvoice, verifiedInvoiceStatus, equalToken, invoiceUrl } from './xendit-payments.js';
 import { acquisitionQuote, checkoutPolicy, claimAcquisitionInvoice, findAcquisition, observeAcquisition, reserveAcquisition, tenPercent } from './affiliate-program.js';
 import { CATALOG, subscriptionBackendHost } from './subscription-products.js';
 // Subscription orders belong to a verified account and product store. Product backends
@@ -44,6 +44,7 @@ export async function renderSubscriptionPricing(html, module, request, env) {
   const period = new URL(request.url).searchParams.get('period') === 'yearly' ? 'yearly' : 'monthly';
   const secret = receiptSecret(env);
   const expires = Date.now() + 3600000;
+  const checkoutMode = env.XENDIT_CHECKOUT_MODE === 'payment_session' ? { paymentSession: true } : {};
   const replacements = {
     MONTHLY_SELECTED: String(period === 'monthly'),
     YEARLY_SELECTED: String(period === 'yearly'),
@@ -58,7 +59,7 @@ export async function renderSubscriptionPricing(html, module, request, env) {
     replacements[`${key}_PERIOD`] = billing === 'yearly'
       ? `/tahun · setara ${money(Math.round(cart.amount / 12))}/bulan`
       : '/bulan';
-    replacements[`${key}_CART`] = secret ? await signReceipt({ ...cart, provider: 'xendit', orderId: `DG-${module}-${crypto.randomUUID().replace(/-/g, '')}`, expires }, secret) : '';
+    replacements[`${key}_CART`] = secret ? await signReceipt({ ...cart, ...checkoutMode, provider: 'xendit', orderId: `DG-${module}-${crypto.randomUUID().replace(/-/g, '')}`, expires }, secret) : '';
   })));
   for (const tier of tiers) {
     for (const field of ['PRICE', 'PERIOD', 'CART']) {
@@ -68,7 +69,7 @@ export async function renderSubscriptionPricing(html, module, request, env) {
   if (Object.hasOwn(CATALOG, module)) {
     const url = new URL(request.url), renewal = url.searchParams.get('renewal');
     for (const [id, addon] of Object.entries(ADDONS)) {
-      const cart = { ...addonSelection(module, id), provider: 'xendit', orderId: `DG-${module}-${crypto.randomUUID().replace(/-/g, '')}`, expires };
+      const cart = { ...addonSelection(module, id), ...checkoutMode, provider: 'xendit', orderId: `DG-${module}-${crypto.randomUUID().replace(/-/g, '')}`, expires };
       if (renewal && url.searchParams.get('addon') === id && /^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(renewal)) cart.renewalId = renewal;
       replacements[`${id.toUpperCase()}_CART`] = secret ? await signReceipt(cart, secret) : '';
       replacements[`${id.toUpperCase()}_PRICE`] = money(addonSelection(module,id).amount);
@@ -102,6 +103,7 @@ export async function readReceipt(token, secret) {
     if (data.kind !== undefined && data.kind !== 'addon') return null;
     const cart = data.kind === 'addon' ? addonSelection(data.module, data.addonId, data.period) : selection(data.module, data.tier, data.period);
     if (!isSubscriptionOrderId(data.orderId, data.module)) return null;
+    if (data.paymentSession !== undefined && data.paymentSession !== true) return null;
     if (data.kind === 'addon' && (!cart || data.tier !== cart.tier || data.renewalId !== undefined && !/^(DG-(geraina|dapuros)-[a-f0-9]{32}|[a-f0-9-]{36})$/.test(data.renewalId))) return null;
     if ((data.ownerId !== undefined || data.storeId !== undefined) && ![data.ownerId, data.storeId].every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id))) return null;
     if (data.acquisition === true) {
@@ -127,7 +129,7 @@ async function backend(module, env, path, { token, body } = {}) {
 async function paymentStatus(cart, env) {
   let invoice = null, status = 'unverified', paidAt = null;
   try {
-    invoice = await findInvoice(env, cart.orderId);
+    invoice = cart.paymentSession ? await findCheckoutPayment(env, cart) : await findInvoice(env, cart.orderId);
     status = verifiedInvoiceStatus(invoice, cart);
     if (status === 'paid') paidAt = new Date(invoice.paid_at).toISOString();
   } catch { /* An outage or ambiguous invoice never grants access. */ }
@@ -247,8 +249,10 @@ async function paymentService(request, env, pathname) {
     }
   }
   if (!equalToken(request.headers.get('x-callback-token'), env.XENDIT_WEBHOOK_TOKEN)) return json({ error: 'Invalid notification token' }, 403);
-  const module = isSubscriptionOrderId(data.external_id) && data.external_id.slice(3, -33);
-  if (!module && /^[a-f0-9-]{36}$/i.test(data.external_id || '')) {
+  const sessionEvent = ['payment_session.completed', 'payment_session.expired'].includes(data.event);
+  const orderId = sessionEvent ? data.data?.reference_id : data.external_id;
+  const module = isSubscriptionOrderId(orderId) && orderId.slice(3, -33);
+  if (!module && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(orderId || '')) {
     try {
       const response = await fetch('https://wmp.dagangos.com/api/webhooks/payments/xendit', {
         method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(20000),
@@ -260,8 +264,14 @@ async function paymentService(request, env, pathname) {
   }
   if (!module) return json({ received: true });
   try {
+    if (sessionEvent) {
+      const row = await env.AFFILIATE_DB.prepare('SELECT session_id FROM subscription_payment_sessions WHERE order_id = ?').bind(orderId).first();
+      if (!row || row.session_id !== data.data?.payment_session_id || !row.session_id) {
+        return json({ received: true });
+      }
+    }
     // The backend reads its own stored reference and independently checks this service.
-    const result = await backend(module, env, '/reconcile', { body: { orderId: data.external_id } });
+    const result = await backend(module, env, '/reconcile', { body: { orderId } });
     return result.response.ok || result.response.status === 404 ? json({ received: true }) : json({ error: 'Activation will be retried' }, 503);
   } catch { return json({ error: 'Activation will be retried' }, 503); }
 }
@@ -362,7 +372,9 @@ export async function handleSubscriptionCheckout(request, env) {
       } else if (boundCart.acquisition && !await claimAcquisitionInvoice(env.AFFILIATE_DB, cart.orderId)) {
         return orderRedirect(boundCart, receipt);
       }
-      const paymentUrl = await createPaymentLink(env, boundCart, prepared.data.email, receipt, CATALOG[module].name);
+      if (boundCart.paymentSession && !await claimPaymentSession(env.AFFILIATE_DB, cart.orderId)) return orderRedirect(boundCart, receipt);
+      const createLink = boundCart.paymentSession ? createPaymentSession : createPaymentLink;
+      const paymentUrl = await createLink(env, boundCart, prepared.data.email, receipt, CATALOG[module].name);
       return new Response(null, { status: 303, headers: { Location: paymentUrl, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
     } catch {
       return page(module, 'Koneksi pembayaran terputus', `<p>Status pembuatan pesanan belum dapat dipastikan. Hubungi contact@dagangos.com sebelum mencoba lagi.</p><p>Nomor pesanan: ${escape(cart.orderId)}</p><a class="button" href="/${module}/app/settings/billing">Periksa langganan dan pesanan</a>`, 502);

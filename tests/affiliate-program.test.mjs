@@ -13,7 +13,7 @@ const storeId = '22222222-2222-4222-8222-222222222222';
 const signingKey = 'fixture-signing-key';
 const paymentUrl = 'https://checkout.xendit.co/web/affiliate-test-only';
 const headers = { headers: { 'Content-Type': 'application/json' } };
-const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql', '0012_affiliate_review_attestations.sql', '0013_affiliate_disputes.sql', '0014_affiliate_wait_14_days.sql', '0015_affiliate_agreements.sql', '0016_affiliate_email_signals.sql', '0017_affiliate_payout_preflight.sql']
+const migrations = await Promise.all(['0001_affiliate_program.sql', '0002_affiliate_attributions.sql', '0003_affiliate_payout_policy.sql', '0004_affiliate_enrollment.sql', '0005_affiliate_reconciliation.sql', '0006_affiliate_bank_details.sql', '0007_affiliate_payout_review.sql', '0008_affiliate_payout_review_audit.sql', '0009_affiliate_payout_month.sql', '0010_affiliate_payout_completion.sql', '0011_affiliate_code_registry.sql', '0012_affiliate_review_attestations.sql', '0013_affiliate_disputes.sql', '0014_affiliate_wait_14_days.sql', '0015_affiliate_agreements.sql', '0016_affiliate_email_signals.sql', '0017_affiliate_payout_preflight.sql', '0018_subscription_payment_sessions.sql']
   .map(file => readFile(`migrations/${file}`, 'utf8')));
 
 async function setup(t, scope, conversionDays = null) {
@@ -768,6 +768,90 @@ test('DapurOS uses its own list price and QR reconciliation requires matching se
     { kind: 'commission', amount: 24900, provider_reference: 'txn_qr_fixture' });
   mock.assertNoPendingInterceptors();
 });
+
+for (const [module, amount, commission] of [['geraina', 134100, 14900], ['dapuros', 224100, 24900]]) {
+  test(`${module} Payment Session checkout grants access only on verified capture and credits settled commission once`, async t => {
+    const { fetch, db, mock } = await setup(t, 'merchant_product', 90);
+    const referral = await fetch(`/affiliate/PROMOTE01/${module}`);
+    const cookie = referral.headers.get('Set-Cookie').split(';')[0];
+    const order = { ...cart(module, 'monthly', 'c'), paymentSession: true };
+    const api = backend(mock, order, { times: 3 });
+    const quote = await (await submit(fetch, order, cookie)).text();
+    const confirm_referral = quote.match(/name="confirm_referral" value="([^"]+)"/)[1];
+    api.intercept({ path: `/api/subscriptions/orders/${order.orderId}/reference`, method: 'POST' }).reply(200, { ok: true }, headers).times(2);
+    const gateway = mock.get('https://api.xendit.co');
+    const sessionId = `ps-${'c'.repeat(24)}`;
+    const hosted = `https://checkout.xendit.co/sessions/${sessionId}`;
+    const paymentId = 'py-11111111-1111-4111-8111-111111111111';
+    const requestId = 'pr-22222222-2222-4222-8222-222222222222';
+    const session = { payment_session_id: sessionId, reference_id: order.orderId, amount, currency: 'IDR',
+      business_id: 'business-fixture', session_type: 'PAY', mode: 'PAYMENT_LINK', status: 'ACTIVE', payment_link_url: hosted };
+    let createPayload;
+    gateway.intercept({ path: '/sessions', method: 'POST' }).reply(201, async ({ body }) => {
+      createPayload = await new Response(body).json();
+      return session;
+    }, headers);
+    const start = await submit(fetch, order, cookie, { confirm_referral });
+    assert.equal(start.status, 303, await start.clone().text());
+    assert.equal(start.headers.get('Location'), hosted);
+    assert.equal(createPayload.reference_id, order.orderId);
+    assert.equal(createPayload.amount, amount);
+    assert.equal(createPayload.session_type, 'PAY');
+    assert.equal(createPayload.mode, 'PAYMENT_LINK');
+    assert.equal(createPayload.currency, 'IDR');
+    assert.equal(createPayload.success_return_url, createPayload.cancel_return_url);
+    assert.equal(new URL(createPayload.success_return_url).pathname, `/${module}/order`);
+    const retry = await submit(fetch, order, cookie, { confirm_referral });
+    const orderPage = new URL(retry.headers.get('Location'), origin);
+    assert.equal(orderPage.pathname, `/${module}/order`);
+    const receipt = orderPage.searchParams.get('receipt');
+    const status = () => fetch('/api/subscriptions/payment-status', { method: 'POST', body: JSON.stringify({ receipt }) });
+    const sessionPath = `/sessions/${sessionId}`;
+    gateway.intercept({ path: sessionPath }).reply(200, session, headers);
+    assert.equal((await (await status()).json()).paymentUrl, hosted);
+    const sessionPaid = { ...session, status: 'COMPLETED', payment_id: paymentId, payment_request_id: requestId };
+    const paidAt = new Date().toISOString();
+    const paymentRef = `${order.orderId}_TP8KnobUB_`;
+    const capture = { payment_id: paymentId, payment_request_id: requestId, business_id: session.business_id, reference_id: paymentRef,
+      status: 'SUCCEEDED', currency: 'IDR', request_amount: amount, captures: [{ capture_amount: amount, capture_timestamp: paidAt }] };
+    const paymentPath = { path: `/v3/payments/${paymentId}`, headers: { 'api-version': '2024-11-11' } };
+    gateway.intercept({ path: sessionPath }).reply(200, sessionPaid, headers).times(5);
+    gateway.intercept(paymentPath).reply(200, { ...capture, request_amount: 1 }, headers);
+    assert.equal((await (await status()).json()).status, 'unverified');
+    gateway.intercept(paymentPath).reply(200, capture, headers).times(4);
+    assert.equal((await (await status()).json()).status, 'paid');
+    const webhook = (id, token) => fetch('/api/subscriptions/webhook', {
+      method: 'POST', headers: { 'x-callback-token': token },
+      body: JSON.stringify({ event: 'payment_session.completed', data: { reference_id: order.orderId, payment_session_id: id } }),
+    });
+    assert.equal((await webhook(sessionId, 'bad')).status, 403);
+    assert.equal((await webhook('incorrect-session', 'webhook-fixture')).status, 200);
+    let reconcilePayload;
+    api.intercept({ path: '/api/subscriptions/reconcile', method: 'POST' }).reply(200, async ({ body }) => {
+      reconcilePayload = await new Response(body).json();
+      return { status: 'paid', activation: 'active' };
+    }, headers);
+    assert.equal((await webhook(sessionId, 'webhook-fixture')).status, 200);
+    assert.deepEqual(reconcilePayload, { orderId: order.orderId });
+    assert.equal(await db.prepare('SELECT COUNT(*) n FROM affiliate_ledger').first('n'), 0);
+    const reconcile = () => fetch('/api/affiliate/admin/reconcile', {
+      method: 'POST', headers: { Authorization: 'Bearer operator-fixture' },
+      body: JSON.stringify({ orderId: order.orderId, verifySettlement: true }),
+    });
+    const query = `/transactions?types=PAYMENT&product_id=${paymentId}&currency=IDR&limit=10`;
+    const transaction = { id: 'txn_checkout_session', reference_id: paymentRef, product_id: paymentId, type: 'PAYMENT',
+      amount, currency: 'IDR', status: 'SUCCESSFUL', cashflow: 'MONEY_IN', refund_status: 'NONE',
+      amount_refunded_successfully: 0, reversal_status: 'NONE', reversal_amount_successful: 0 };
+    gateway.intercept({ path: query }).reply(200, { has_more: false, data: [{ ...transaction, settlement_status: 'PENDING' }] }, headers);
+    assert.equal((await (await reconcile()).json()).acquisitionState, 'paid');
+    gateway.intercept({ path: query }).reply(200, { has_more: false, data: [{ ...transaction, settlement_status: 'SETTLED' }] }, headers).times(2);
+    assert.equal((await (await reconcile()).json()).acquisitionState, 'settled');
+    assert.equal((await (await reconcile()).json()).acquisitionState, 'settled');
+    assert.deepEqual((await db.prepare('SELECT kind, amount, provider_reference FROM affiliate_ledger').all()).results,
+      [{ kind: 'commission', amount: commission, provider_reference: transaction.id }]);
+    mock.assertNoPendingInterceptors();
+  });
+}
 
 test('provider SUCCESSFUL transaction only credits after settlement and becomes payout-verifiable', async t => {
   const { db } = await setup(t, 'merchant_product', 90);
