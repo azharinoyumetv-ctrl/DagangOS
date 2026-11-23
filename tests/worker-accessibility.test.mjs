@@ -133,7 +133,7 @@ test('robots and sitemap are served as public assets', async () => {
 
 test('every public portal route exposes route-specific content and canonical metadata without JavaScript', async () => {
   const expectations = [
-    ['/', /Satu ekosistem\. Semua solusi\./, 'https://dagangos.com/'],
+    ['/', /Ruang untuk<br><em>usaha Anda\./, 'https://dagangos.com/'],
     ['/produk', /Geraina POS/, 'https://dagangos.com/produk'],
     ['/solusi', /aktivitas, alur kerja, data, dan kontrol bisnis/i, 'https://dagangos.com/solusi'],
     ['/industri', /DapurOS melayani restoran/i, 'https://dagangos.com/industri'],
@@ -188,4 +188,15 @@ test('unknown portal routes return a branded true 404', async () => {
   assert.equal(response.status, 404)
   assert.match(body, /Halaman tidak ditemukan/)
   assert.equal(response.headers.get('X-Robots-Tag'), 'noindex')
+})
+
+test('catalog shows three available products, separates upcoming products and houses Android downloads', async () => {
+  const response = await get('/produk')
+  const html = await response.text()
+  assert.equal(response.status, 200)
+  assert.equal((html.match(/class="parent-product /g) || []).length, 3)
+  assert.match(html, /Tersedia sekarang[\s\S]+DagangOS Web[\s\S]+Segera hadir[\s\S]+LaundryOS/)
+  assert.match(html, /href="\/geraina\/android"/)
+  assert.match(html, /href="\/dapuros\/android"/)
+  assert.doesNotMatch(html.match(/<footer[\s\S]+<\/footer>/)?.[0] || '', /href="[^"]+\/android"/)
 })

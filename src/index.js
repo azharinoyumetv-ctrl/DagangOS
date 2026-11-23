@@ -1,3 +1,4 @@
+import { parentPages } from '../public/parent-portal.js';
 import { handleSubscriptionCheckout, renderSubscriptionPricing } from './subscription-checkout.js';
 import { handleAffiliate, reconcileAffiliateBatch } from './affiliate-program.js';
 import { runAffiliatePayoutBatch } from './affiliate-payout-scheduler.js';
@@ -23,12 +24,12 @@ const portalDocuments = {
   '/': {
     title: 'DagangOS — Ekosistem Operasional Bisnis',
     description: 'DagangOS menyatukan produk digital untuk operasional bisnis Indonesia.',
-    content: '<span class="eyebrow">Ekosistem operasional DagangOS</span><h1>Satu ekosistem. Semua solusi. Untuk bisnis Indonesia.</h1><p>DagangOS menghubungkan produk digital untuk retail, restoran, dan kebutuhan operasional lainnya.</p><p><a href="/produk">Jelajahi produk DagangOS</a></p>',
+    markup: parentPages.home,
   },
   '/produk': {
     title: 'Produk — DagangOS',
     description: 'Produk DagangOS untuk retail, restoran, dan kehadiran digital bisnis.',
-    content: '<span class="eyebrow">Produk DagangOS</span><h1>Sistem yang punya peran.</h1><p><a href="/geraina">Geraina POS</a> untuk retail, <a href="/dapuros">DapurOS</a> untuk restoran dan F&amp;B, serta <a href="https://wmp.dagangos.com/id">DagangOS Web</a> untuk website dan kehadiran digital.</p><p>LaundryOS, AutoCareOS, dan SalonOS sedang dikembangkan.</p>',
+    markup: parentPages.produk,
   },
   '/solusi': {
     title: 'Solusi — DagangOS',
@@ -73,7 +74,7 @@ function renderPortalDocument(body, pathname) {
     )
     .replace(
       '<main id="app" tabindex="-1"></main>',
-      `<main id="app" tabindex="-1"><div class="page" data-server-rendered-public-content><section class="shell page-hero${page.details ? ' information-hero' : ''}">${page.content}</section>${page.details || ''}</div></main>`,
+      `<main id="app" tabindex="-1">${page.markup || `<div class="page" data-server-rendered-public-content><section class="shell page-hero${page.details ? ' information-hero' : ''}">${page.content}</section>${page.details || ''}</div>`}</main>`,
     );
 
   const metadata = `<link rel="canonical" href="${canonical}"><meta property="og:url" content="${canonical}">`;

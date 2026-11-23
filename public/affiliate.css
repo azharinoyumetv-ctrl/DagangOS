@@ -56,3 +56,34 @@
 @media(max-width:1100px){.affiliate-site .affiliate-finance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.affiliate-site .affiliate-workspace{grid-template-columns:minmax(0,1fr)}.affiliate-site .affiliate-sidebar{position:static;min-width:0;padding:12px}.affiliate-site .affiliate-side-brand,.affiliate-site .affiliate-side-help{display:none}.affiliate-site .affiliate-sidebar nav{display:flex;gap:5px;margin:0;overflow-x:auto}.affiliate-site .affiliate-sidebar nav a{flex:none;padding:9px 11px}.affiliate-site .affiliate-finance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:580px){.affiliate-site .affiliate-main--dashboard{width:calc(100% - 24px)}.affiliate-site .affiliate-dash-header{align-items:flex-start}.affiliate-site .affiliate-dash-header h1{font-size:29px}.affiliate-site .affiliate-code-strip{align-items:stretch;flex-direction:column}.affiliate-site .affiliate-code-strip .affiliate-copy{width:100%}.affiliate-site .affiliate-code-strip .affiliate-copy-status{position:static}.affiliate-site .affiliate-workspace-card{padding:18px}.affiliate-site .affiliate-trend-header{display:block}.affiliate-site .affiliate-period{margin-top:15px}.affiliate-site .affiliate-payout-card{grid-template-columns:1fr}.affiliate-site .affiliate-pagination{align-items:flex-start;flex-direction:column}.affiliate-site .affiliate-filter-row label{flex-basis:45%}}
+/* Shared product-led visual treatment for the affiliate entry and referral workspace. */
+.affiliate-site .affiliate-hero-panel h2 { margin: 0 0 14px; font: 700 1.25rem var(--display); }
+.affiliate-site .affiliate-showcase { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.affiliate-site .affiliate-showcase a { overflow: hidden; border: 1px solid #7293c1; border-radius: 7px; background: #0d203c; padding-bottom: 10px; }
+.affiliate-site .affiliate-showcase img { width: 100%; aspect-ratio: 16/10; object-fit: cover; object-position: left; }
+.affiliate-site .affiliate-showcase strong, .affiliate-site .affiliate-showcase small { display: block; margin: 7px 9px 0; text-align: left; color: #e8f2ff; }
+.affiliate-site:has(.affiliate-main--dashboard) { color: #142745; background: #f1f6fd; }
+.affiliate-site:has(.affiliate-main--dashboard) .ambient { display: none; }
+.affiliate-site .affiliate-main--dashboard { color-scheme: light; }
+.affiliate-site .affiliate-main--dashboard .affiliate-code-strip,
+.affiliate-site .affiliate-main--dashboard .affiliate-product-card,
+.affiliate-site .affiliate-main--dashboard .affiliate-sidebar,
+.affiliate-site .affiliate-main--dashboard .affiliate-dash-header {
+  background: #fff !important;
+  color: #152a49;
+  border-color: #b8cbe5;
+}
+.affiliate-site .affiliate-main--dashboard .affiliate-code-strip { border-left: 4px solid #285494; }
+.affiliate-site .affiliate-main--dashboard :is(.affiliate-code-strip,.affiliate-product-card,.affiliate-dash-header) :is(h1,h2,h3,p,span,strong,small,label,dt,dd) { color: #19375e; }
+.affiliate-site .affiliate-main--dashboard .affiliate-copy input { background: #f2f6fc; color: #17365b; border-color: #a9bdd9; }
+.affiliate-site .affiliate-main--dashboard .affiliate-copy button { background: #e2edff; color: #183761; border-color: #a9bdd9; }
+
+.affiliate-site .affiliate-main--dashboard .affiliate-dash-header { padding: 16px; border-radius: 10px; }
+.affiliate-site .affiliate-main--dashboard :is(.affiliate-side-brand,.affiliate-side-help) :is(strong,small,span,a),
+.affiliate-site .affiliate-main--dashboard .affiliate-sidebar nav a,
+.affiliate-site .affiliate-main--dashboard .affiliate-block-head p,
+.affiliate-site .affiliate-main--dashboard .affiliate-code-edit,
+.affiliate-site .affiliate-main--dashboard .affiliate-code-edit summary { color: #234568; }
+.affiliate-site .affiliate-main--dashboard .affiliate-sidebar nav a:is(:first-child,:hover,:focus-visible) { background: #e1edff; }
+.affiliate-site .affiliate-main--dashboard .affiliate-workspace-card { color: #e6efff; }
+.affiliate-site .affiliate-main--dashboard #produk { margin-bottom: 28px; }
