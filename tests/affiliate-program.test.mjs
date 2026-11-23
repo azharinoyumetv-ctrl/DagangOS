@@ -820,9 +820,9 @@ for (const [module, amount, commission] of [['geraina', 134100, 14900], ['dapuro
     assert.equal((await (await status()).json()).status, 'unverified');
     gateway.intercept(paymentPath).reply(200, capture, headers).times(4);
     assert.equal((await (await status()).json()).status, 'paid');
-    const webhook = (id, token) => fetch('/api/subscriptions/webhook', {
+    const webhook = (id, token, idField = 'payment_session_id') => fetch('/api/subscriptions/webhook', {
       method: 'POST', headers: { 'x-callback-token': token },
-      body: JSON.stringify({ event: 'payment_session.completed', data: { reference_id: order.orderId, payment_session_id: id } }),
+      body: JSON.stringify({ event: 'payment_session.completed', data: { reference_id: order.orderId, [idField]: id } }),
     });
     assert.equal((await webhook(sessionId, 'bad')).status, 403);
     assert.equal((await webhook('incorrect-session', 'webhook-fixture')).status, 200);
@@ -831,7 +831,7 @@ for (const [module, amount, commission] of [['geraina', 134100, 14900], ['dapuro
       reconcilePayload = await new Response(body).json();
       return { status: 'paid', activation: 'active' };
     }, headers);
-    assert.equal((await webhook(sessionId, 'webhook-fixture')).status, 200);
+    assert.equal((await webhook(sessionId, 'webhook-fixture', module === 'geraina' ? 'id' : 'payment_session_id')).status, 200);
     assert.deepEqual(reconcilePayload, { orderId: order.orderId });
     assert.equal(await db.prepare('SELECT COUNT(*) n FROM affiliate_ledger').first('n'), 0);
     const reconcile = () => fetch('/api/affiliate/admin/reconcile', {

@@ -9,6 +9,7 @@ crons = ["*/10 * * * *"]
 BACKEND_ORIGIN = "dapuros.vercel.app"
 GERAINA_BACKEND_ORIGIN = "geraina-os.vercel.app"
 XENDIT_ENVIRONMENT = "production"
+XENDIT_CHECKOUT_MODE = "payment_session"
 AFFILIATE_CHECKOUT = "on"
 
 [[d1_databases]]
