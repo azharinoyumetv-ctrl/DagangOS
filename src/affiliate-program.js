@@ -319,13 +319,13 @@ async function trialReferral(request, env, url) {
 function page(title, body, status = 200, landing = false, dashboard = false) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} | DagangOS</title>
-    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=tiga-ruang"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
-    </head><body class="affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=tiga-ruang"><link rel="stylesheet" href="/studio.css?v=shared-parent"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
+    </head><body class="dagangos-site affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="DagangOS beranda"><img src="/assets/brand/dagangos-icon.png" alt=""><b>Dagang<span>OS</span></b></a>
-      <nav class="main-nav" aria-label="Navigasi utama"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a></nav>
+      <nav class="main-nav" aria-label="Navigasi utama"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a><a href="/affiliate-program" aria-current="page">Afiliasi</a></nav>
       <div class="header-actions"><a class="button button-quiet" href="/geraina/login">Masuk</a><a class="button button-primary" href="/produk">Jelajahi Produk ↗</a></div>
-      <details class="affiliate-mobile-nav"><summary aria-label="Buka navigasi">☰</summary><nav aria-label="Navigasi utama seluler"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a></nav></details>
+      <details class="affiliate-mobile-nav"><summary aria-label="Buka navigasi">☰</summary><nav aria-label="Navigasi utama seluler"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a><a href="/affiliate-program" aria-current="page">Afiliasi</a></nav></details>
     </header>
     <main class="affiliate-main ${landing ? 'affiliate-main--landing' : ''} ${dashboard ? 'affiliate-main--dashboard' : ''}">${landing ? body : `<div class="affiliate-message ${dashboard ? 'affiliate-dashboard' : ''}">${dashboard ? body : `<span class="affiliate-kicker">PROGRAM AFILIASI</span><h1>${escape(title)}</h1>${body}`}</div>`}</main>
     <footer class="site-footer">

@@ -78,13 +78,74 @@
   .parent-products, .parent-upcoming, .parent-products--catalog .parent-product { grid-template-columns: 1fr; }
 }
 
-body:has(.parent-page) { color: #111e39; background: #f8faff; }
-body:has(.parent-page) .ambient { display: none; }
-body:has(.parent-page) .site-header { background: #fff; border-color: #ced8ea; }
-body:has(.parent-page) .site-header .brand { color: #111e39; }
-body:has(.parent-page) .site-header .main-nav { color: #263e62; }
-body:has(.parent-page) .site-header .main-nav.is-open { background: #fff; border-color: #ced8ea; }
-body:has(.parent-page) .site-header .nav-toggle { background: #eaf1fc; border-color: #c2d2ec; }
-body:has(.parent-page) .site-header .nav-toggle span { background: #17294a; }
-body:has(.parent-page) .site-header .button-quiet { color: #1d385e; border-color: #c1d1eb; background: #f1f6ff; }
+/* Shared parent navigation and footer, including affiliate pages. */
+.dagangos-site:not(.affiliate-site) {
+  --ink: #111e39;
+  --muted: #415777;
+  --line: #cbd8eb;
+  color: var(--ink);
+  background: #f8faff;
+}
+.dagangos-site:not(.affiliate-site) .ambient { display: none; }
+.dagangos-site .site-header {
+  color: #111e39;
+  background: #fff;
+  border-color: #ced8ea;
+  box-shadow: 0 12px 32px #17345620;
+}
+.dagangos-site .site-header .brand { color: #111e39; }
+.dagangos-site .site-header .main-nav { color: #263e62; }
+.dagangos-site .site-header .main-nav a:is(:hover, :focus-visible, .is-active, [aria-current="page"]) { color: #123e87; }
+.dagangos-site .site-header .main-nav a[aria-current="page"] { text-decoration: underline; text-underline-offset: .35em; }
+.dagangos-site .site-header :is(.nav-toggle, .affiliate-mobile-nav summary, .button-quiet) {
+  color: #1d385e;
+  background: #eaf1fc;
+  border-color: #c2d2ec;
+}
+.dagangos-site .site-header .nav-toggle span { background: #17294a; }
+.dagangos-site .site-header :is(.main-nav.is-open, .affiliate-mobile-nav nav) {
+  color: #263e62;
+  background: #fff;
+  border-color: #ced8ea;
+}
+.dagangos-site .site-header a:focus-visible,
+.dagangos-site .site-header :is(button,summary):focus-visible { outline: 2px solid #245eb3; outline-offset: 4px; }
+.dagangos-site .site-footer { color: #e2ebfb; border-color: #425574; }
+.dagangos-site .site-footer :is(.footer-brand span, small, .footer-contact, .footer-heading) { color: #c0cfe7; }
+.dagangos-site .site-footer a:is(:hover,:focus-visible) { color: #fff; text-decoration: underline; text-underline-offset: .25em; }
+.dagangos-site .site-footer a:focus-visible { outline: 2px solid #b8d7ff; outline-offset: 4px; }
+.dagangos-site .site-footer > small { border-color: #425574; }
+.dagangos-site .site-footer {
+  background: #09152d;
+  box-shadow: 0 0 0 100vmax #09152d;
+  clip-path: inset(0 -100vmax);
+}
 .parent-partnership .button { background: #183773; color: white; }
+
+/* The information routes share the same blue masthead and light content canvas. */
+.dagangos-site #app .page-hero {
+  width: 100%;
+  margin-top: 22px;
+  padding: clamp(36px, 5vw, 72px) max(12px, calc((100% - 1180px) / 2));
+  text-align: left;
+  color: #f3f7ff;
+  background: radial-gradient(ellipse at 65% 30%, #102954, transparent 70%), #070f22;
+}
+.dagangos-site #app .page-hero h1 { margin: 0 0 18px; font-size: clamp(2.4rem, 6vw, 5.5rem); }
+.dagangos-site #app .page-hero h1 em { background: none; color: #9bc9ff; }
+.dagangos-site #app .page-hero .eyebrow { justify-content: flex-start; margin-bottom: 12px; }
+.dagangos-site #app .page-hero p { color: #cad9ef; margin: 0; }
+.dagangos-site #app .page-hero a { color: #fff; text-decoration: underline; }
+.dagangos-site #app .marquee { background: #eaf1fd; }
+.dagangos-site #app .marquee span { color: #375581; }
+.dagangos-site #app .solution-story { border-color: #cbd8eb; }
+.dagangos-site #app :is(.flow-track,.industry-scene,.cta-band) { color: #f3f7ff; }
+.dagangos-site #app :is(.flow-track,.industry-scene) :is(p,.flow-step span) { color: #cad9ef; }
+.dagangos-site #app .flow-track { background: #10203a; border-radius: 10px; padding: 24px; }
+.dagangos-site #app .industry-tabs button { color: #34527c; }
+.dagangos-site #app .industry-tabs button.is-active { background: #183773; color: #fff; }
+.dagangos-site #app .information-prose a { color: #164889; }
+.dagangos-site #app .information-link-list a:is(:hover,:focus-visible) { color: #164889; text-decoration: underline; }
+
+.dagangos-site #app .resource-row h2 { min-width: 0; overflow-wrap: anywhere; }
+.dagangos-site .affiliate-mobile-nav nav a:is(:hover, :focus-visible, [aria-current="page"]) { color: #123e87; text-decoration: underline; }

@@ -77,6 +77,9 @@ function renderPortalDocument(body, pathname) {
       `<main id="app" tabindex="-1">${page.markup || `<div class="page" data-server-rendered-public-content><section class="shell page-hero${page.details ? ' information-hero' : ''}">${page.content}</section>${page.details || ''}</div>`}</main>`,
     );
 
+  const navRoute = pathname.slice(1);
+  if (navRoute) rendered = rendered.replace(`data-route="${navRoute}"`, `data-route="${navRoute}" aria-current="page"`);
+
   const metadata = `<link rel="canonical" href="${canonical}"><meta property="og:url" content="${canonical}">`;
   rendered = rendered.replace('</head>', `${metadata}</head>`);
   return rendered;
