@@ -3,6 +3,7 @@ import test from 'node:test';
 import { webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { handleSubscriptionCheckout as checkout, renderSubscriptionPricing, selection, signReceipt, readReceipt, verifiedStatus } from '../src/subscription-checkout.js';
+import { createPaymentSession } from '../src/xendit-payments.js';
 
 globalThis.crypto ??= webcrypto;
 const env = { SUBSCRIPTION_SIGNING_KEY: 'test-only-secret', XENDIT_SECRET_KEY: 'xnd_development_test_only', XENDIT_WEBHOOK_TOKEN: 'test-webhook-token' };
@@ -184,18 +185,53 @@ test('only Xendit verification-token notifications trigger independent reconcili
 });
 
 test('the shared Xendit webhook routes Web orders only to the fixed WMP endpoint', async t => {
-  const data = { external_id: ownerId, id: 'abcdef123456abcdef123456', status: 'PAID' };
+  const forwarded = [];
   t.mock.method(globalThis, 'fetch', async (url, request) => {
     assert.equal(url, 'https://wmp.dagangos.com/api/webhooks/payments/xendit');
     assert.equal(request.redirect, 'manual');
     assert.equal(request.headers['x-callback-token'], env.XENDIT_WEBHOOK_TOKEN);
-    assert.deepEqual(JSON.parse(request.body), data);
+    forwarded.push(JSON.parse(request.body));
     return Response.json({ received: true });
   });
-  const request = post('/api/subscriptions/webhook', data);
-  request.headers.set('x-callback-token', env.XENDIT_WEBHOOK_TOKEN);
-  assert.equal((await checkout(request, env)).status, 200);
-  assert.equal(globalThis.fetch.mock.callCount(), 1);
+  const events = [
+    { external_id: ownerId, id: 'abcdef123456abcdef123456', status: 'PAID' },
+    ...['completed', 'expired'].map(event => ({ event: `payment_session.${event}`,
+      data: { reference_id: ownerId, payment_session_id: 'ps-abcdef123456abcdef123456' } })),
+  ];
+  for (const event of events) {
+    const request = post('/api/subscriptions/webhook', event);
+    request.headers.set('x-callback-token', env.XENDIT_WEBHOOK_TOKEN);
+    assert.equal((await checkout(request, env)).status, 200);
+  }
+  assert.deepEqual(forwarded, events);
+});
+
+test('Xendit short links resolve to the checkout hostname recognized by installed apps', async t => {
+  const id = 'ps-abcdef123456abcdef123456';
+  const short = 'https://xen.to/SessionFixture';
+  const hosted = 'https://checkout.xendit.co/sessions/' + id;
+  let destination = hosted;
+  let recorded;
+  const db = { prepare: () => ({ bind: (sessionId, orderId) => ({
+    async run() {
+      if (orderId) recorded = { sessionId, orderId };
+      return { meta: { changes: 1 } };
+    },
+  }) }) };
+  t.mock.method(globalThis, 'fetch', async (address, request) => {
+    assert.equal(request.redirect, 'manual');
+    if (address === short) return new Response(null, { status: 302, headers: { Location: destination } });
+    assert.equal(address, 'https://api.xendit.co/sessions');
+    return Response.json({ payment_session_id: id, reference_id: cart.orderId, session_type: 'PAY',
+      mode: 'PAYMENT_LINK', status: 'ACTIVE', amount: cart.amount, currency: 'IDR', payment_link_url: short });
+  });
+  const start = () => createPaymentSession({ ...env, AFFILIATE_DB: db }, cart, 'fixture@example.test', 'receipt', 'Geraina');
+  assert.equal(await start(), hosted);
+  assert.deepEqual(recorded, { sessionId: id, orderId: cart.orderId });
+  recorded = null;
+  destination = 'https://checkout.xendit.co.example.test/sessions/' + id;
+  await assert.rejects(start, /Invalid Xendit payment session/);
+  assert.equal(recorded, null);
 });
 
 test('browser return parameters cannot fake payment and only backend activation shows an active package', async t => {
