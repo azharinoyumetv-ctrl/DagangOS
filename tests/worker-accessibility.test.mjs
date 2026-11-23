@@ -159,6 +159,7 @@ test('the main portal footer exposes contact channels and working legal document
   const body = await (await get('/')).text()
   const footer = body.match(/<footer class="site-footer">([\s\S]*?)<\/footer>/)?.[1]
   assert.ok(footer, 'the homepage has a footer')
+  assert.doesNotMatch(footer, /href="\/geraina\/android"/)
   assert.match(footer, /href="mailto:contact@dagangos\.com"/)
   assert.match(footer, /href="https:\/\/wa\.me\/628999155182"/)
   for (const pathname of ['/kontak', '/syarat-ketentuan', '/kebijakan-privasi', '/kebijakan-refund']) {
