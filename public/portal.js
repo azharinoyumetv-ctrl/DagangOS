@@ -22,7 +22,7 @@ const app = document.getElementById("app");
 // Contact and legal documents are rendered by the Worker and remain readable without JavaScript.
 if (pages[route]) app.innerHTML = pages[route];
 else if (!app.querySelector("[data-server-rendered-public-content]")) app.innerHTML = parentPages[route] || parentPages.home;
-document.querySelector(`[data-route="${route}"]`)?.classList.add("is-active");
+document.querySelector(`[data-route="${route}"]`)?.setAttribute("aria-current", "page");
 if (pages[route]) document.title = route === "home" ? "DagangOS — Ekosistem Operasional Bisnis" : `${route.replace("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())} — DagangOS`;
 
 const toggle = document.querySelector(".nav-toggle");
