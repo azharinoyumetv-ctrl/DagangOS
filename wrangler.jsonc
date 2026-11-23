@@ -7,6 +7,7 @@
     "BACKEND_ORIGIN": "dapuros.vercel.app",
     "GERAINA_BACKEND_ORIGIN": "geraina-os.vercel.app",
     "XENDIT_ENVIRONMENT": "production",
+    "XENDIT_CHECKOUT_MODE": "payment_session",
     "AFFILIATE_CHECKOUT": "on",
     "AFFILIATE_PAYOUT_REVIEW": "on",
     "AFFILIATE_PAYOUTS": "on"
