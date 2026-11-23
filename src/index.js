@@ -34,12 +34,12 @@ const portalDocuments = {
   '/solusi': {
     title: 'Solusi — DagangOS',
     description: 'Solusi DagangOS menghubungkan aktivitas, alur kerja, data, dan kontrol bisnis.',
-    content: '<span class="eyebrow">Cara kerja</span><h1>Dari pekerjaan harian menjadi alur yang terbaca.</h1><p>Solusi DagangOS dirancang di sekitar proses nyata: transaksi, produksi, layanan, pencatatan, dan tindak lanjut.</p><p><a href="/produk">Lihat produk dan solusi</a></p>',
+    markup: parentPages['solusi'],
   },
   '/industri': {
     title: 'Industri — DagangOS',
     description: 'Solusi DagangOS untuk retail, restoran dan F&B, serta kehadiran digital bisnis.',
-    content: '<span class="eyebrow">Konteks industri</span><h1>Satu keluarga desain. Karakter yang berbeda.</h1><p>Geraina POS melayani retail. DapurOS melayani restoran dan F&amp;B. DagangOS Web membangun kehadiran digital bisnis.</p><p><a href="/produk">Pilih produk berdasarkan industri</a></p>',
+    markup: parentPages['industri'],
   },
   '/tentang': {
     title: 'Tentang Kami — DagangOS',
@@ -49,7 +49,7 @@ const portalDocuments = {
   '/sumber-daya': {
     title: 'Sumber Daya & Kontak — DagangOS',
     description: 'Akses produk, harga, dan kanal kontak resmi PT DagangOS Digital Indonesia.',
-    content: '<span class="eyebrow">Sumber daya</span><h1>Masuk, mulai, atau bicara dengan kami.</h1><p><a href="/geraina/pricing">Harga Geraina POS</a> · <a href="/dapuros/pricing">Harga DapurOS</a> · <a href="https://wmp.dagangos.com/id/pricing">Harga DagangOS Web</a></p><p>Email: <a href="mailto:contact@dagangos.com">contact@dagangos.com</a> · WhatsApp: <a href="https://wa.me/628999155182">+62 899 9155 182</a></p><p>Subang, West Java, Indonesia</p>',
+    markup: parentPages['sumber-daya'],
   },
 };
 

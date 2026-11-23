@@ -135,8 +135,8 @@ test('every public portal route exposes route-specific content and canonical met
   const expectations = [
     ['/', /Ruang untuk<br><em>usaha Anda\./, 'https://dagangos.com/'],
     ['/produk', /Geraina POS/, 'https://dagangos.com/produk'],
-    ['/solusi', /aktivitas, alur kerja, data, dan kontrol bisnis/i, 'https://dagangos.com/solusi'],
-    ['/industri', /DapurOS melayani restoran/i, 'https://dagangos.com/industri'],
+    ['/solusi', /Dari transaksi kasir ke laporan toko/i, 'https://dagangos.com/solusi'],
+    ['/industri', /Bisnis jasa & merek lokal/i, 'https://dagangos.com/industri'],
     ['/tentang', /PT DagangOS Digital Indonesia/, 'https://dagangos.com/tentang'],
     ['/sumber-daya', /contact@dagangos\.com/, 'https://dagangos.com/sumber-daya'],
     ['/kontak', /Kanal kontak resmi/, 'https://dagangos.com/kontak'],

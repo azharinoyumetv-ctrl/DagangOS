@@ -319,8 +319,8 @@ async function trialReferral(request, env, url) {
 function page(title, body, status = 200, landing = false, dashboard = false) {
   return new Response(`<!doctype html><html lang="id"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} | DagangOS</title>
-    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=tiga-ruang"><link rel="stylesheet" href="/studio.css?v=shared-parent"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
-    </head><body class="dagangos-site affiliate-site"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+    <link rel="icon" href="/assets/brand/dagangos-icon.png"><link rel="stylesheet" href="/portal.css?v=footer-20261116"><link rel="stylesheet" href="/affiliate.css?v=tiga-ruang"><link rel="stylesheet" href="/studio.css?v=guided-pages"><script src="/affiliate.js?v=dashboard-20261116" defer></script>
+    </head><body class="dagangos-site affiliate-site${landing ? ' affiliate-landing' : ''}"><div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="DagangOS beranda"><img src="/assets/brand/dagangos-icon.png" alt=""><b>Dagang<span>OS</span></b></a>
       <nav class="main-nav" aria-label="Navigasi utama"><a href="/produk">Produk</a><a href="/solusi">Solusi</a><a href="/industri">Industri</a><a href="/tentang">Tentang Kami</a><a href="/sumber-daya">Sumber Daya</a><a href="/kontak">Kontak</a><a href="/affiliate-program" aria-current="page">Afiliasi</a></nav>
@@ -483,20 +483,20 @@ async function affiliateHome(db, request, env, status = 200, form = new URLSearc
     ${env.AFFILIATE_PAYOUTS === 'on' ? 'Pembayaran diproses setelah peninjauan.' : 'Pembayaran komisi masih dalam persiapan dan belum berjalan otomatis.'}` : '';
   if (!account) {
     return page('Program Afiliasi DagangOS', `
-      <section class="affiliate-hero">
-        <div class="affiliate-hero-copy"><span class="affiliate-kicker">PROGRAM AFILIASI DAGANGOS</span>
-          <h1>Bertumbuh bersama <em>DagangOS.</em></h1>
-          <p>Kenalkan Geraina dan DapurOS kepada pelaku usaha. Bagikan kode atau tautan Anda dan pantau hasil rujukan dalam satu dasbor.</p>
-          <div class="affiliate-actions"><a class="affiliate-button" href="#daftar">Daftar Afiliasi</a><a class="affiliate-button affiliate-button--quiet" href="#masuk">Masuk ke Dasbor</a></div>
+      <section class="studio affiliate-studio"><div class="shell">
+        <div class="studio-intro">
+          <div><span class="eyebrow">Program Afiliasi DagangOS</span><h1>Kenalkan produk.<br><em>Dapatkan komisi.</em></h1></div>
+          <div><p>Bagikan Geraina POS dan DapurOS kepada pelaku usaha. Pantau kunjungan, rujukan, dan komisi melalui dasbor Anda.</p>
+          <div class="affiliate-actions"><a class="affiliate-button" href="#daftar">Daftar Afiliasi</a><a class="affiliate-button affiliate-button--quiet" href="#masuk">Masuk ke Dasbor</a></div></div>
         </div>
-        <aside class="affiliate-hero-panel" aria-label="Produk dalam Program Afiliasi">
-          <h2>Produk yang bisa Anda bagikan</h2>
-          <div class="affiliate-showcase">
-            <a href="/geraina"><img src="/product-media/geraina/screens/desktop-web-pos.png" alt=""><strong>Geraina POS</strong><small>Toko &amp; retail</small></a>
-            <a href="/dapuros"><img src="/product-media/dapuros/screens/desktop-dapur.webp" alt=""><strong>DapurOS</strong><small>Restoran &amp; kafe</small></a>
-          </div>
-        </aside>
-      </section>
+        <div class="studio-exhibit affiliate-exhibit">
+          <figure class="studio-art"><img src="/assets/scenes/tiga-ruang.webp" alt="Ilustrasi kasir toko dan dapur restoran"></figure>
+          <nav class="studio-choices" aria-label="Produk yang dapat dirujuk">
+            <a class="studio-choice geraina" href="/geraina"><img src="/assets/brand/geraina-icon.png" alt=""><span><strong>Geraina POS</strong><small>Toko &amp; retail</small></span></a>
+            <a class="studio-choice dapuros" href="/dapuros"><img src="/assets/brand/dapuros-icon.png" alt=""><span><strong>DapurOS</strong><small>Restoran &amp; kafe</small></span></a>
+          </nav>
+        </div>
+      </div></section>
       <section id="cara-kerja" class="affiliate-section"><div class="affiliate-section-heading"><div><span class="affiliate-kicker">CARA KERJA</span><h2>Dari rekomendasi hingga komisi.</h2></div><p>Pendaftaran dimulai dengan verifikasi email. Komisi dihitung saat pembelian yang memenuhi syarat telah terverifikasi.</p></div>
         <div class="affiliate-steps"><article><span>01</span><h3>Daftar dan verifikasi</h3><p>Isi nama dan email, lalu buka tautan verifikasi untuk membuat akun afiliasi.</p></article><article><span>02</span><h3>Bagikan rekomendasi</h3><p>Gunakan kode afiliasi atau tautan khusus produk dari dasbor Anda.</p></article><article><span>03</span><h3>Pantau hasilnya</h3><p>Lihat kunjungan, pembelian tercatat, dan komisi di dasbor afiliasi.</p></article></div>
       </section>

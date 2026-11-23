@@ -149,3 +149,60 @@
 
 .dagangos-site #app .resource-row h2 { min-width: 0; overflow-wrap: anywhere; }
 .dagangos-site .affiliate-mobile-nav nav a:is(:hover, :focus-visible, [aria-current="page"]) { color: #123e87; text-decoration: underline; }
+/* Public guides and contact channels */
+.guide-content { padding-block: clamp(26px, 5vw, 60px); }
+.guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.guide-card {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(16px, 2.3vw, 28px);
+  border: 1px solid #cbd8eb;
+  border-top: 3px solid var(--accent, #315a9b);
+  border-radius: 10px;
+  background: #fff;
+}
+.dagangos-site .geraina { --accent: #23734f; --bright: #a3efc3; --tint: #e4f3e9; }
+.dagangos-site .dapuros { --accent: #953e17; --bright: #ffc594; --tint: #fcebdc; }
+.dagangos-site .dagangosweb { --accent: #51368e; }
+.guide-card h2 { margin: 0 0 10px; font: 700 clamp(1.2rem, 2.25vw, 1.65rem)/1.12 var(--display); }
+.guide-card p, .guide-card li { color: #415777; line-height: 1.55; }
+.guide-card .guide-label { margin: 0 0 8px; color: var(--accent); font-weight: 800; }
+.guide-card ol { margin: 4px 0 20px; padding-left: 1.3em; }
+.guide-card li + li { margin-top: 9px; }
+.guide-card a { color: #164889; text-decoration: underline; text-underline-offset: 3px; }
+.guide-card > a { margin-top: auto; }
+.guide-links { list-style: none; padding: 0; margin: auto 0 0; }
+.guide-links a { display: block; padding: 10px 0; border-top: 1px solid #e0e8f4; }
+.guide-industry { overflow: hidden; padding: 0; }
+.guide-industry > img { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #eaf1fd; }
+.guide-industry.dagangosweb > img { object-fit: cover; object-position: center 58%; }
+.guide-industry > div { padding: clamp(16px, 2vw, 24px); }
+.guide-upcoming { margin-top: clamp(26px, 5vw, 54px); }
+.dagangos-site #app .contact-grid { padding-block: clamp(24px, 4vw, 46px); }
+.dagangos-site #app .contact-card { background: #fff; border: 1px solid #cbd8eb; color: #111e39; box-shadow: none; }
+.dagangos-site #app .contact-card .eyebrow { color: #415777; }
+.dagangos-site #app .contact-card a { color: #164889; text-decoration: underline; }
+@media (max-width: 720px) { .guide-grid { grid-template-columns: 1fr; } }
+
+/* Affiliate entry uses the same stage and light reading surfaces as the parent pages. */
+.dagangos-site.affiliate-landing { color: #111e39; background: #f8faff; --line: #cbd8eb; }
+.dagangos-site.affiliate-landing .ambient { display: none; }
+.dagangos-site .affiliate-mobile-nav nav a { color: #263e62; }
+.dagangos-site .affiliate-main--landing { width: 100%; padding-top: 22px; }
+.affiliate-site .affiliate-studio h1 { color: #f3f7ff; margin: 10px 0 0; }
+.affiliate-site .affiliate-studio h1 em { color: #9bc9ff; }
+.affiliate-site .affiliate-studio p { color: #cad9ef; }
+.affiliate-studio .studio-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.affiliate-exhibit .studio-art { aspect-ratio: 2.75; }
+.affiliate-exhibit .studio-art img { width: 150%; max-width: none; height: 100%; aspect-ratio: auto; object-fit: cover; object-position: 0 56%; }
+.affiliate-site .affiliate-main--landing > .affiliate-section { width: min(1180px, calc(100% - 24px)); margin-inline: auto; padding-top: clamp(42px, 6vw, 75px); }
+.affiliate-site .affiliate-main--landing .affiliate-section :is(h2,h3,.affiliate-facts b) { color: #111e39; }
+.affiliate-site .affiliate-main--landing .affiliate-section :is(p,.affiliate-facts span,.affiliate-kicker) { color: #415777; }
+.affiliate-site .affiliate-main--landing :is(.affiliate-steps article,.affiliate-form-card) { background: #fff; border-color: #cbd8eb; box-shadow: none; }
+.affiliate-site .affiliate-main--landing .affiliate-steps article > span { color: #286145; }
+.affiliate-site .affiliate-main--landing .affiliate-form-card :is(label,summary) { color: #19375e; }
+.affiliate-site .affiliate-main--landing .affiliate-form-card a { color: #164889; }
+.affiliate-site .affiliate-main--landing .affiliate-form-card input { background: #f8faff; color: #111e39; border-color: #a8bbd5; }
+.affiliate-site .affiliate-main--landing .affiliate-form-note { color: #415777 !important; }
+@media (max-width: 650px) { .affiliate-exhibit .studio-art { aspect-ratio: 1.7; } }
+.guide-page { animation: none; }
