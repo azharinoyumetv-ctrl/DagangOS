@@ -103,6 +103,9 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.equal(landing.headers.get('Referrer-Policy'), 'same-origin');
   const publicPage = await landing.text();
   assert.match(publicPage, /aria-label="Navigasi utama"/);
+  const publicFooter = publicPage.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)?.[0];
+  assert.ok(publicFooter);
+  assert.doesNotMatch(publicFooter, /href="\/geraina\/android"/);
   assert.match(publicPage, /href="\/produk">Produk/);
   assert.match(publicPage, /id="cara-kerja"/);
   assert.match(publicPage, /action="\/affiliate-program\/register"/);
@@ -133,6 +136,9 @@ test('one affiliate account serves current and future products and keeps dashboa
   assert.equal(await db.prepare('SELECT COUNT(*) AS count FROM affiliate_visits').first('count'), 2);
   const dashboardResponse = await fetch('/affiliate-program', { headers: { Cookie: cookie } });
   const dashboard = await dashboardResponse.text();
+  const dashboardFooter = dashboard.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)?.[0];
+  assert.ok(dashboardFooter);
+  assert.doesNotMatch(dashboardFooter, /href="\/geraina\/android"/);
   assert.match(dashboard, /PROMOTE01 &lt;operator entry&gt;/);
   assert.doesNotMatch(dashboard, /DagangOS Web|LaundryOS|AutoCareOS|SalonOS/);
   assert.doesNotMatch(dashboard, /affiliate-program\/PROMOTE01\/web/);
