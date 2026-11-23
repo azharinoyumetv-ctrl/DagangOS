@@ -30,7 +30,47 @@ const productCatalog = (showAndroid = false) => `<div class="parent-products ${s
   </article>`;
 }).join("")}</div>`;
 const upcomingCatalog = `<div class="parent-upcoming">${upcoming.map(product => `<article><img src="${image(product.icon)}" alt=""><h3>${product.name}</h3><p>${product.desc}</p></article>`).join("")}</div>`;
+const guidePage = (label, title, intro, content) => `<div class="page guide-page" data-server-rendered-public-content>
+  <section class="shell page-hero"><span class="eyebrow">${label}</span><h1>${title}</h1><p>${intro}</p></section>
+  <div class="shell guide-content">${content}</div>
+</div>`;
+const workflows = [
+  { product: "Geraina POS", title: "Dari transaksi kasir ke laporan toko", steps: ["Siapkan katalog, harga, dan barcode barang yang dijual.", "Pindai atau cari barang di layar kasir, lalu catat pembayaran.", "Periksa persediaan dan laporan penjualan sebelum menyiapkan pembelian berikutnya."] },
+  { product: "DapurOS", title: "Dari pesanan meja ke antrean dapur", steps: ["Catat pesanan beserta pilihan menu dan catatan pelanggan.", "Tim dapur melihat antrean di Kitchen Display System dan memperbarui status pesanan.", "Gunakan resep dan catatan persediaan untuk meninjau kebutuhan bahan."] },
+  { product: "DagangOS Web", title: "Dari informasi usaha ke situs yang bisa dibagikan", steps: ["Siapkan informasi layanan, foto, dan cara pelanggan menghubungi usaha Anda.", "Susun halaman yang menjawab pertanyaan pelanggan sebelum mereka menghubungi Anda.", "Tinjau tampilan di ponsel dan desktop, lalu bagikan alamat situs yang sudah diterbitkan."] },
+];
+const industries = [
+  { title: "Toko & retail", fit: "Untuk minimarket, toko kelontong, dan toko khusus yang mencatat transaksi dan persediaan setiap hari." },
+  { title: "Restoran & kafe", fit: "Untuk restoran, kedai, dan kafe yang perlu mengatur pesanan meja, antrean dapur, dan stok bahan." },
+  { title: "Bisnis jasa & merek lokal", fit: "Untuk usaha yang membutuhkan halaman resmi berisi layanan, informasi usaha, dan kontak." },
+];
+const resourceGroups = [
+  { title: "Pilih paket", intro: "Periksa fitur yang tersedia sebelum menentukan paket untuk usaha Anda.", links: [["Paket Geraina POS", "/geraina/pricing"], ["Paket DapurOS", "/dapuros/pricing"], ["Paket DagangOS Web", "https://wmp.dagangos.com/id/pricing"]] },
+  { title: "Dapatkan bantuan", intro: "Untuk pertanyaan produk atau akun, sebutkan produk dan jelaskan kendala yang Anda alami.", links: [["Hubungi tim DagangOS", "/kontak"], ["Email dukungan", "mailto:support@dagangos.com"]] },
+  { title: "Pembayaran dan kebijakan", intro: "Lihat ketentuan penggunaan layanan, pengelolaan data, dan pengembalian dana.", links: [["Syarat dan ketentuan", "/syarat-ketentuan"], ["Kebijakan privasi", "/kebijakan-privasi"], ["Refund dan pembatalan", "/kebijakan-refund"]] },
+];
+
 export const parentPages = {
+  solusi: guidePage("Solusi", "Dari pekerjaan harian<br><em>ke langkah berikutnya.</em>", "Lihat cara memakai DagangOS untuk melayani pelanggan, menjalankan operasional, dan menyiapkan informasi yang dibutuhkan tim.", `
+    <div class="guide-grid">${workflows.map((workflow, index) => `<article class="guide-card ${productDetails[workflow.product].id}">
+      <p class="guide-label">${workflow.product}</p><h2>${workflow.title}</h2>
+      <ol>${workflow.steps.map(step => `<li>${step}</li>`).join("")}</ol>
+      <a href="${available[index].href}">Lihat ${workflow.product}</a>
+    </article>`).join("")}</div>`),
+  industri: guidePage("Industri", "Pilih sistem sesuai<br><em>jenis usaha Anda.</em>", "Mulai dari jenis usaha dan pekerjaan yang paling sering tim Anda tangani.", `
+    <div class="guide-grid">${available.map((product, index) => {
+      const detail = productDetails[product.name];
+      const industry = industries[index];
+      return `<article class="guide-card guide-industry ${detail.id}">
+        <img src="${detail.screenshot}" alt="${detail.alt}" loading="lazy">
+        <div><p class="guide-label">${product.name}</p><h2>${industry.title}</h2><p>${industry.fit}</p><a href="${product.href}">Kenali ${product.name}</a></div>
+      </article>`;
+    }).join("")}</div>
+    <section class="guide-upcoming"><h2>Segera hadir</h2>${upcomingCatalog}</section>`),
+  "sumber-daya": guidePage("Sumber Daya", "Temukan bantuan<br><em>yang Anda perlukan.</em>", "Bandingkan paket, hubungi dukungan, atau baca kebijakan layanan DagangOS.", `
+    <div class="guide-grid">${resourceGroups.map(group => `<section class="guide-card"><h2>${group.title}</h2><p>${group.intro}</p>
+      <ul class="guide-links">${group.links.map(([label, url]) => `<li><a href="${url}">${label}</a></li>`).join("")}</ul>
+    </section>`).join("")}</div>`),
   home: `<div class="page parent-page" data-server-rendered-public-content>
     <section class="studio"><div class="shell">
       <div class="studio-intro"><h1>Ruang untuk<br><em>usaha Anda.</em></h1><p>Urus kasir dan stok, teruskan pesanan ke dapur, atau buat situs agar pelanggan bisa menemukan usaha Anda.</p></div>
