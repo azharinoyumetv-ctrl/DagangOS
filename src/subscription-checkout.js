@@ -266,7 +266,9 @@ async function paymentService(request, env, pathname) {
   try {
     if (sessionEvent) {
       const row = await env.AFFILIATE_DB.prepare('SELECT session_id FROM subscription_payment_sessions WHERE order_id = ?').bind(orderId).first();
-      if (!row || row.session_id !== data.data?.payment_session_id || !row.session_id) {
+      // Xendit's dashboard sample uses id. Current callbacks use payment_session_id.
+      const sessionId = data.data?.payment_session_id ?? data.data?.id;
+      if (!row?.session_id || row.session_id !== sessionId) {
         return json({ received: true });
       }
     }
